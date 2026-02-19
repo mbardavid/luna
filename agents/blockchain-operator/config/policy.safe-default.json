@@ -1,0 +1,61 @@
+{
+  "version": 2,
+  "execution": {
+    "mode": "autonomous",
+    "defaultDryRun": true,
+    "allowMainnetOnly": true,
+    "requireSimulation": true,
+    "humanConfirmation": false,
+    "requireRecipientAllowlist": true,
+    "requireKeySegregation": true
+  },
+  "allowlists": {
+    "chains": ["base", "solana", "hyperliquid"],
+    "assets": ["ETH", "USDC", "SOL", "HYPE"],
+    "recipients": [
+      "0x000000000000000000000000000000000000dEaD",
+      "11111111111111111111111111111111"
+    ],
+    "contracts": [],
+    "bridgeRoutes": [
+      { "from": "base", "to": "solana" },
+      { "from": "solana", "to": "base" }
+    ],
+    "hyperliquidSymbols": []
+  },
+  "limits": {
+    "maxNotionalUsdPerTx": null,
+    "maxNotionalUsdPerDay": null,
+    "maxSlippageBps": null,
+    "maxGasUsdPerTx": null,
+    "maxPerpLeverage": null,
+    "maxOrderSize": null,
+    "defaultSlippageBps": null
+  },
+  "marketData": {
+    "primaryPriceSource": "chainlink",
+    "fallbackPriceSource": "pyth"
+  },
+  "routing": {
+    "bridgeProviders": ["debridge"],
+    "bridgeSourceChains": ["base", "solana"],
+    "hyperliquidOperationalRole": "destination_l3"
+  },
+  "reporting": {
+    "discordChannelId": "1473392629055098942",
+    "perOperation": true,
+    "dailySummary": {
+      "enabled": true,
+      "timeUtc": "23:00"
+    }
+  },
+  "circuitBreaker": {
+    "enabled": true,
+    "maxFailures": 3,
+    "windowSec": 300,
+    "cooldownSec": 900
+  },
+  "idempotency": {
+    "ttlDays": 7
+  }
+}

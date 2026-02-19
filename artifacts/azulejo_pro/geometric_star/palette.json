@@ -1,0 +1,19 @@
+{
+  "name": "Geometric Star Lattice",
+  "sources": [
+    "file_11",
+    "file_3"
+  ],
+  "colors": [
+    "#F6EBD7",
+    "#123E8A",
+    "#2C67B1",
+    "#A85B2A"
+  ],
+  "tile": {
+    "width": 1200,
+    "height": 1200,
+    "repeat": "xy"
+  },
+  "symmetry": "p4m (quarter-turn + mirrors)"
+}

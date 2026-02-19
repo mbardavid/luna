@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "v1",
+  "plane": "execution",
+  "operation": "transfer",
+  "requestId": "req_20260218_0009",
+  "correlationId": "decisionbot_cycle_9009",
+  "idempotencyKey": "transfer-internal-0001",
+  "timestamp": "2026-02-18T02:47:00Z",
+  "intent": {
+    "chain": "base",
+    "asset": "ETH",
+    "amount": "0.001",
+    "to": "0x000000000000000000000000000000000000dEaD",
+    "memo": "rebalance-wallet"
+  }
+}

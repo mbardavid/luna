@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "v1",
+  "plane": "execution",
+  "operation": "defi.deposit",
+  "requestId": "req_20260218_0005",
+  "correlationId": "decisionbot_cycle_9005",
+  "idempotencyKey": "defi-deposit-0001",
+  "timestamp": "2026-02-18T02:47:00Z",
+  "intent": {
+    "chain": "base",
+    "protocol": "aave-v3",
+    "target": "USDC-main-pool",
+    "asset": "USDC",
+    "amount": "100",
+    "minSharesOut": "99"
+  }
+}

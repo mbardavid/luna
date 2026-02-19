@@ -1,0 +1,8 @@
+Comparison check between text route (`execute --instruction saldo`) and slash-native route (`execute-native --command saldo`):
+
+native {'has_price': True, 'has_value': True, 'has_total': True, 'has_mark_to_market_hint': True}
+text   {'has_price': True, 'has_value': True, 'has_total': True, 'has_mark_to_market_hint': True}
+
+Artifacts:
+- artifacts/saldo-native-route-2026-02-18.json
+- artifacts/saldo-text-route-2026-02-18.json

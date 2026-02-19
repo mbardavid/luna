@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "v1",
+  "plane": "execution",
+  "operation": "bridge",
+  "requestId": "req_20260218_0001",
+  "correlationId": "decisionbot_cycle_9001",
+  "idempotencyKey": "bridge-base-solana-usdc-0001",
+  "timestamp": "2026-02-18T02:47:00Z",
+  "intent": {
+    "fromChain": "base",
+    "toChain": "solana",
+    "asset": "USDC",
+    "amount": "50",
+    "recipient": "11111111111111111111111111111111",
+    "provider": "debridge",
+    "maxSlippageBps": 50
+  }
+}

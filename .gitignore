@@ -1,0 +1,15 @@
+# Arquivos locais e segredos
+.env
+.env.local
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Estado de sessão/caches locais
+node_modules/
+*.log
+.DS_Store
+Thumbs.db

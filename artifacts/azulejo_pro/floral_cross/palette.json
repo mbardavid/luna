@@ -1,0 +1,19 @@
+{
+  "name": "Floral Cross Rosette",
+  "sources": [
+    "file_10",
+    "file_12",
+    "file_6"
+  ],
+  "colors": [
+    "#F6EBD7",
+    "#123E8A",
+    "#2C67B1"
+  ],
+  "tile": {
+    "width": 1200,
+    "height": 1200,
+    "repeat": "xy"
+  },
+  "symmetry": "p4m"
+}

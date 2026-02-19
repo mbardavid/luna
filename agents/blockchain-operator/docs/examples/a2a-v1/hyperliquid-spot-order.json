@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "v1",
+  "plane": "execution",
+  "operation": "hyperliquid.spot.order",
+  "requestId": "req_20260218_0007",
+  "correlationId": "decisionbot_cycle_9007",
+  "idempotencyKey": "hl-spot-order-0001",
+  "timestamp": "2026-02-18T02:47:00Z",
+  "intent": {
+    "market": "PURR/USDC",
+    "side": "buy",
+    "amount": "100",
+    "price": "market",
+    "slippageBps": 80,
+    "tif": "Ioc"
+  }
+}

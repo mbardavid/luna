@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "v1",
+  "plane": "execution",
+  "operation": "swap.pumpfun",
+  "requestId": "req_20260218_0004",
+  "correlationId": "decisionbot_cycle_9004",
+  "idempotencyKey": "pumpfun-buy-0001",
+  "timestamp": "2026-02-18T02:47:00Z",
+  "intent": {
+    "chain": "solana",
+    "side": "buy",
+    "symbol": "SAGE",
+    "mint": "11111111111111111111111111111111",
+    "amount": "20",
+    "amountType": "quote",
+    "slippageBps": 250,
+    "recipient": "11111111111111111111111111111111"
+  }
+}

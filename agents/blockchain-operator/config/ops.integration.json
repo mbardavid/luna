@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "notifications": {
+    "discord": {
+      "enabled": true,
+      "operatorChannelId": "1473392629055098942",
+      "perOperation": true,
+      "dailySummary": {
+        "enabled": true,
+        "timeUtc": "23:00"
+      },
+      "events": [
+        "execution.completed",
+        "execution.failed",
+        "circuitBreaker.open",
+        "daily.summary"
+      ]
+    }
+  }
+}
