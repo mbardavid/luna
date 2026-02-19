@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "v1",
+  "plane": "execution",
+  "operation": "hyperliquid.deposit",
+  "requestId": "req_2026-02-19_0001",
+  "correlationId": "decisionbot-cycle-101",
+  "idempotencyKey": "hl-deposit-0001",
+  "dryRun": true,
+  "intent": {
+    "asset": "USDC",
+    "amount": "1",
+    "toPerp": true
+  }
+}
