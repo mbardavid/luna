@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "v1",
+  "plane": "execution",
+  "operation": "swap.raydium",
+  "requestId": "req_20260218_0003",
+  "correlationId": "decisionbot_cycle_9003",
+  "idempotencyKey": "raydium-usdc-sol-0001",
+  "timestamp": "2026-02-18T02:47:00Z",
+  "intent": {
+    "chain": "solana",
+    "inAsset": "USDC",
+    "outAsset": "SOL",
+    "amount": "30",
+    "poolId": "raydium_pool_usdc_sol_v4",
+    "slippageBps": 100,
+    "recipient": "11111111111111111111111111111111"
+  }
+}

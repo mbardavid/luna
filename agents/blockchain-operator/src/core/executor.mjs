@@ -17,7 +17,9 @@ import {
 import { assertCanExecute, registerFailure, registerSuccess } from './circuit-breaker.mjs';
 import { BaseConnector } from '../connectors/base.mjs';
 import { SolanaConnector } from '../connectors/solana.mjs';
+import { ArbitrumConnector } from '../connectors/arbitrum.mjs';
 import { HyperliquidConnector } from '../connectors/hyperliquid.mjs';
+import { HyperliquidBridgeConnector } from '../connectors/hyperliquid-bridge.mjs';
 import { DebridgeConnector } from '../connectors/debridge.mjs';
 import { JupiterConnector } from '../connectors/jupiter.mjs';
 import { RaydiumConnector } from '../connectors/raydium.mjs';
@@ -163,8 +165,13 @@ function shouldFallbackFromJupiter(error) {
 async function executeIntent(intent, { dryRun, runId, idempotencyKey }) {
   const base = new BaseConnector({});
   const solana = new SolanaConnector({});
+  const arbitrum = new ArbitrumConnector({});
   const hyperliquid = new HyperliquidConnector({});
-  const debridge = new DebridgeConnector({ base, solana });
+  const hyperliquidBridge = new HyperliquidBridgeConnector({
+    arbitrum,
+    hyperliquid
+  });
+  const debridge = new DebridgeConnector({ base, solana, arbitrum });
   const jupiter = new JupiterConnector({ solana });
   const raydium = new RaydiumConnector({ solana });
   const pumpfun = new PumpfunConnector({ solana });
@@ -258,6 +265,24 @@ async function executeIntent(intent, { dryRun, runId, idempotencyKey }) {
       : {
           connector: 'hyperliquid',
           execution: await hyperliquid.deposit(intent)
+        };
+  }
+
+  if (intent.action === 'hl_bridge_deposit') {
+    return dryRun
+      ? { connector: 'hyperliquid_bridge', preflight: await hyperliquidBridge.preflightDeposit(intent) }
+      : {
+          connector: 'hyperliquid_bridge',
+          execution: await hyperliquidBridge.executeDeposit(intent)
+        };
+  }
+
+  if (intent.action === 'hl_bridge_withdraw') {
+    return dryRun
+      ? { connector: 'hyperliquid_bridge', preflight: await hyperliquidBridge.preflightWithdraw(intent) }
+      : {
+          connector: 'hyperliquid_bridge',
+          execution: await hyperliquidBridge.executeWithdraw(intent)
         };
   }
 

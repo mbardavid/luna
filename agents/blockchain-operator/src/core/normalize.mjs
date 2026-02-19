@@ -1,4 +1,4 @@
-import { CHAIN_ALIASES } from './constants.mjs';
+import { CHAIN_ALIASES, EVM_SEMANTIC_CHAINS } from './constants.mjs';
 import { OperatorError } from '../utils/errors.mjs';
 
 const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
@@ -38,10 +38,35 @@ function assertNonNegativeNumberString(value, field) {
   return String(parsed);
 }
 
-function inferChainFromAddress(address) {
-  if (EVM_ADDRESS.test(address)) return 'base';
+function inferAddressKind(address) {
+  if (EVM_ADDRESS.test(address)) return 'evm';
   if (SOLANA_ADDRESS.test(address)) return 'solana';
   return null;
+}
+
+function assertAddressForChain(address, chain, field) {
+  if (chain === 'solana') {
+    if (!SOLANA_ADDRESS.test(address)) {
+      throw new OperatorError('ADDRESS_INVALID', `${field} inválido para Solana`, { address, chain, field });
+    }
+    return;
+  }
+
+  if (EVM_SEMANTIC_CHAINS.has(chain)) {
+    if (!EVM_ADDRESS.test(address)) {
+      throw new OperatorError('ADDRESS_INVALID', `${field} inválido para chain EVM`, {
+        address,
+        chain,
+        field
+      });
+    }
+    return;
+  }
+
+  throw new OperatorError('CHAIN_UNSUPPORTED', `Chain não suportada para validação de endereço: ${chain}`, {
+    chain,
+    field
+  });
 }
 
 function normalizeHyperliquidOrderLike(intent, base, { includeOrderRef = false } = {}) {
@@ -143,6 +168,82 @@ function normalizeHyperliquidDeposit(intent, base) {
   };
 }
 
+function normalizeHyperliquidBridgeDeposit(intent, base) {
+  const fromChain = normalizeChain(intent.fromChain);
+  const toChain = normalizeChain(intent.toChain);
+
+  if (fromChain !== 'arbitrum' || toChain !== 'hyperliquid') {
+    throw new OperatorError(
+      'HL_BRIDGE_ROUTE_INVALID',
+      'Native deposit Hyperliquid exige rota arbitrum -> hyperliquid',
+      {
+        fromChain,
+        toChain
+      }
+    );
+  }
+
+  const asset = normalizeAsset(intent.asset);
+  if (asset !== 'USDC') {
+    throw new OperatorError('HL_BRIDGE_ASSET_UNSUPPORTED', 'Native deposit Hyperliquid suporta apenas USDC', {
+      asset
+    });
+  }
+
+  return {
+    ...base,
+    action: 'hl_bridge_deposit',
+    fromChain,
+    toChain,
+    chain: 'arbitrum',
+    asset,
+    amount: assertPositiveNumberString(intent.amount, 'amount')
+  };
+}
+
+function normalizeHyperliquidBridgeWithdraw(intent, base) {
+  const fromChain = normalizeChain(intent.fromChain);
+  const toChain = normalizeChain(intent.toChain);
+
+  if (fromChain !== 'hyperliquid' || toChain !== 'arbitrum') {
+    throw new OperatorError(
+      'HL_BRIDGE_ROUTE_INVALID',
+      'Native withdraw Hyperliquid exige rota hyperliquid -> arbitrum',
+      {
+        fromChain,
+        toChain
+      }
+    );
+  }
+
+  const asset = normalizeAsset(intent.asset);
+  if (asset !== 'USDC') {
+    throw new OperatorError('HL_BRIDGE_ASSET_UNSUPPORTED', 'Native withdraw Hyperliquid suporta apenas USDC', {
+      asset
+    });
+  }
+
+  if (!intent.recipient) {
+    throw new OperatorError(
+      'HL_BRIDGE_RECIPIENT_REQUIRED',
+      'Native withdraw Hyperliquid exige recipient explícito em Arbitrum.'
+    );
+  }
+
+  assertAddressForChain(intent.recipient, 'arbitrum', 'recipient');
+
+  return {
+    ...base,
+    action: 'hl_bridge_withdraw',
+    fromChain,
+    toChain,
+    chain: 'hyperliquid',
+    asset,
+    amount: assertPositiveNumberString(intent.amount, 'amount'),
+    recipient: intent.recipient
+  };
+}
+
 function normalizeHyperliquidCancel(intent, base) {
   const venue = intent.venue;
   if (!['spot', 'perp'].includes(venue)) {
@@ -192,13 +293,14 @@ export function normalizeIntent(intent) {
   if (intent.action === 'transfer') {
     const asset = normalizeAsset(intent.asset);
     const to = intent.to;
-    const byAddress = inferChainFromAddress(to);
+    const addressKind = inferAddressKind(to);
 
     let chain = normalizeChain(intent.chain);
     if (!chain) {
       if (asset === 'ETH') chain = 'base';
       else if (asset === 'SOL') chain = 'solana';
-      else chain = byAddress;
+      else if (addressKind === 'solana') chain = 'solana';
+      else if (addressKind === 'evm') chain = 'base';
     }
 
     if (!chain) {
@@ -208,13 +310,13 @@ export function normalizeIntent(intent) {
       );
     }
 
-    if (chain === 'base' && !EVM_ADDRESS.test(to)) {
-      throw new OperatorError('ADDRESS_INVALID', 'Destinatário inválido para Base', { to });
+    if (!['base', 'solana'].includes(chain)) {
+      throw new OperatorError('TRANSFER_CHAIN_UNSUPPORTED', 'Transferência nativa suporta apenas Base ou Solana', {
+        chain
+      });
     }
 
-    if (chain === 'solana' && !SOLANA_ADDRESS.test(to)) {
-      throw new OperatorError('ADDRESS_INVALID', 'Destinatário inválido para Solana', { to });
-    }
+    assertAddressForChain(to, chain, 'to');
 
     if (chain === 'base' && asset !== 'ETH') {
       throw new OperatorError(
@@ -257,6 +359,14 @@ export function normalizeIntent(intent) {
     return normalizeHyperliquidDeposit(intent, base);
   }
 
+  if (intent.action === 'hl_bridge_deposit') {
+    return normalizeHyperliquidBridgeDeposit(intent, base);
+  }
+
+  if (intent.action === 'hl_bridge_withdraw') {
+    return normalizeHyperliquidBridgeWithdraw(intent, base);
+  }
+
   if (intent.action === 'swap_jupiter' || intent.action === 'swap_raydium') {
     const assetIn = normalizeAsset(intent.assetIn);
     const assetOut = normalizeAsset(intent.assetOut);
@@ -287,13 +397,7 @@ export function normalizeIntent(intent) {
 
     const recipient = intent.recipient ?? null;
     if (recipient) {
-      const infer = inferChainFromAddress(recipient);
-      if (!infer || infer !== toChain) {
-        throw new OperatorError('BRIDGE_RECIPIENT_INVALID', 'Recipient incompatível com chain de destino', {
-          recipient,
-          toChain
-        });
-      }
+      assertAddressForChain(recipient, toChain, 'recipient');
     }
 
     return {

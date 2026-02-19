@@ -1,0 +1,11 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+
+export function fromRoot(...parts) {
+  return path.join(PROJECT_ROOT, ...parts);
+}

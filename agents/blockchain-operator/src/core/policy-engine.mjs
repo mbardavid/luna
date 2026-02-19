@@ -42,7 +42,13 @@ function inferNotionalUsd(intent) {
     return null;
   }
 
-  if (intent.action === 'defi_deposit' || intent.action === 'defi_withdraw' || intent.action === 'hl_deposit') {
+  if (
+    intent.action === 'defi_deposit' ||
+    intent.action === 'defi_withdraw' ||
+    intent.action === 'hl_deposit' ||
+    intent.action === 'hl_bridge_deposit' ||
+    intent.action === 'hl_bridge_withdraw'
+  ) {
     if (STABLE_ASSETS.has(intent.asset)) return Number(intent.amount);
     return null;
   }
@@ -84,17 +90,35 @@ function isHyperliquidOrderLike(intent) {
 }
 
 function requiresRecipientAllowlist(intent) {
-  return ['transfer', 'send', 'bridge', 'defi_withdraw'].includes(intent.action);
+  return ['transfer', 'send', 'bridge', 'defi_withdraw', 'hl_bridge_withdraw'].includes(intent.action);
 }
 
 function recipientFromIntent(intent) {
   if (intent.action === 'transfer' || intent.action === 'send') return intent.to;
   if (intent.action === 'bridge') return intent.recipient ?? null;
   if (intent.action === 'defi_deposit' || intent.action === 'defi_withdraw') return intent.recipient ?? null;
+  if (intent.action === 'hl_bridge_withdraw') return intent.recipient ?? null;
   if (intent.action === 'swap_jupiter' || intent.action === 'swap_raydium' || intent.action === 'swap_pumpfun') {
     return intent.recipient ?? null;
   }
   return null;
+}
+
+function normalizeRecipientValue(value) {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+
+  if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  return trimmed;
+}
+
+function recipientAllowed(allowlist, recipient) {
+  const wanted = normalizeRecipientValue(recipient);
+  return allowlist.some((candidate) => normalizeRecipientValue(candidate) === wanted);
 }
 
 function intentChains(intent) {
@@ -106,7 +130,7 @@ function intentChains(intent) {
     return ['base', 'solana', 'hyperliquid'];
   }
 
-  if (intent.action === 'bridge') {
+  if (intent.action === 'bridge' || intent.action === 'hl_bridge_deposit' || intent.action === 'hl_bridge_withdraw') {
     return [intent.fromChain, intent.toChain].filter(Boolean);
   }
 
@@ -145,7 +169,9 @@ function notionalCappedActions() {
     'swap_jupiter',
     'swap_raydium',
     'swap_pumpfun',
-    'hl_deposit'
+    'hl_deposit',
+    'hl_bridge_deposit',
+    'hl_bridge_withdraw'
   ]);
 }
 
@@ -248,9 +274,10 @@ export class PolicyEngine {
         });
       }
 
-      if (recipient && !allowlists.recipients.includes(recipient)) {
+      if (recipient && !recipientAllowed(allowlists.recipients, recipient)) {
         throw new OperatorError('POLICY_RECIPIENT_DENIED', 'Destinatário fora da allowlist', {
-          recipient
+          recipient,
+          normalizedRecipient: normalizeRecipientValue(recipient)
         });
       }
     }
@@ -378,7 +405,9 @@ export class PolicyEngine {
       'swap_pumpfun',
       'defi_deposit',
       'defi_withdraw',
-      'hl_deposit'
+      'hl_deposit',
+      'hl_bridge_deposit',
+      'hl_bridge_withdraw'
     ]);
 
     if (!isDryRun && execution.requireSimulation && simulationGuardActions.has(intent.action)) {

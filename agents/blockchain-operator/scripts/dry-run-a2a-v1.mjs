@@ -10,6 +10,12 @@ const ARTIFACT_PATH = fromRoot('artifacts', 'dry-run-a2a-v1-results.json');
 
 const PAYLOAD_FILES = [
   'bridge.json',
+  'bridge-solana-hyperliquid.json',
+  'bridge-base-hyperliquid.json',
+  'bridge-hyperliquid-base.json',
+  'bridge-hyperliquid-solana.json',
+  'hyperliquid-bridge-deposit.json',
+  'hyperliquid-bridge-withdraw.json',
   'swap-jupiter.json',
   'swap-raydium.json',
   'swap-pumpfun.json',
@@ -141,10 +147,16 @@ async function main() {
       });
 
       const latencyMs = Date.now() - startedAt;
+      const expectedErrorCode = payload?.meta?.expectedErrorCode ?? null;
+      const passed = expectedErrorCode
+        ? execution.ok === false && execution.error?.code === expectedErrorCode
+        : execution.ok === true;
 
       results.push({
         file: fileName,
         operation: payload.operation,
+        passed,
+        expectedErrorCode,
         ok: execution.ok,
         code: execution.ok ? null : execution.error.code,
         latencyMs,
@@ -168,9 +180,9 @@ async function main() {
     'utf8'
   );
 
-  console.log(JSON.stringify({ ok: results.every((r) => r.ok), artifact: ARTIFACT_PATH, results }, null, 2));
+  console.log(JSON.stringify({ ok: results.every((r) => r.passed), artifact: ARTIFACT_PATH, results }, null, 2));
 
-  if (results.some((row) => !row.ok)) {
+  if (results.some((row) => !row.passed)) {
     process.exitCode = 1;
   }
 }

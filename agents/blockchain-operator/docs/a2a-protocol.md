@@ -127,8 +127,8 @@ Secrets por `keyId`:
 
 `intent` obrigatório:
 
-- `fromChain` (`base|solana`)
-- `toChain` (`base|solana`)
+- `fromChain` (`base|solana|arbitrum|hyperliquid`)
+- `toChain` (`base|solana|arbitrum|hyperliquid`)
 - `asset`
 - `amount`
 
@@ -140,6 +140,8 @@ Opcional:
 - `maxSlippageBps`
 
 Exemplo: `docs/examples/a2a-v1/bridge.json`
+
+> Observação: rotas `bridge` que tocam `hyperliquid` diretamente retornam `DEBRIDGE_HYPERLIQUID_ROUTE_NOT_SUPPORTED`. Use pipeline explícito via Arbitrum (`hyperliquid.bridge.deposit` / `hyperliquid.bridge.withdraw`).
 
 ### `swap.jupiter`
 
@@ -272,6 +274,37 @@ Exemplo:
 
 - `docs/examples/a2a-v1/hyperliquid-deposit.json`
 
+### `hyperliquid.bridge.deposit`
+
+Depósito nativo Arbitrum -> Hyperliquid (Bridge2).
+
+Obrigatório:
+
+- `fromChain` = `arbitrum`
+- `toChain` = `hyperliquid`
+- `asset` = `USDC`
+- `amount`
+
+Exemplo:
+
+- `docs/examples/a2a-v1/hyperliquid-bridge-deposit.json`
+
+### `hyperliquid.bridge.withdraw`
+
+Saque nativo Hyperliquid -> Arbitrum (`withdraw3`).
+
+Obrigatório:
+
+- `fromChain` = `hyperliquid`
+- `toChain` = `arbitrum`
+- `asset` = `USDC`
+- `amount`
+- `recipient` (EVM allowlisted)
+
+Exemplo:
+
+- `docs/examples/a2a-v1/hyperliquid-bridge-withdraw.json`
+
 ---
 
 ## 4) Status de suporte (runtime atual)
@@ -289,8 +322,14 @@ Exemplo:
 - `hyperliquid.cancel`
 - `hyperliquid.modify`
 - `hyperliquid.deposit`
+- `hyperliquid.bridge.deposit`
+- `hyperliquid.bridge.withdraw`
 - `transfer`
 - `send`
+
+Limite conhecido importante:
+
+- `bridge` com `fromChain|toChain = hyperliquid` retorna `DEBRIDGE_HYPERLIQUID_ROUTE_NOT_SUPPORTED` (deBridge não aciona fluxo Bridge2/withdraw3 do HL).
 
 ---
 

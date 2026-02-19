@@ -274,6 +274,29 @@ def _build_deposit_action(payload: Dict[str, Any]):
         "amount": str(amount),
         "toPerp": to_perp,
     }
+
+
+def _build_bridge_withdraw_request(payload: Dict[str, Any]):
+    withdraw = _require_dict(payload.get("withdraw"), "withdraw")
+
+    amount = _optional_float(withdraw, "amount")
+    if amount is None or amount <= 0:
+        _fail("HL_BRIDGE_INPUT_INVALID", "withdraw.amount deve ser > 0", {"amount": withdraw.get("amount")})
+
+    destination = _optional_str(withdraw, "destination")
+    if not destination or not destination.startswith("0x") or len(destination) != 42:
+        _fail(
+            "HL_BRIDGE_INPUT_INVALID",
+            "withdraw.destination deve ser endereço EVM (0x...) válido",
+            {"destination": withdraw.get("destination")},
+        )
+
+    return {
+        "amount": amount,
+        "destination": destination,
+    }
+
+
 def _main() -> None:
     try:
         request_payload = json.load(sys.stdin)
@@ -316,9 +339,6 @@ def _main() -> None:
     private_key = _normalize_private_key(raw_key)
 
     nonce = _optional_int(request_payload, "nonce")
-    if nonce is None or nonce <= 0:
-        _fail("HL_BRIDGE_INPUT_INVALID", "nonce inválido", {"nonce": request_payload.get("nonce")})
-
     expires_after = _optional_int(request_payload, "expiresAfter")
 
     try:
@@ -337,6 +357,25 @@ def _main() -> None:
             meta=info.meta(),
             spot_meta=info.spot_meta(),
         )
+
+        if operation == "bridge_withdraw":
+            withdraw = _build_bridge_withdraw_request(request_payload)
+            response = exchange.withdraw_from_bridge(withdraw["amount"], withdraw["destination"])
+
+            _emit(
+                {
+                    "ok": True,
+                    "operation": operation,
+                    "signerAddress": wallet.address.lower(),
+                    "actionType": "withdraw3",
+                    "withdraw": withdraw,
+                    "response": response,
+                }
+            )
+
+        if nonce is None or nonce <= 0:
+            _fail("HL_BRIDGE_INPUT_INVALID", "nonce inválido", {"nonce": request_payload.get("nonce")})
+
         api = API(api_url)
 
         if operation == "order":

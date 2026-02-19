@@ -65,6 +65,24 @@ export function buildPlan(intent, { dryRun, confirmation } = {}) {
     pushLiveExecute(steps, dryRun, { id: 'execute-hl-deposit', type: 'execute', connector: 'hyperliquid' });
   }
 
+  if (intent.action === 'hl_bridge_deposit') {
+    steps.push({ id: 'preflight-hl-bridge-deposit', type: 'preflight', connector: 'hyperliquid_bridge' });
+    pushLiveExecute(steps, dryRun, {
+      id: 'execute-hl-bridge-deposit',
+      type: 'execute',
+      connector: 'hyperliquid_bridge'
+    });
+  }
+
+  if (intent.action === 'hl_bridge_withdraw') {
+    steps.push({ id: 'preflight-hl-bridge-withdraw', type: 'preflight', connector: 'hyperliquid_bridge' });
+    pushLiveExecute(steps, dryRun, {
+      id: 'execute-hl-bridge-withdraw',
+      type: 'execute',
+      connector: 'hyperliquid_bridge'
+    });
+  }
+
   if (intent.action === 'bridge') {
     steps.push({ id: 'quote-bridge', type: 'preflight', connector: 'debridge' });
     pushLiveExecute(steps, dryRun, { id: 'execute-bridge', type: 'execute', connector: intent.fromChain });

@@ -6,7 +6,7 @@ function parseLocaleNumber(value) {
 
 function detectLanguage(text) {
   const ptHints =
-    /\b(enviar|transferir|comprar|vender|cancelar|modificar|alterar|para|na|no|mercado|ponte|contrato|saldo)\b/i;
+    /\b(enviar|transferir|comprar|vender|cancelar|modificar|alterar|retirar|sacar|depositar|para|na|no|mercado|ponte|contrato|saldo)\b/i;
   return ptHints.test(text) ? 'pt' : 'en';
 }
 
@@ -170,6 +170,37 @@ function parseHyperliquidDeposit(text) {
   };
 }
 
+function parseHyperliquidBridgeDeposit(text) {
+  const regex =
+    /(?:depositar|deposit|deposita)\s+([0-9]+(?:[\.,][0-9]+)?)\s+(usdc)\s+(?:from|de)\s+(arbitrum|arb)\s+(?:to|para)\s+(?:hyperliquid|hl)\b/i;
+  const match = text.match(regex);
+  if (!match) return null;
+
+  return {
+    action: 'hl_bridge_deposit',
+    fromChain: match[3],
+    toChain: 'hyperliquid',
+    asset: match[2],
+    amount: parseLocaleNumber(match[1])
+  };
+}
+
+function parseHyperliquidBridgeWithdraw(text) {
+  const regex =
+    /(?:withdraw|retirar|sacar)\s+([0-9]+(?:[\.,][0-9]+)?)\s+(usdc)\s+(?:from|de)\s+(?:hyperliquid|hl)\s+(?:to|para)\s+(arbitrum|arb)\s+(?:to|para)\s+(0x[a-fA-F0-9]{40})\b/i;
+  const match = text.match(regex);
+  if (!match) return null;
+
+  return {
+    action: 'hl_bridge_withdraw',
+    fromChain: 'hyperliquid',
+    toChain: match[3],
+    asset: match[2],
+    amount: parseLocaleNumber(match[1]),
+    recipient: match[4]
+  };
+}
+
 function parseHyperliquidOrder(text) {
   const regex =
     /(buy|sell|comprar|vender)\s+([0-9]+(?:[\.,][0-9]+)?)\s+([a-zA-Z0-9_:@/.-]+)(?:\s+(spot|perp|perpetual|perpetuo|perpétuo))?(?:\s+(?:at|@|a)\s+(market|mercado|[0-9]+(?:[\.,][0-9]+)?))?(?:\s+(?:on|na|no|em)\s+(hyperliquid|hl))?/i;
@@ -215,7 +246,7 @@ function parseSwap(text) {
 
 function parseBridge(text) {
   const regex =
-    /(?:bridge|bridging|bridgear|ponte|mover)\s+(?:de\s+)?([0-9]+(?:[\.,][0-9]+)?)\s+([a-zA-Z0-9_:@/.-]+)\s+(?:from|de)\s+(base|solana)\s+(?:to|para)\s+(base|solana)(?:\s+(?:to|para)\s+([a-zA-Z0-9]{32,}|0x[a-fA-F0-9]{40}))?/i;
+    /(?:bridge|bridging|bridgear|ponte|mover)\s+(?:de\s+)?([0-9]+(?:[\.,][0-9]+)?)\s+([a-zA-Z0-9_:@/.-]+)\s+(?:from|de)\s+(base|solana|arbitrum|arb|hyperliquid|hl)\s+(?:to|para)\s+(base|solana|arbitrum|arb|hyperliquid|hl)(?:\s+(?:to|para)\s+([a-zA-Z0-9]{32,}|0x[a-fA-F0-9]{40}))?/i;
   const match = text.match(regex);
   if (!match) return null;
 
@@ -252,6 +283,8 @@ export function parseInstruction(rawInstruction) {
     parseTransfer,
     parseHyperliquidCancel,
     parseHyperliquidModify,
+    parseHyperliquidBridgeDeposit,
+    parseHyperliquidBridgeWithdraw,
     parseHyperliquidDeposit,
     parseHyperliquidOrder,
     parseSwap,

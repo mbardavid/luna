@@ -26,7 +26,9 @@ export const EXECUTION_OPERATIONS = Object.freeze({
   SEND: 'send',
   HL_CANCEL: 'hyperliquid.cancel',
   HL_MODIFY: 'hyperliquid.modify',
-  HL_DEPOSIT: 'hyperliquid.deposit'
+  HL_DEPOSIT: 'hyperliquid.deposit',
+  HL_BRIDGE_DEPOSIT: 'hyperliquid.bridge.deposit',
+  HL_BRIDGE_WITHDRAW: 'hyperliquid.bridge.withdraw'
 });
 
 const OPERATION_VALUES = Object.values(EXECUTION_OPERATIONS);
@@ -91,8 +93,8 @@ const operationSchemas = {
     type: 'object',
     required: ['fromChain', 'toChain', 'asset', 'amount'],
     properties: {
-      fromChain: { type: 'string', enum: ['base', 'solana'] },
-      toChain: { type: 'string', enum: ['base', 'solana'] },
+      fromChain: { type: 'string', enum: ['base', 'solana', 'arbitrum', 'hyperliquid'] },
+      toChain: { type: 'string', enum: ['base', 'solana', 'arbitrum', 'hyperliquid'] },
       asset: { type: 'string', minLength: 2, maxLength: 32 },
       amount: numericSchema,
       recipient: { type: 'string', minLength: 32, maxLength: 64 },
@@ -299,6 +301,29 @@ const operationSchemas = {
     },
     additionalProperties: false
   },
+  [EXECUTION_OPERATIONS.HL_BRIDGE_DEPOSIT]: {
+    type: 'object',
+    required: ['fromChain', 'toChain', 'asset', 'amount'],
+    properties: {
+      fromChain: { type: 'string', const: 'arbitrum' },
+      toChain: { type: 'string', const: 'hyperliquid' },
+      asset: { type: 'string', const: 'USDC' },
+      amount: numericSchema
+    },
+    additionalProperties: false
+  },
+  [EXECUTION_OPERATIONS.HL_BRIDGE_WITHDRAW]: {
+    type: 'object',
+    required: ['fromChain', 'toChain', 'asset', 'amount', 'recipient'],
+    properties: {
+      fromChain: { type: 'string', const: 'hyperliquid' },
+      toChain: { type: 'string', const: 'arbitrum' },
+      asset: { type: 'string', const: 'USDC' },
+      amount: numericSchema,
+      recipient: { type: 'string', minLength: 42, maxLength: 42 }
+    },
+    additionalProperties: false
+  },
   [EXECUTION_OPERATIONS.HL_MODIFY]: {
     type: 'object',
     required: ['venue', 'market', 'orderRef', 'side', 'amount', 'price'],
@@ -391,9 +416,9 @@ function ensureMachineId(value, field) {
 }
 
 function assertAddressForChain(address, chain, field = 'address') {
-  if (chain === 'base') {
+  if (chain === 'base' || chain === 'arbitrum' || chain === 'hyperliquid') {
     if (!EVM_ADDRESS.test(address)) {
-      throw new OperatorError('EXECUTION_SCHEMA_ADDRESS_INVALID', `${field} inválido para Base`, {
+      throw new OperatorError('EXECUTION_SCHEMA_ADDRESS_INVALID', `${field} inválido para chain EVM`, {
         field,
         chain,
         address
@@ -806,6 +831,33 @@ function normalizeIntent(operation, intent) {
       asset,
       amount: normalizeAmount(intent.amount, 'amount'),
       toPerp: intent.toPerp !== false
+    };
+  }
+
+  if (operation === EXECUTION_OPERATIONS.HL_BRIDGE_DEPOSIT) {
+    return {
+      ...base,
+      action: 'hl_bridge_deposit',
+      chain: 'arbitrum',
+      fromChain: 'arbitrum',
+      toChain: 'hyperliquid',
+      asset: normalizeAsset(intent.asset),
+      amount: normalizeAmount(intent.amount, 'amount')
+    };
+  }
+
+  if (operation === EXECUTION_OPERATIONS.HL_BRIDGE_WITHDRAW) {
+    assertAddressForChain(intent.recipient, 'arbitrum', 'recipient');
+
+    return {
+      ...base,
+      action: 'hl_bridge_withdraw',
+      chain: 'hyperliquid',
+      fromChain: 'hyperliquid',
+      toChain: 'arbitrum',
+      asset: normalizeAsset(intent.asset),
+      amount: normalizeAmount(intent.amount, 'amount'),
+      recipient: intent.recipient
     };
   }
 

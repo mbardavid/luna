@@ -51,7 +51,7 @@ function mockFetchRouter() {
 
     if (target.includes('/coins/') && target.includes('pump.fun')) {
       return makeJsonResponse({
-        mint: '11111111111111111111111111111111',
+        mint: 'HSGfLrCiMpnGW8o7qhad79JU6aZH1TW37tpsqdRhuUPx',
         symbol: 'SAGE',
         complete: false
       });
@@ -60,7 +60,7 @@ function mockFetchRouter() {
     if (target.includes('/dln/order/create-tx')) {
       return makeJsonResponse({
         tx: {
-          to: '0x000000000000000000000000000000000000dEaD',
+          to: '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6',
           data: '0x1234',
           value: '0'
         },
@@ -145,7 +145,7 @@ test('execution payload schema validates + normalizes transfer intent', () => {
       chain: 'base',
       asset: 'ETH',
       amount: '1.25',
-      to: '0x000000000000000000000000000000000000dEaD'
+      to: '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6'
     }
   };
 
@@ -172,7 +172,7 @@ test('execution payload schema rejects invalid correlationId format', () => {
           chain: 'base',
           asset: 'ETH',
           amount: '1',
-          to: '0x000000000000000000000000000000000000dEaD'
+          to: '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6'
         }
       }),
     (error) => error?.code === 'EXECUTION_SCHEMA_INVALID'
@@ -190,7 +190,7 @@ test('execution payload schema accepts mention delegation gated metadata', () =>
       chain: 'base',
       asset: 'ETH',
       amount: '0.01',
-      to: '0x000000000000000000000000000000000000dEaD'
+      to: '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6'
     },
     meta: makeMentionDelegationMeta({ messageId: '1473395000000000999' })
   };
@@ -213,7 +213,7 @@ test('execution payload schema rejects mention delegation loop (origin == target
       chain: 'base',
       asset: 'ETH',
       amount: '0.01',
-      to: '0x000000000000000000000000000000000000dEaD'
+      to: '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6'
     },
     meta: makeMentionDelegationMeta({
       messageId: '1473395000000000888',
@@ -238,7 +238,7 @@ test('execution payload schema rejects mentionDelegation payload with disabled m
       chain: 'base',
       asset: 'ETH',
       amount: '0.01',
-      to: '0x000000000000000000000000000000000000dEaD'
+      to: '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6'
     },
     meta
   };
@@ -259,7 +259,7 @@ test('execution plane mention delegation dedupes by messageId within TTL', async
       chain: 'base',
       asset: 'ETH',
       amount: '0.01',
-      to: '0x000000000000000000000000000000000000dEaD'
+      to: '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6'
     },
     meta: makeMentionDelegationMeta({ messageId: '1473395000000000777' })
   };
@@ -284,7 +284,7 @@ test('execution plane dry-run transfer pipeline succeeds', async () => {
         chain: 'base',
         asset: 'ETH',
         amount: '0.001',
-        to: '0x000000000000000000000000000000000000dEaD'
+        to: '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6'
       }
     },
     dryRun: true
@@ -387,7 +387,7 @@ test('execution plane supports Pump.fun trade dry-run', async () => {
           chain: 'solana',
           side: 'buy',
           symbol: 'SAGE',
-          mint: '11111111111111111111111111111111',
+          mint: 'HSGfLrCiMpnGW8o7qhad79JU6aZH1TW37tpsqdRhuUPx',
           amount: '1',
           amountType: 'quote',
           slippageBps: 250
@@ -444,7 +444,7 @@ test('execution plane supports deBridge preflight dry-run', async () => {
           toChain: 'solana',
           asset: 'USDC',
           amount: '50',
-          recipient: '11111111111111111111111111111111'
+          recipient: 'HSGfLrCiMpnGW8o7qhad79JU6aZH1TW37tpsqdRhuUPx'
         }
       },
       dryRun: true
@@ -486,7 +486,7 @@ test('execution plane supports Hyperliquid perp order dry-run with structured pa
 
 test('execution plane supports Hyperliquid USDC deposit dry-run', async () => {
   const prevAccount = process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
-  process.env.HYPERLIQUID_ACCOUNT_ADDRESS = '0x1111111111111111111111111111111111111111';
+  process.env.HYPERLIQUID_ACCOUNT_ADDRESS = '0x1113b4e00397997ebdaac95ceb90cf97bd4d51dd';
 
   try {
     await withPatchedFetch(mockFetchRouter(), async () => {
@@ -515,4 +515,84 @@ test('execution plane supports Hyperliquid USDC deposit dry-run', async () => {
     if (prevAccount == null) delete process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
     else process.env.HYPERLIQUID_ACCOUNT_ADDRESS = prevAccount;
   }
+});
+
+test('execution plane supports Hyperliquid native bridge deposit dry-run', async () => {
+  const result = await runExecutionPayload({
+    payload: {
+      schemaVersion: 'v1',
+      plane: 'execution',
+      operation: 'hyperliquid.bridge.deposit',
+      requestId: 'req_2026-02-18_0017',
+      correlationId: 'decisionbot-cycle-92',
+      intent: {
+        fromChain: 'arbitrum',
+        toChain: 'hyperliquid',
+        asset: 'USDC',
+        amount: '10'
+      }
+    },
+    dryRun: true
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.intent.action, 'hl_bridge_deposit');
+  assert.equal(result.result.connector, 'hyperliquid_bridge');
+  assert.equal(result.result.preflight.bridgeAddress.toLowerCase(), '0x2df1c51e09aecf9cacb7bc98cb1742757f163df7');
+});
+
+test('execution plane supports Hyperliquid native bridge withdraw dry-run', async () => {
+  const prevAccount = process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+  delete process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+
+  try {
+    const result = await runExecutionPayload({
+      payload: {
+        schemaVersion: 'v1',
+        plane: 'execution',
+        operation: 'hyperliquid.bridge.withdraw',
+        requestId: 'req_2026-02-18_0018',
+        correlationId: 'decisionbot-cycle-93',
+        intent: {
+          fromChain: 'hyperliquid',
+          toChain: 'arbitrum',
+          asset: 'USDC',
+          amount: '6',
+          recipient: '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6'
+        }
+      },
+      dryRun: true
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.intent.action, 'hl_bridge_withdraw');
+    assert.equal(result.result.connector, 'hyperliquid_bridge');
+    assert.equal(result.result.preflight.hyperliquid.walletReady, false);
+  } finally {
+    if (prevAccount == null) delete process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+    else process.env.HYPERLIQUID_ACCOUNT_ADDRESS = prevAccount;
+  }
+});
+
+test('execution plane returns explicit NOT_SUPPORTED for deBridge route touching Hyperliquid', async () => {
+  const result = await runExecutionPayload({
+    payload: {
+      schemaVersion: 'v1',
+      plane: 'execution',
+      operation: 'bridge',
+      requestId: 'req_2026-02-18_0019',
+      correlationId: 'decisionbot-cycle-94',
+      intent: {
+        fromChain: 'base',
+        toChain: 'hyperliquid',
+        asset: 'USDC',
+        amount: '5',
+        recipient: '0x1113b4e00397997ebdaac95ceb90cf97bd4d51dd'
+      }
+    },
+    dryRun: true
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, 'DEBRIDGE_HYPERLIQUID_ROUTE_NOT_SUPPORTED');
 });

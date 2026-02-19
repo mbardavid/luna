@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "v1",
+  "plane": "execution",
+  "operation": "hyperliquid.bridge.deposit",
+  "requestId": "req_20260219_0103",
+  "correlationId": "decisionbot_cycle_9103",
+  "idempotencyKey": "hl-native-deposit-0001",
+  "dryRun": true,
+  "intent": {
+    "fromChain": "arbitrum",
+    "toChain": "hyperliquid",
+    "asset": "USDC",
+    "amount": "10"
+  }
+}

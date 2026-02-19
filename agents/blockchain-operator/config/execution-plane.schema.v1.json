@@ -33,7 +33,9 @@
         "send",
         "hyperliquid.cancel",
         "hyperliquid.modify",
-        "hyperliquid.deposit"
+        "hyperliquid.deposit",
+        "hyperliquid.bridge.deposit",
+        "hyperliquid.bridge.withdraw"
       ]
     },
     "requestId": {
@@ -276,13 +278,17 @@
               "fromChain": {
                 "enum": [
                   "base",
-                  "solana"
+                  "solana",
+                  "arbitrum",
+                  "hyperliquid"
                 ]
               },
               "toChain": {
                 "enum": [
                   "base",
-                  "solana"
+                  "solana",
+                  "arbitrum",
+                  "hyperliquid"
                 ]
               },
               "asset": {
@@ -1133,6 +1139,91 @@
               },
               "toPerp": {
                 "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "hyperliquid.bridge.deposit"
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "then": {
+        "properties": {
+          "intent": {
+            "type": "object",
+            "required": [
+              "fromChain",
+              "toChain",
+              "asset",
+              "amount"
+            ],
+            "properties": {
+              "fromChain": {
+                "const": "arbitrum"
+              },
+              "toChain": {
+                "const": "hyperliquid"
+              },
+              "asset": {
+                "const": "USDC"
+              },
+              "amount": {
+                "$ref": "#/$defs/numericOrString"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "hyperliquid.bridge.withdraw"
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "then": {
+        "properties": {
+          "intent": {
+            "type": "object",
+            "required": [
+              "fromChain",
+              "toChain",
+              "asset",
+              "amount",
+              "recipient"
+            ],
+            "properties": {
+              "fromChain": {
+                "const": "hyperliquid"
+              },
+              "toChain": {
+                "const": "arbitrum"
+              },
+              "asset": {
+                "const": "USDC"
+              },
+              "amount": {
+                "$ref": "#/$defs/numericOrString"
+              },
+              "recipient": {
+                "type": "string",
+                "pattern": "^0x[a-fA-F0-9]{40}$"
               }
             },
             "additionalProperties": false

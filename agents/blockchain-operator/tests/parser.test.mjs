@@ -113,8 +113,41 @@ test('parse bridge route', () => {
   assert.equal(normalized.toChain, 'solana');
 });
 
+test('parse HL native bridge deposit route', () => {
+  const parsed = parseInstruction('deposit 10 USDC from arbitrum to hyperliquid');
+  const normalized = normalizeIntent(parsed);
+
+  assert.equal(normalized.action, 'hl_bridge_deposit');
+  assert.equal(normalized.fromChain, 'arbitrum');
+  assert.equal(normalized.toChain, 'hyperliquid');
+  assert.equal(normalized.asset, 'USDC');
+  assert.equal(normalized.amount, '10');
+});
+
+test('parse HL native bridge withdraw route', () => {
+  const parsed = parseInstruction(
+    'withdraw 8 USDC from hyperliquid to arbitrum to 0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6'
+  );
+  const normalized = normalizeIntent(parsed);
+
+  assert.equal(normalized.action, 'hl_bridge_withdraw');
+  assert.equal(normalized.fromChain, 'hyperliquid');
+  assert.equal(normalized.toChain, 'arbitrum');
+  assert.equal(normalized.recipient, '0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6');
+});
+
 test('policy checks pass for dry-run transfer', () => {
-  const parsed = parseInstruction('send 0.1 ETH to 0x000000000000000000000000000000000000dEaD on base');
+  const parsed = parseInstruction('send 0.1 ETH to 0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6 on base');
+  const normalized = normalizeIntent(parsed);
+
+  const result = new PolicyEngine(policy).evaluate(normalized, { isDryRun: true });
+  assert.ok(Array.isArray(result.checks));
+});
+
+test('policy checks accept EVM recipient across hyperliquid semantics (case-insensitive)', () => {
+  const parsed = parseInstruction(
+    'bridge 5 USDC from base to hyperliquid to 0x1113B4e00397997EBdaaC95ceb90cf97bD4D51dd'
+  );
   const normalized = normalizeIntent(parsed);
 
   const result = new PolicyEngine(policy).evaluate(normalized, { isDryRun: true });

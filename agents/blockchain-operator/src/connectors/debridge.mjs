@@ -2,7 +2,8 @@ import { DEBRIDGE_CHAIN_IDS } from '../core/constants.mjs';
 import { OperatorError } from '../utils/errors.mjs';
 import { BaseConnector } from './base.mjs';
 import { SolanaConnector } from './solana.mjs';
-import { decimalToAtomic, resolveBaseToken, resolveSolanaToken } from './token-registry.mjs';
+import { ArbitrumConnector } from './arbitrum.mjs';
+import { decimalToAtomic, resolveArbitrumToken, resolveBaseToken, resolveSolanaToken } from './token-registry.mjs';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -44,13 +45,49 @@ function parseBridgeStatus(response) {
 }
 
 export class DebridgeConnector {
-  constructor({ apiUrl, base, solana } = {}) {
+  constructor({ apiUrl, base, solana, arbitrum } = {}) {
     this.apiUrl = apiUrl ?? process.env.DEBRIDGE_API_URL ?? 'https://dln.debridge.finance/v1.0';
     this.base = base ?? new BaseConnector({});
     this.solana = solana ?? new SolanaConnector({});
+    this.arbitrum = arbitrum ?? new ArbitrumConnector({});
 
     this.trackPollAttempts = Number(process.env.DEBRIDGE_TRACK_POLL_ATTEMPTS ?? '1');
     this.trackPollIntervalMs = Number(process.env.DEBRIDGE_TRACK_POLL_INTERVAL_MS ?? '1500');
+  }
+
+  assertHyperliquidRouteSupport(intent) {
+    const touchesHyperliquid = intent.fromChain === 'hyperliquid' || intent.toChain === 'hyperliquid';
+    if (!touchesHyperliquid) return;
+
+    throw new OperatorError(
+      'DEBRIDGE_HYPERLIQUID_ROUTE_NOT_SUPPORTED',
+      'deBridge não executa o fluxo nativo Bridge2 do Hyperliquid. Use pipeline explícito via Arbitrum native bridge.',
+      {
+        requestedRoute: `${intent.fromChain}->${intent.toChain}`,
+        evidence: {
+          debridgeCreateTxFields: [
+            'srcChainId',
+            'dstChainId',
+            'srcChainTokenIn',
+            'dstChainTokenOut',
+            'dstChainTokenOutRecipient'
+          ],
+          hyperliquidBridge2Docs: 'https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/bridge2',
+          note:
+            'Bridge2 exige transferência USDC para contrato Arbitrum 0x2df1... (deposit) ou ação withdraw3 (withdraw).'
+        },
+        suggestedPipeline:
+          intent.toChain === 'hyperliquid'
+            ? [
+                `${intent.fromChain}->arbitrum via deBridge`,
+                'arbitrum->hyperliquid via hyperliquid.bridge.deposit'
+              ]
+            : [
+                'hyperliquid->arbitrum via hyperliquid.bridge.withdraw',
+                `arbitrum->${intent.toChain} via deBridge`
+              ]
+      }
+    );
   }
 
   resolveToken(chain, asset) {
@@ -98,6 +135,27 @@ export class DebridgeConnector {
       };
     }
 
+    if (chain === 'arbitrum') {
+      const token = resolveArbitrumToken(normalizedAsset, {
+        field: 'asset',
+        errorCode: 'DEBRIDGE_TOKEN_UNSUPPORTED'
+      });
+
+      if (token.native || !token.address) {
+        throw new OperatorError(
+          'DEBRIDGE_TOKEN_UNSUPPORTED',
+          `Asset ${normalizedAsset} não suportada para bridge em Arbitrum (use token ERC20).`
+        );
+      }
+
+      return {
+        chain,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        address: token.address
+      };
+    }
+
     throw new OperatorError('DEBRIDGE_CHAIN_UNSUPPORTED', 'Chain não suportada para bridge deBridge', {
       chain
     });
@@ -130,6 +188,8 @@ export class DebridgeConnector {
   }
 
   buildQuoteQuery(intent) {
+    this.assertHyperliquidRouteSupport(intent);
+
     const srcChainId = DEBRIDGE_CHAIN_IDS[intent.fromChain];
     const dstChainId = DEBRIDGE_CHAIN_IDS[intent.toChain];
 
@@ -172,6 +232,9 @@ export class DebridgeConnector {
         if (srcAuthority) query.srcChainOrderAuthorityAddress = srcAuthority;
       } else if (intent.fromChain === 'base') {
         const srcAuthority = this.base.getAddress();
+        if (srcAuthority) query.srcChainOrderAuthorityAddress = srcAuthority;
+      } else if (intent.fromChain === 'arbitrum') {
+        const srcAuthority = this.arbitrum.getAddress();
         if (srcAuthority) query.srcChainOrderAuthorityAddress = srcAuthority;
       }
     }
@@ -224,7 +287,7 @@ export class DebridgeConnector {
       });
     }
 
-    if (preflight.fromChain === 'base') {
+    if (preflight.fromChain === 'base' || preflight.fromChain === 'arbitrum') {
       const to = pickFirst(tx.to, tx.toAddress, tx.target, tx.contractAddress);
       const data = pickFirst(tx.data, tx.callData, tx.calldata, tx.input);
       const valueWei = String(pickFirst(tx.value, tx.valueWei, tx.nativeValue, tx.amountInWei, '0'));
@@ -239,7 +302,7 @@ export class DebridgeConnector {
       }
 
       return {
-        chain: 'base',
+        chain: preflight.fromChain,
         to,
         data,
         valueWei,
@@ -351,10 +414,11 @@ export class DebridgeConnector {
 
       let execution;
 
-      if (sourceTx.chain === 'base') {
-        this.base.ensureWallet();
+      if (sourceTx.chain === 'base' || sourceTx.chain === 'arbitrum') {
+        const evm = sourceTx.chain === 'base' ? this.base : this.arbitrum;
+        evm.ensureWallet();
 
-        const preflightTx = await this.base.preflightContractCall({
+        const preflightTx = await evm.preflightContractCall({
           to: sourceTx.to,
           data: sourceTx.data,
           valueWei: sourceTx.valueWei,
@@ -363,7 +427,7 @@ export class DebridgeConnector {
           maxPriorityFeePerGasWei: sourceTx.maxPriorityFeePerGasWei
         });
 
-        const sentTx = await this.base.sendContractCall({
+        const sentTx = await evm.sendContractCall({
           to: sourceTx.to,
           data: sourceTx.data,
           valueWei: sourceTx.valueWei,
@@ -373,7 +437,7 @@ export class DebridgeConnector {
         });
 
         execution = {
-          chain: 'base',
+          chain: sourceTx.chain,
           preflight: preflightTx,
           sent: sentTx,
           sourceTxHash: sentTx.txHash

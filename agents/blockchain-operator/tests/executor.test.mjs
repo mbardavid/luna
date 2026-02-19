@@ -364,6 +364,71 @@ test('dry-run hyperliquid deposit validates spot USDC balance', async () => {
   }
 });
 
+test('dry-run HL native bridge deposit validates Arbitrum->Bridge2 route', async () => {
+  const prevArbitrumKey = process.env.ARBITRUM_PRIVATE_KEY;
+  const prevBaseKey = process.env.BASE_PRIVATE_KEY;
+  const prevHlAccount = process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+
+  delete process.env.ARBITRUM_PRIVATE_KEY;
+  delete process.env.BASE_PRIVATE_KEY;
+  delete process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+
+  try {
+    const result = await runInstruction({
+      instruction: 'deposit 10 USDC from arbitrum to hyperliquid',
+      dryRun: true,
+      policyPath: fromRoot('tests', 'fixtures', 'policy.all-ops.json')
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.intent.action, 'hl_bridge_deposit');
+    assert.equal(result.result.connector, 'hyperliquid_bridge');
+    assert.equal(result.result.preflight.transfer.walletReady, false);
+  } finally {
+    if (prevArbitrumKey == null) delete process.env.ARBITRUM_PRIVATE_KEY;
+    else process.env.ARBITRUM_PRIVATE_KEY = prevArbitrumKey;
+
+    if (prevBaseKey == null) delete process.env.BASE_PRIVATE_KEY;
+    else process.env.BASE_PRIVATE_KEY = prevBaseKey;
+
+    if (prevHlAccount == null) delete process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+    else process.env.HYPERLIQUID_ACCOUNT_ADDRESS = prevHlAccount;
+  }
+});
+
+test('dry-run HL native bridge withdraw validates recipient + route', async () => {
+  const prevAccount = process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+  delete process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+
+  try {
+    const result = await runInstruction({
+      instruction:
+        'withdraw 6 USDC from hyperliquid to arbitrum to 0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6',
+      dryRun: true,
+      policyPath: fromRoot('tests', 'fixtures', 'policy.all-ops.json')
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.intent.action, 'hl_bridge_withdraw');
+    assert.equal(result.result.connector, 'hyperliquid_bridge');
+    assert.equal(result.result.preflight.hyperliquid.walletReady, false);
+  } finally {
+    if (prevAccount == null) delete process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
+    else process.env.HYPERLIQUID_ACCOUNT_ADDRESS = prevAccount;
+  }
+});
+
+test('bridge route touching Hyperliquid fails with explicit NOT_SUPPORTED', async () => {
+  const result = await runInstruction({
+    instruction: 'bridge 5 USDC from base to hyperliquid to 0x1113b4e00397997ebdaac95ceb90cf97bd4d51dd',
+    dryRun: true,
+    policyPath: fromRoot('tests', 'fixtures', 'policy.all-ops.json')
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, 'DEBRIDGE_HYPERLIQUID_ROUTE_NOT_SUPPORTED');
+});
+
 test('dry-run cancel validates open order presence', async () => {
   const prevAccount = process.env.HYPERLIQUID_ACCOUNT_ADDRESS;
   process.env.HYPERLIQUID_ACCOUNT_ADDRESS = '0x1111111111111111111111111111111111111111';
@@ -554,7 +619,7 @@ test('live execution enforces mandatory key segregation configuration', async ()
 
   try {
     const result = await runInstruction({
-      instruction: 'send 0.001 ETH to 0x000000000000000000000000000000000000dEaD on base',
+      instruction: 'send 0.001 ETH to 0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6 on base',
       policyPath: fromRoot('config', 'policy.live.example.json')
     });
 

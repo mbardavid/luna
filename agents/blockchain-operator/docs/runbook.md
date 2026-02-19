@@ -36,6 +36,8 @@ node src/cli.mjs execute --instruction "buy 0.001 BTC perp at market on hyperliq
 node src/cli.mjs execute --instruction "buy 0.001 BTC perp at market on hyperliquid" --policy config/policy.live.json
 node src/cli.mjs execute --instruction "deposit 1 USDC to hyperliquid perp" --policy config/policy.live.json --dry-run
 node src/cli.mjs execute --instruction "deposit 1 USDC to hyperliquid perp" --policy config/policy.live.json
+node src/cli.mjs execute --instruction "deposit 10 USDC from arbitrum to hyperliquid" --policy config/policy.live.json --dry-run
+node src/cli.mjs execute --instruction "withdraw 6 USDC from hyperliquid to arbitrum to 0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6" --policy config/policy.live.json --dry-run
 node src/cli.mjs execute --instruction "/saldo" --policy config/policy.live.json --dry-run
 node src/cli.mjs execute-native --command saldo --policy config/policy.live.json --dry-run
 ```
@@ -48,6 +50,8 @@ node src/cli.mjs execute-plane --payload-file docs/examples/a2a-v1/swap-jupiter.
 
 # Live A2A
 node src/cli.mjs execute-plane --payload-file docs/examples/a2a-v1/bridge.json --policy config/policy.live.json
+node src/cli.mjs execute-plane --payload-file docs/examples/a2a-v1/hyperliquid-bridge-deposit.json --policy config/policy.live.json
+node src/cli.mjs execute-plane --payload-file docs/examples/a2a-v1/hyperliquid-bridge-withdraw.json --policy config/policy.live.json
 
 # Bateria completa de dry-runs A2A v1
 npm run dry-run:a2a
@@ -105,6 +109,41 @@ Limitações atuais:
 - operação move saldo entre classes internas Hyperliquid (`spot <-> perp`), **não** faz bridge L1 de Base/Solana;
 - requer `HYPERLIQUID_ACCOUNT_ADDRESS` + `HYPERLIQUID_API_WALLET_PRIVATE_KEY` válidos.
 
+### Procedimento: bridge nativo Arbitrum <-> Hyperliquid
+
+#### A) Arbitrum -> Hyperliquid (`hyperliquid.bridge.deposit`)
+
+1. Confirmar rota e mínimo (`HYPERLIQUID_BRIDGE_MIN_DEPOSIT_USDC`, default 5 USDC).
+2. Dry-run:
+
+```bash
+node src/cli.mjs execute --instruction "deposit 10 USDC from arbitrum to hyperliquid" --policy config/policy.live.json --dry-run
+```
+
+3. Validar `preflight.accountCheck.accountMatch=true` (mesmo endereço Arbitrum e conta HL).
+4. Live:
+
+```bash
+node src/cli.mjs execute --instruction "deposit 10 USDC from arbitrum to hyperliquid" --policy config/policy.live.json
+```
+
+#### B) Hyperliquid -> Arbitrum (`hyperliquid.bridge.withdraw`)
+
+1. Dry-run com recipient allowlisted explícito:
+
+```bash
+node src/cli.mjs execute --instruction "withdraw 6 USDC from hyperliquid to arbitrum to 0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6" --policy config/policy.live.json --dry-run
+```
+
+2. Validar saldo spot USDC quando disponível (`preflight.hyperliquid.checks.freeUsdc`).
+3. Live:
+
+```bash
+node src/cli.mjs execute --instruction "withdraw 6 USDC from hyperliquid to arbitrum to 0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6" --policy config/policy.live.json
+```
+
+> `bridge` deBridge tocando `hyperliquid` diretamente retorna `DEBRIDGE_HYPERLIQUID_ROUTE_NOT_SUPPORTED` com passos recomendados via Arbitrum.
+
 ---
 
 ## Guardrails vigentes
@@ -112,8 +151,9 @@ Limitações atuais:
 - Mainnet-only (`execution.allowMainnetOnly=true`)
 - Recipient policy/allowlist em operações de saída (+ recipient explícito quando informado)
 - Hyperliquid como `destination_l3`
-- Bridge source permitido apenas Base/Solana
+- Bridge source permitido: Base/Solana/Arbitrum/Hyperliquid (policy)
 - Bridge provider permitido: `debridge`
+- Rotas deBridge com `hyperliquid` direto são bloqueadas explicitamente (`DEBRIDGE_HYPERLIQUID_ROUTE_NOT_SUPPORTED`) e exigem pipeline via Arbitrum native bridge
 - Idempotência + circuit breaker ativos
 - Auditoria append-only por execução
 - Segregação obrigatória de chaves (`requireKeySegregation=true`)
@@ -131,7 +171,7 @@ Limitações atuais:
 - [ ] `A2A_ALLOW_UNSIGNED_LIVE=false`
 - [ ] `allowlists.recipients` revisada e mínima
 - [ ] `allowlists.assets` revisada por estratégia
-- [ ] `BASE_PRIVATE_KEY`, `SOLANA_PRIVATE_KEY_*`, `HYPERLIQUID_API_WALLET_PRIVATE_KEY` segregadas
+- [ ] `BASE_PRIVATE_KEY`, `ARBITRUM_PRIVATE_KEY` (ou fallback consciente), `SOLANA_PRIVATE_KEY_*`, `HYPERLIQUID_API_WALLET_PRIVATE_KEY` revisadas
 - [ ] `config/policy.live.json` validado + versionado
 
 ### Operação contínua

@@ -10,6 +10,7 @@ const execFileAsync = promisify(execFile);
 
 const DEFAULT_MAINNET_API_URL = 'https://api.hyperliquid.xyz';
 const DEFAULT_SLIPPAGE_BPS = 50;
+const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 
 function normalizePrivateKey(value) {
   if (!value) return null;
@@ -678,6 +679,74 @@ export class HyperliquidConnector {
     };
   }
 
+  async preflightBridgeWithdraw(intent) {
+    if (String(intent.asset).toUpperCase() !== 'USDC') {
+      throw new OperatorError('HL_BRIDGE_WITHDRAW_ASSET_UNSUPPORTED', 'Hyperliquid bridge withdraw suporta apenas USDC', {
+        asset: intent.asset
+      });
+    }
+
+    const amount = Number(intent.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new OperatorError('HL_NUMBER_INVALID', 'amount inválido para bridge withdraw', {
+        amount: intent.amount
+      });
+    }
+
+    const recipient = String(intent.recipient ?? '').trim();
+    if (!EVM_ADDRESS.test(recipient)) {
+      throw new OperatorError('HL_BRIDGE_WITHDRAW_RECIPIENT_INVALID', 'recipient inválido para withdraw3 (EVM)', {
+        recipient: intent.recipient
+      });
+    }
+
+    const accountAddress = this.getAccountAddress();
+    if (!accountAddress) {
+      return {
+        chain: 'hyperliquid',
+        action: 'hl_bridge_withdraw',
+        fromChain: 'hyperliquid',
+        toChain: 'arbitrum',
+        asset: 'USDC',
+        amount,
+        recipient,
+        walletReady: false,
+        note: 'HYPERLIQUID_ACCOUNT_ADDRESS ausente: preflight parcial (sem validação de saldo).'
+      };
+    }
+
+    const spotState = await this.info({ type: 'spotClearinghouseState', user: accountAddress });
+    const balances = Array.isArray(spotState?.balances) ? spotState.balances : [];
+    const usdc = balances.find((row) => String(row?.coin ?? '').toUpperCase() === 'USDC');
+    const freeUsdc = usdc ? Number(usdc.total ?? 0) - Number(usdc.hold ?? 0) : 0;
+
+    if (freeUsdc < amount) {
+      throw new OperatorError(
+        'HL_BRIDGE_WITHDRAW_BALANCE_INSUFFICIENT',
+        'Saldo USDC spot insuficiente para withdraw3',
+        {
+          freeUsdc,
+          requestedAmount: amount,
+          recipient
+        }
+      );
+    }
+
+    return {
+      chain: 'hyperliquid',
+      action: 'hl_bridge_withdraw',
+      fromChain: 'hyperliquid',
+      toChain: 'arbitrum',
+      asset: 'USDC',
+      amount,
+      recipient,
+      walletReady: this.hasLiveCredentials(),
+      checks: {
+        freeUsdc
+      }
+    };
+  }
+
   async deposit(intent) {
     this.ensureLiveCredentials();
 
@@ -707,6 +776,33 @@ export class HyperliquidConnector {
       preflight,
       nonce,
       expiresAfter,
+      bridge
+    };
+  }
+
+  async withdrawFromBridge(intent) {
+    this.ensureLiveCredentials();
+
+    const preflight = await this.preflightBridgeWithdraw(intent);
+
+    const bridge = await this.callBridge({
+      operation: 'bridge_withdraw',
+      apiUrl: this.apiUrl,
+      accountAddress: this.getAccountAddress(),
+      apiWalletPrivateKey: this.apiWalletPrivateKey,
+      vaultAddress: this.vaultAddress,
+      withdraw: {
+        amount: Number(intent.amount),
+        destination: String(intent.recipient)
+      }
+    });
+
+    this.ensureExchangeAccepted(bridge.response);
+
+    return {
+      chain: 'hyperliquid',
+      action: 'hl_bridge_withdraw',
+      preflight,
       bridge
     };
   }

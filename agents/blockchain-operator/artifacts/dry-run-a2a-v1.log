@@ -1,0 +1,130 @@
+
+> openclaw-blockchain-operator@0.1.0 dry-run:a2a
+> node scripts/dry-run-a2a-v1.mjs
+
+{
+  "ok": true,
+  "artifact": "/home/openclaw/.openclaw/workspace/agents/blockchain-operator/artifacts/dry-run-a2a-v1-results.json",
+  "results": [
+    {
+      "file": "bridge.json",
+      "operation": "bridge",
+      "ok": true,
+      "code": null,
+      "latencyMs": 14,
+      "runId": "run_1771385368747_a0eee7a8",
+      "connector": "debridge",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "swap-jupiter.json",
+      "operation": "swap.jupiter",
+      "ok": true,
+      "code": null,
+      "latencyMs": 4,
+      "runId": "run_1771385368761_27440817",
+      "connector": "jupiter",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "swap-raydium.json",
+      "operation": "swap.raydium",
+      "ok": true,
+      "code": null,
+      "latencyMs": 3,
+      "runId": "run_1771385368765_aed6e5ae",
+      "connector": "raydium",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "swap-pumpfun.json",
+      "operation": "swap.pumpfun",
+      "ok": true,
+      "code": null,
+      "latencyMs": 2,
+      "runId": "run_1771385368768_22af9354",
+      "connector": "pumpfun",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "defi-deposit.json",
+      "operation": "defi.deposit",
+      "ok": true,
+      "code": null,
+      "latencyMs": 8,
+      "runId": "run_1771385368770_2a756620",
+      "connector": "defi",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "defi-withdraw.json",
+      "operation": "defi.withdraw",
+      "ok": true,
+      "code": null,
+      "latencyMs": 3,
+      "runId": "run_1771385368778_8457d980",
+      "connector": "defi",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "hyperliquid-spot-order.json",
+      "operation": "hyperliquid.spot.order",
+      "ok": true,
+      "code": null,
+      "latencyMs": 3,
+      "runId": "run_1771385368781_226166a6",
+      "connector": "hyperliquid",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "hyperliquid-perp-order.json",
+      "operation": "hyperliquid.perp.order",
+      "ok": true,
+      "code": null,
+      "latencyMs": 2,
+      "runId": "run_1771385368784_045da6ff",
+      "connector": "hyperliquid",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "transfer.json",
+      "operation": "transfer",
+      "ok": true,
+      "code": null,
+      "latencyMs": 2,
+      "runId": "run_1771385368786_32b91ee9",
+      "connector": "base",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "send.json",
+      "operation": "send",
+      "ok": true,
+      "code": null,
+      "latencyMs": 2,
+      "runId": "run_1771385368788_0c44adc7",
+      "connector": "solana",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "hyperliquid-cancel.json",
+      "operation": "hyperliquid.cancel",
+      "ok": true,
+      "code": null,
+      "latencyMs": 2,
+      "runId": "run_1771385368790_78c22982",
+      "connector": "hyperliquid",
+      "planMode": "dry-run"
+    },
+    {
+      "file": "hyperliquid-modify.json",
+      "operation": "hyperliquid.modify",
+      "ok": true,
+      "code": null,
+      "latencyMs": 2,
+      "runId": "run_1771385368792_33edc1cd",
+      "connector": "hyperliquid",
+      "planMode": "dry-run"
+    }
+  ]
+}

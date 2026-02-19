@@ -1,0 +1,242 @@
+
+> openclaw-blockchain-operator@0.1.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: execution-plane live rejects unsigned payload when A2A enforce mode is active
+ok 1 - execution-plane live rejects unsigned payload when A2A enforce mode is active
+  ---
+  duration_ms: 7.678567
+  type: 'test'
+  ...
+# Subtest: execution-plane accepts valid signature and blocks replayed nonce
+ok 2 - execution-plane accepts valid signature and blocks replayed nonce
+  ---
+  duration_ms: 19.931939
+  type: 'test'
+  ...
+# Subtest: jupiter live connector executes quote/build/send flow
+ok 3 - jupiter live connector executes quote/build/send flow
+  ---
+  duration_ms: 2.861446
+  type: 'test'
+  ...
+# Subtest: raydium live connector executes quote/build/send flow
+ok 4 - raydium live connector executes quote/build/send flow
+  ---
+  duration_ms: 1.464628
+  type: 'test'
+  ...
+# Subtest: pumpfun live connector executes trade/send flow
+ok 5 - pumpfun live connector executes trade/send flow
+  ---
+  duration_ms: 1.141638
+  type: 'test'
+  ...
+# Subtest: defi connector dispatches deposit and withdraw through protocol adapter
+ok 6 - defi connector dispatches deposit and withdraw through protocol adapter
+  ---
+  duration_ms: 1.470383
+  type: 'test'
+  ...
+# Subtest: debridge live connector executes source tx and basic tracking
+ok 7 - debridge live connector executes source tx and basic tracking
+  ---
+  duration_ms: 2.142374
+  type: 'test'
+  ...
+# Subtest: execution payload schema validates + normalizes transfer intent
+ok 8 - execution payload schema validates + normalizes transfer intent
+  ---
+  duration_ms: 3.900965
+  type: 'test'
+  ...
+# Subtest: execution payload schema rejects invalid correlationId format
+ok 9 - execution payload schema rejects invalid correlationId format
+  ---
+  duration_ms: 0.982581
+  type: 'test'
+  ...
+# Subtest: execution plane dry-run transfer pipeline succeeds
+ok 10 - execution plane dry-run transfer pipeline succeeds
+  ---
+  duration_ms: 11.731303
+  type: 'test'
+  ...
+# Subtest: execution plane send preserves recipient policy guardrails
+ok 11 - execution plane send preserves recipient policy guardrails
+  ---
+  duration_ms: 1.624722
+  type: 'test'
+  ...
+# Subtest: execution plane supports Jupiter swap dry-run with live connector path
+ok 12 - execution plane supports Jupiter swap dry-run with live connector path
+  ---
+  duration_ms: 4.083675
+  type: 'test'
+  ...
+# Subtest: execution plane supports Raydium swap dry-run
+ok 13 - execution plane supports Raydium swap dry-run
+  ---
+  duration_ms: 3.224187
+  type: 'test'
+  ...
+# Subtest: execution plane supports Pump.fun trade dry-run
+ok 14 - execution plane supports Pump.fun trade dry-run
+  ---
+  duration_ms: 4.005078
+  type: 'test'
+  ...
+# Subtest: execution plane supports DeFi deposit dry-run via adapter pattern
+ok 15 - execution plane supports DeFi deposit dry-run via adapter pattern
+  ---
+  duration_ms: 6.542557
+  type: 'test'
+  ...
+# Subtest: execution plane supports deBridge preflight dry-run
+ok 16 - execution plane supports deBridge preflight dry-run
+  ---
+  duration_ms: 3.631947
+  type: 'test'
+  ...
+# Subtest: execution plane supports Hyperliquid perp order dry-run with structured payload
+ok 17 - execution plane supports Hyperliquid perp order dry-run with structured payload
+  ---
+  duration_ms: 3.625649
+  type: 'test'
+  ...
+# Subtest: pipeline parser->plan->execute dry-run for Hyperliquid order
+ok 18 - pipeline parser->plan->execute dry-run for Hyperliquid order
+  ---
+  duration_ms: 15.331473
+  type: 'test'
+  ...
+# Subtest: dry-run cancel validates open order presence
+ok 19 - dry-run cancel validates open order presence
+  ---
+  duration_ms: 3.02237
+  type: 'test'
+  ...
+# Subtest: dry-run modify executes parser->plan->preflight for current+new order
+ok 20 - dry-run modify executes parser->plan->preflight for current+new order
+  ---
+  duration_ms: 2.752703
+  type: 'test'
+  ...
+# Subtest: policy guardrails apply default slippage + notional for HL market order
+ok 21 - policy guardrails apply default slippage + notional for HL market order
+  ---
+  duration_ms: 3.573052
+  type: 'test'
+  ...
+# Subtest: policy guardrail maxOrderSize blocks oversized HL orders
+ok 22 - policy guardrail maxOrderSize blocks oversized HL orders
+  ---
+  duration_ms: 0.714099
+  type: 'test'
+  ...
+# Subtest: idempotency key stays stable with policy hydration market refs
+ok 23 - idempotency key stays stable with policy hydration market refs
+  ---
+  duration_ms: 3.300551
+  type: 'test'
+  ...
+# Subtest: live execution enforces mandatory key segregation configuration
+ok 24 - live execution enforces mandatory key segregation configuration
+  ---
+  duration_ms: 1.735394
+  type: 'test'
+  ...
+# Subtest: bridge requires explicit whitelisted recipient when withdrawals are restricted
+ok 25 - bridge requires explicit whitelisted recipient when withdrawals are restricted
+  ---
+  duration_ms: 1.089109
+  type: 'test'
+  ...
+# Subtest: nonce coordinator emits unique monotonic nonces under concurrency
+ok 26 - nonce coordinator emits unique monotonic nonces under concurrency
+  ---
+  duration_ms: 58.653493
+  type: 'test'
+  ...
+# Subtest: parse /saldo command for consolidated balance
+ok 27 - parse /saldo command for consolidated balance
+  ---
+  duration_ms: 2.661617
+  type: 'test'
+  ...
+# Subtest: parse PT transfer -> solana
+ok 28 - parse PT transfer -> solana
+  ---
+  duration_ms: 1.272817
+  type: 'test'
+  ...
+# Subtest: parse EN transfer -> base inferred by address
+ok 29 - parse EN transfer -> base inferred by address
+  ---
+  duration_ms: 0.442902
+  type: 'test'
+  ...
+# Subtest: parse HL order with risk fields
+ok 30 - parse HL order with risk fields
+  ---
+  duration_ms: 2.395057
+  type: 'test'
+  ...
+# Subtest: parse HL cancel by oid
+ok 31 - parse HL cancel by oid
+  ---
+  duration_ms: 0.894455
+  type: 'test'
+  ...
+# Subtest: parse HL modify by cloid
+ok 32 - parse HL modify by cloid
+  ---
+  duration_ms: 0.910753
+  type: 'test'
+  ...
+# Subtest: parse bridge route
+ok 33 - parse bridge route
+  ---
+  duration_ms: 0.955444
+  type: 'test'
+  ...
+# Subtest: policy checks pass for dry-run transfer
+ok 34 - policy checks pass for dry-run transfer
+  ---
+  duration_ms: 1.03942
+  type: 'test'
+  ...
+# Subtest: policy checks pass for /saldo command
+ok 35 - policy checks pass for /saldo command
+  ---
+  duration_ms: 0.498014
+  type: 'test'
+  ...
+# Subtest: aggregates balances with mark-to-market and hyperliquid equity subtotal
+ok 36 - aggregates balances with mark-to-market and hyperliquid equity subtotal
+  ---
+  duration_ms: 42.477975
+  type: 'test'
+  ...
+# Subtest: marks asset as N/A when no reliable price is available
+ok 37 - marks asset as N/A when no reliable price is available
+  ---
+  duration_ms: 2.761488
+  type: 'test'
+  ...
+# Subtest: formatter keeps Discord-friendly line layout without markdown table
+ok 38 - formatter keeps Discord-friendly line layout without markdown table
+  ---
+  duration_ms: 1.099113
+  type: 'test'
+  ...
+1..38
+# tests 38
+# suites 0
+# pass 38
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5220.56315
