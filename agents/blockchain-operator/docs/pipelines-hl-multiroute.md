@@ -59,3 +59,45 @@ Resumo da expansão de rotas/pipelines e seus limites de confiança.
 - **Arbitrum boundary:** execução on-chain ERC20 (USDC) para Bridge2.
 - **Hyperliquid boundary:** assinatura API wallet para ações L1 (`usdClassTransfer`, `withdraw3`, ordens).
 - **Operational boundary:** idempotência + breaker + audit log append-only.
+
+---
+
+## Execução validada (canário real) — 2026-02-20
+
+Objetivo: validar pipeline multi-step completo com teto de custo <= 10 USDC (origem Solana).
+
+### Pré-condições que se provaram necessárias
+
+1. **Identidade única EVM/HL**
+   - `HYPERLIQUID_ACCOUNT_ADDRESS` deve casar com signer EVM usado em Arbitrum.
+   - `HYPERLIQUID_API_WALLET_PRIVATE_KEY` deve assinar para a mesma conta HL operacional.
+
+2. **Gas em Arbitrum**
+   - Necessário ETH para tx do depósito Bridge2.
+   - Pipeline recomendado: bridge de pequena fração de USDC para ETH em Arbitrum antes do depósito nativo.
+
+3. **Allowlist de recipient**
+   - Recipient EVM operacional precisa estar em `allowlists.recipients` para bridges Solana/Base -> Arbitrum.
+
+### Sequência executada (live)
+
+1. Bridge `SOLANA USDC -> ARBITRUM USDC` para EVM operacional.
+2. Bridge `SOLANA USDC -> ARBITRUM ETH` para financiar gas.
+3. `deposit` nativo `ARBITRUM -> HYPERLIQUID` via Bridge2 (USDC).
+4. `withdraw` nativo `HYPERLIQUID -> ARBITRUM` via `withdraw3`.
+
+### Comportamentos observados
+
+- `withdraw3` com **1 USDC** falha por limite/fee mínima de saque (`Withdrawal is smaller than fee`).
+- `withdraw3` com **2 USDC** retornou `status: ok` no endpoint HL.
+- Confirmação final deve considerar latência de liquidação/credito no destino.
+
+### Playbook reutilizável (resumido)
+
+- **Step A:** garantir identidade HL == signer EVM.
+- **Step B:** garantir recipient allowlisted.
+- **Step C:** bridge USDC -> Arbitrum (principal do teste).
+- **Step D:** bridge pequena parcela USDC -> ETH (gas budget).
+- **Step E:** deposit Bridge2 (>= mínimo da plataforma).
+- **Step F:** withdraw3 com valor acima da taxa mínima.
+- **Step G:** reconciliar saldos on-chain + estado HL antes de nova iteração.
