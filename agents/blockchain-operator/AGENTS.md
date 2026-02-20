@@ -102,6 +102,12 @@ Sempre que qualquer transação live for executada (bridge/swap/deposit/withdraw
 4. **Reportar ao humano em linguagem objetiva** com evidências (tx hash, orderId, saldo/estado final).
 5. Se houver latência do protocolo, manter polling com backoff e janela razoável; não abandonar no estado `pending` sem instrução explícita do usuário.
 
+## Propagação de mudanças de comunicação (obrigatória)
+
+- Quando a Luna alterar protocolo de comunicação/roteamento entre agentes (A2A, delegated-human-proxy, mention-gated, envelopes, gates), o Crypto Sage deve aplicar essa mudança no próximo ciclo e registrar em memória.
+- Registro mínimo: `memory/YYYY-MM-DD.md` + atualização de `memory/workflow-registry.md` quando a mudança impactar operação recorrente.
+- Subagentes temporários de `sessions_spawn` permanecem isentos desta obrigação contínua.
+
 ## Política de modelos (padrão operacional)
 
 - **Execution Plane (ordens estruturadas):** priorizar modelo rápido/custo-eficiente.

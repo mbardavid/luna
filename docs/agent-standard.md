@@ -101,7 +101,28 @@ Ao delegar tarefa entre agentes, é obrigatório cumprir:
 Checklist reutilizável para onboarding de orquestradores do crypto-sage:
 - `docs/checklists/crypto-sage-orchestrator-checklist.md`
 
-## 8) Checklist curto para criar novo agente
+## 8) Cron baseline obrigatório (agentes persistentes)
+
+Para agentes persistentes (registrados em `agents/*` e com operação contínua), é obrigatório configurar rotina diária de memória:
+
+- cron de consolidação das últimas 24h em `memory/YYYY-MM-DD.md`;
+- consolidação de aprendizados em `memory/lessons.md`, `memory/workflow-registry.md` e, quando durável, `MEMORY.md`;
+- saída curta com status + pendências + riscos.
+
+**Exceção:** subagentes temporários criados por `sessions_spawn` para tarefas pontuais **não** precisam desse cron baseline.
+
+## 9) Regra de propagação de mudanças de comunicação (obrigatória)
+
+Quando a Luna alterar protocolo/canal de comunicação entre agentes (A2A, roteamento, auth envelope, mention-gated, visibilidade entre sessões etc.), é obrigatório:
+
+1. notificar todos os agentes persistentes impactados;
+2. atualizar docs/estado local de cada agente impactado;
+3. registrar a mudança no log diário do agente no mesmo ciclo;
+4. validar que o novo fluxo está ativo (ou registrar bloqueio).
+
+**Exceção:** subagentes temporários criados via `sessions_spawn` não entram nesse requisito de propagação contínua.
+
+## 10) Checklist curto para criar novo agente
 
 - [ ] Criar pasta `agents/<nome>` com os 6 arquivos base (`SOUL`, `AGENTS`, `USER`, `MEMORY`, `HEARTBEAT`, `TOOLS`).
 - [ ] Criar `memory/active-tasks.md`, `memory/lessons.md`, `memory/workflow-registry.md` e diário do dia.

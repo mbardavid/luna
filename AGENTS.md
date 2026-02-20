@@ -10,6 +10,8 @@ From **2026-02-18 onward**, the official standard for creating new agents in thi
 
 All new agents under `agents/*` must follow this bootstrap (core identity files, continuous memory files, security conventions, lessons-learned routine, and workflow registry).
 
+For persistent agents, daily memory consolidation via cron is mandatory. This does **not** apply to temporary subagents spawned for one-off tasks.
+
 Para handoffs entre agentes (orquestração A2A), siga também o padrão obrigatório em:
 
 - `docs/agent-orchestration-a2a.md`
@@ -78,6 +80,7 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 - Em `delegated-human-proxy`: `read/diagnostic` podem seguir sem confirmação extra; `sensitive/live` exigem autorização válida + auditoria registrada.
 - Promotion flow is always gated: `dev -> simulated -> live`, with mandatory rollback plan.
 - If TaskSpec/state/gates are missing, stop promotion and fix governance first.
+- **Propagation rule (mandatory):** whenever Luna changes inter-agent communication/routing/protocol, all persistent agents must be notified and must record/apply the update in their own docs/state at the next run. Temporary `sessions_spawn` subagents are exempt.
 
 ## External vs Internal
 
