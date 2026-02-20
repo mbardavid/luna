@@ -25,7 +25,8 @@
     "recipients": [
       "HSGfLrCiMpnGW8o7qhad79JU6aZH1TW37tpsqdRhuUPx",
       "0x3dd3b88Ee622415DD85a73E5274d29d52BF2a4c6",
-      "0x1113b4e00397997ebdaac95ceb90cf97bd4d51dd"
+      "0x1113b4e00397997ebdaac95ceb90cf97bd4d51dd",
+      "0xa1464EB4f86958823b0f24B3CF5Ac2b8134D6bb1"
     ],
     "contracts": [],
     "bridgeRoutes": [
