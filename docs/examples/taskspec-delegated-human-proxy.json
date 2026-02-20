@@ -1,0 +1,122 @@
+{
+  "taskSpecVersion": "1.0",
+  "handoffId": "hs_20260218_proxy_0007",
+  "correlationId": "corr_user_proxy_cycle_44",
+  "createdAt": "2026-02-18T19:37:00Z",
+  "source": {
+    "agentId": "decision-router",
+    "sessionId": "agent:main:subagent:proxy-44"
+  },
+  "target": {
+    "agentId": "blockchain-operator",
+    "capability": "execution-plane"
+  },
+  "routing": {
+    "strategy": "capability",
+    "routeKey": "crypto-sage.execution-plane.v1"
+  },
+  "mode": "live",
+  "authorship": {
+    "mode": "delegated-human-proxy",
+    "delegationPolicy": {
+      "policyRef": "policies/delegation/user-main-v1.json",
+      "allowAgents": [
+        "blockchain-operator"
+      ],
+      "allowChannels": [
+        "discord:channel:1473392629055098942"
+      ],
+      "allowTasks": [
+        "transfer",
+        "swap.jupiter"
+      ]
+    },
+    "envelope": {
+      "principal": {
+        "id": "user:main",
+        "type": "human"
+      },
+      "delegateAgent": {
+        "agentId": "decision-router",
+        "sessionId": "agent:main:subagent:proxy-44"
+      },
+      "scope": {
+        "agents": [
+          "blockchain-operator"
+        ],
+        "channels": [
+          "discord:channel:1473392629055098942"
+        ],
+        "tasks": [
+          "transfer"
+        ]
+      },
+      "ttl": {
+        "issuedAt": "2026-02-18T19:36:30Z",
+        "expiresAt": "2026-02-18T19:46:30Z"
+      },
+      "proof": {
+        "algorithm": "hmac-sha256-v1",
+        "signature": "d1f93c74c4b5f96c7f7d4d8d1a7f4b8c",
+        "hash": "sha256:ae9132cf4d70c9c8dc4ab1879ba4fd89"
+      }
+    },
+    "risk": {
+      "classification": "live",
+      "requiresConfirmation": true,
+      "authorizationRef": "authz_20260218_user-main_009"
+    },
+    "mentionDelegationMode": "gated",
+    "mentionDelegation": {
+      "channel": "discord:channel:1473392629055098942",
+      "messageId": "1473395000000000001",
+      "originBotId": "decision-router",
+      "targetBotId": "blockchain-operator",
+      "observedAt": "2026-02-18T19:36:58Z",
+      "ttlSeconds": 300,
+      "dedupeBy": "messageId"
+    }
+  },
+  "intent": {
+    "operation": "transfer",
+    "inputSchemaRef": "agents/blockchain-operator/config/execution-plane.schema.v1.json",
+    "input": {
+      "chain": "solana",
+      "asset": "SOL",
+      "amount": "0.05",
+      "to": "8YxSExampleRecipient111111111111111111111111"
+    }
+  },
+  "acceptance": {
+    "doneWhen": [
+      "Resposta ok=true com runId",
+      "Autorização delegated-human-proxy validada",
+      "Gate de mentionDelegationMode=gated passou (anti-loop+dedupe+TTL)",
+      "audit.delegation preenchido"
+    ]
+  },
+  "safety": {
+    "e2eActor": "human",
+    "allowExternalSideEffects": true,
+    "requiresHumanApproval": true
+  },
+  "rollback": {
+    "required": true,
+    "planRef": "agents/blockchain-operator/docs/runbook.md",
+    "trigger": "Falha live ou decisão de risco indevida"
+  },
+  "audit": {
+    "requestId": "req_20260218_0099",
+    "idempotencyKey": "idem_proxy_0099",
+    "traceId": "trace_proxy_0099",
+    "delegation": {
+      "policyRef": "policies/delegation/user-main-v1.json",
+      "envelopeHash": "sha256:ae9132cf4d70c9c8dc4ab1879ba4fd89",
+      "riskClassification": "live",
+      "authorizationRef": "authz_20260218_user-main_009",
+      "decision": "allowed",
+      "validatedAt": "2026-02-18T19:37:00Z",
+      "recordedBy": "decision-router"
+    }
+  }
+}

@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openclaw.local/schemas/orchestration-state.schema.json",
+  "title": "A2AOrchestrationState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "updatedAt",
+    "activeHandoffs",
+    "routingTable",
+    "promotion",
+    "rollback",
+    "delegationAuditLog"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "activeHandoffs": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/handoffState"
+      }
+    },
+    "routingTable": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/routeState"
+      }
+    },
+    "promotion": {
+      "$ref": "#/$defs/promotionState"
+    },
+    "rollback": {
+      "$ref": "#/$defs/rollbackState"
+    },
+    "delegationAuditLog": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/delegationAuditEntry"
+      }
+    }
+  },
+  "$defs": {
+    "handoffState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "mode",
+        "sourceAgent",
+        "targetAgent",
+        "routeKey",
+        "lastUpdatedAt"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "blocked",
+            "done",
+            "failed",
+            "rolled_back"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "simulated",
+            "live"
+          ]
+        },
+        "sourceAgent": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64
+        },
+        "targetAgent": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64
+        },
+        "routeKey": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 160
+        },
+        "lastUpdatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastErrorCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
+      }
+    },
+    "routeState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "primaryAgentId"
+      ],
+      "properties": {
+        "capability": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128
+        },
+        "primaryAgentId": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64
+        },
+        "fallbackAgentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 2,
+          "maxLength": 64
+        }
+      }
+    },
+    "promotionState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentStage",
+        "candidateStage",
+        "gateStatus",
+        "lastGatePassed",
+        "approvedBy",
+        "approvedAt"
+      ],
+      "properties": {
+        "currentStage": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "simulated",
+            "live"
+          ]
+        },
+        "candidateStage": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "dev",
+            "simulated",
+            "live",
+            null
+          ]
+        },
+        "gateStatus": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "passed",
+            "failed",
+            "rolled_back"
+          ]
+        },
+        "lastGatePassed": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "G0",
+            "G1",
+            "G2",
+            "G3",
+            "G4",
+            null
+          ]
+        },
+        "approvedBy": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 2,
+          "maxLength": 128
+        },
+        "approvedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "rollbackState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "planRef",
+        "lastRollbackAt",
+        "lastRollbackReason"
+      ],
+      "properties": {
+        "required": {
+          "const": true
+        },
+        "planRef": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 260
+        },
+        "lastRollbackAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "lastRollbackReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 300
+        }
+      }
+    },
+    "delegationAuditEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "handoffId",
+        "principal",
+        "delegateAgent",
+        "task",
+        "riskClassification",
+        "decision",
+        "policyRef",
+        "envelopeHash",
+        "authorizationRef",
+        "recordedAt"
+      ],
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 128
+        },
+        "handoffId": {
+          "type": "string",
+          "pattern": "^hs_[A-Za-z0-9._:-]{8,128}$"
+        },
+        "principal": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 128
+        },
+        "delegateAgent": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64
+        },
+        "task": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 128
+        },
+        "riskClassification": {
+          "type": "string",
+          "enum": [
+            "read",
+            "diagnostic",
+            "sensitive",
+            "live"
+          ]
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "allowed",
+            "denied",
+            "expired",
+            "revoked"
+          ]
+        },
+        "policyRef": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 260
+        },
+        "envelopeHash": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 256
+        },
+        "authorizationRef": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 3,
+          "maxLength": 180
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

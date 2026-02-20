@@ -1,0 +1,156 @@
+[
+  {
+    "file": "file_10---acf66962-8195-4569-81e1-261ffe21eb58.jpg",
+    "bbox": [
+      480,
+      320,
+      800,
+      640
+    ],
+    "grid_x_count": 1,
+    "grid_y_count": 2,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_10---acf66962-8195-4569-81e1-261ffe21eb58.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_10---acf66962-8195-4569-81e1-261ffe21eb58.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_11---0ce7a3fd-1321-4e11-bb0f-ccb274ef1cb7.jpg",
+    "bbox": [
+      480,
+      320,
+      800,
+      640
+    ],
+    "grid_x_count": 1,
+    "grid_y_count": 1,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_11---0ce7a3fd-1321-4e11-bb0f-ccb274ef1cb7.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_11---0ce7a3fd-1321-4e11-bb0f-ccb274ef1cb7.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_12---8d5b6f0e-3016-4490-b771-f6040390223c.jpg",
+    "bbox": [
+      480,
+      320,
+      800,
+      640
+    ],
+    "grid_x_count": 0,
+    "grid_y_count": 1,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_12---8d5b6f0e-3016-4490-b771-f6040390223c.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_12---8d5b6f0e-3016-4490-b771-f6040390223c.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_2---c3bfb389-1640-4fb4-85c2-2701994a7dc5.jpg",
+    "bbox": [
+      371,
+      429,
+      633,
+      709
+    ],
+    "grid_x_count": 9,
+    "grid_y_count": 9,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_2---c3bfb389-1640-4fb4-85c2-2701994a7dc5.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_2---c3bfb389-1640-4fb4-85c2-2701994a7dc5.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_3---8fd5caa4-f3f4-44db-8a8c-7f113bba26f0.jpg",
+    "bbox": [
+      320,
+      480,
+      640,
+      800
+    ],
+    "grid_x_count": 1,
+    "grid_y_count": 0,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_3---8fd5caa4-f3f4-44db-8a8c-7f113bba26f0.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_3---8fd5caa4-f3f4-44db-8a8c-7f113bba26f0.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_4---2bc80fa7-a4a2-44dc-8d4c-d4563c5bee0f.jpg",
+    "bbox": [
+      320,
+      480,
+      640,
+      800
+    ],
+    "grid_x_count": 0,
+    "grid_y_count": 2,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_4---2bc80fa7-a4a2-44dc-8d4c-d4563c5bee0f.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_4---2bc80fa7-a4a2-44dc-8d4c-d4563c5bee0f.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_5---11aacdbf-4c75-4730-ab10-8c6914022196.jpg",
+    "bbox": [
+      480,
+      320,
+      800,
+      640
+    ],
+    "grid_x_count": 1,
+    "grid_y_count": 2,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_5---11aacdbf-4c75-4730-ab10-8c6914022196.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_5---11aacdbf-4c75-4730-ab10-8c6914022196.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_6---ec393c69-4ac4-41bf-9c52-422ebe923525.jpg",
+    "bbox": [
+      320,
+      480,
+      640,
+      800
+    ],
+    "grid_x_count": 0,
+    "grid_y_count": 3,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_6---ec393c69-4ac4-41bf-9c52-422ebe923525.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_6---ec393c69-4ac4-41bf-9c52-422ebe923525.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_7---26e6ccd9-61a5-4403-adea-d9a8ed4a347d.jpg",
+    "bbox": [
+      320,
+      480,
+      640,
+      800
+    ],
+    "grid_x_count": 0,
+    "grid_y_count": 0,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_7---26e6ccd9-61a5-4403-adea-d9a8ed4a347d.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_7---26e6ccd9-61a5-4403-adea-d9a8ed4a347d.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_8---62807ace-00d2-4102-b525-d2ecbfc55ba6.jpg",
+    "bbox": [
+      480,
+      320,
+      800,
+      640
+    ],
+    "grid_x_count": 0,
+    "grid_y_count": 2,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_8---62807ace-00d2-4102-b525-d2ecbfc55ba6.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_8---62807ace-00d2-4102-b525-d2ecbfc55ba6.tile.svg",
+    "vector_ok": true
+  },
+  {
+    "file": "file_9---3c02707e-76ed-4bd2-a06f-675616d802a3.jpg",
+    "bbox": [
+      480,
+      320,
+      800,
+      640
+    ],
+    "grid_x_count": 0,
+    "grid_y_count": 0,
+    "tile_png": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_9---3c02707e-76ed-4bd2-a06f-675616d802a3.tile.png",
+    "tile_svg": "/home/openclaw/.openclaw/workspace/artifacts/azulejo/file_9---3c02707e-76ed-4bd2-a06f-675616d802a3.tile.svg",
+    "vector_ok": true
+  }
+]

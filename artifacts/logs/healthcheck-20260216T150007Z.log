@@ -1,0 +1,16 @@
+# OpenClaw
+2026.2.6-3
+
+# Tooling
+Python 3.10.12
+v22.22.0
+10.9.4
+agent-browser 0.9.1
+
+# Gmail token check
+token.json: OK
+
+# Quick browser check
+WROTE: artifacts/reports/healthcheck-example.title.txt
+WROTE: artifacts/reports/healthcheck-example.snapshot.txt
+WROTE: artifacts/reports/healthcheck-example.png

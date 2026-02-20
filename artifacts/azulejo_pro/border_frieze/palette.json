@@ -1,0 +1,22 @@
+{
+  "name": "Border Vine Frieze Tile",
+  "sources": [
+    "file_5",
+    "file_8",
+    "file_9"
+  ],
+  "colors": [
+    "#F6EBD7",
+    "#123E8A",
+    "#2C67B1",
+    "#3D7E7A",
+    "#C9A23A",
+    "#1E2A44"
+  ],
+  "tile": {
+    "width": 1200,
+    "height": 1200,
+    "repeat": "xy"
+  },
+  "symmetry": "pm (mirror strip with translational repeat)"
+}

@@ -1,0 +1,6 @@
+- document:
+  - heading "Example Domain" [ref=e1] [level=1]
+  - paragraph: This domain is for use in documentation examples without needing permission. Avoid use in operations.
+  - paragraph:
+    - link "Learn more" [ref=e2]:
+      - /url: https://iana.org/domains/example

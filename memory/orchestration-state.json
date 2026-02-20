@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "updatedAt": "2026-02-18T19:37:00Z",
+  "activeHandoffs": {},
+  "routingTable": {
+    "crypto-sage.execution-plane.v1": {
+      "capability": "execution-plane",
+      "primaryAgentId": "blockchain-operator",
+      "fallbackAgentId": null
+    }
+  },
+  "promotion": {
+    "currentStage": "dev",
+    "candidateStage": null,
+    "gateStatus": "pending",
+    "lastGatePassed": null,
+    "approvedBy": null,
+    "approvedAt": null
+  },
+  "rollback": {
+    "required": true,
+    "planRef": "agents/blockchain-operator/docs/runbook.md",
+    "lastRollbackAt": null,
+    "lastRollbackReason": null
+  },
+  "delegationAuditLog": []
+}
