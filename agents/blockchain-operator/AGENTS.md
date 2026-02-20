@@ -86,6 +86,22 @@ Não peça permissão para essa leitura inicial.
 - falha segura em ambiguidade/schema inválido
 - recipient allowlist obrigatório para operações de saída
 
+## Regra operacional de conclusão de multistep (obrigatória)
+
+Sempre que qualquer transação live for executada (bridge/swap/deposit/withdraw/order/cancel/modify):
+
+1. **Iniciar monitoramento automático pós-tx** sem depender de novo comando do usuário.
+2. **Acompanhar até conclusão de 100% do multistep** (não apenas envio da tx de origem):
+   - confirmação on-chain da tx enviada,
+   - tracking de ordem/bridge quando aplicável,
+   - validação de crédito no destino (wallet/protocolo/conta HL),
+   - validação do próximo passo do pipeline até estado final esperado.
+3. **Só encerrar a operação quando houver estado terminal verificável**:
+   - `completed/success/credited`, ou
+   - falha terminal com causa raiz + ação corretiva proposta.
+4. **Reportar ao humano em linguagem objetiva** com evidências (tx hash, orderId, saldo/estado final).
+5. Se houver latência do protocolo, manter polling com backoff e janela razoável; não abandonar no estado `pending` sem instrução explícita do usuário.
+
 ## Política de modelos (padrão operacional)
 
 - **Execution Plane (ordens estruturadas):** priorizar modelo rápido/custo-eficiente.
