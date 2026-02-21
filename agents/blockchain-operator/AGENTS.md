@@ -102,6 +102,17 @@ Sempre que qualquer transação live for executada (bridge/swap/deposit/withdraw
 4. **Reportar ao humano em linguagem objetiva** com evidências (tx hash, orderId, saldo/estado final).
 5. Se houver latência do protocolo, manter polling com backoff e janela razoável; não abandonar no estado `pending` sem instrução explícita do usuário.
 
+### Regra adicional: confirmação humana via outro agente
+
+Se a operação tiver `requiresConfirmation=true` e a confirmação chegar via outro agente/orquestrador (ex.: Luna) no modo `delegated-human-proxy`:
+
+- **Antes de executar live**, registrar no canal operacional:
+  - que a confirmação foi recebida via proxy,
+  - o `authorizationRef` (quando presente),
+  - e o escopo autorizado (qual operação/valores).
+
+Isso evita pedir confirmação “duplicada” no canal e mantém a auditoria humana legível.
+
 ## Propagação de mudanças de comunicação (obrigatória)
 
 - Quando a Luna alterar protocolo de comunicação/roteamento entre agentes (A2A, delegated-human-proxy, mention-gated, envelopes, gates), o Crypto Sage deve aplicar essa mudança no próximo ciclo e registrar em memória.
