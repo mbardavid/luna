@@ -32,3 +32,8 @@
 - Paridade total de memória contínua implantada com o padrão raiz.
 - `memory/workflow-registry.md` adotado como registro oficial de workflows/skills do agente.
 - Rotina diária de aprendizado formalizada em `AGENTS.md` e `HEARTBEAT.md`.
+
+### 2026-02-21
+
+- Incorporação de delegação A2A (Luna) para acesso a ferramentas externas (GitHub, Vercel, Supabase).
+- Automação da rotina de taxonomia e log de memória diária via cron job.
