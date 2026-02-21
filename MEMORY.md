@@ -26,4 +26,10 @@
 ## 2026-02-20
 
 - A rotina diária ficou estável com o mesmo padrão operacional (healthcheck + update + logging), reforçando esse trio como baseline de manutenção.
-- O tratamento de update em instalação non-git foi consolidado como regra operacional recorrente (comunicar claramente quando não houver mudança de versão).
+- O tratamento de update em instalação non-git foi consolidado como regra operacional recorrente (comunicar claramente when não houver mudança de versão).
+
+## 2026-02-21
+
+- O fluxo de manutenção diária agora inclui obrigatoriamente uma revisão de taxonomia (Skills/Tools/Workflows), garantindo que aprendizados operacionais sejam movidos para documentação ou configurações permanentes de forma estruturada.
+- Ambiente operacional permanece estável (OpenClaw, Browser, Gmail) sob regime de healthcheck matinal.
+- Consolidado o uso do cron `daily-memory-24h-log` para automação de logging e taxonomia, reforçando a autonomia na destilação de aprendizados diários.
