@@ -30,3 +30,21 @@
   4. Reiniciar o gateway e verificar logs imediatamente.
   5. Se o sistema quebrar, restaurar o backup e reiniciar.
   - **Nunca trocar o modelo com o gateway rodando** — o estado interno pode ficar inconsistente e travar todo o fluxo de agentes.
+- **Sessão do Discord tem modelo gravado independente do config global**: Ao trocar o modelo no `openclaw.json`, a sessão ativa do canal Discord (`agents/main/sessions/sessions.json`) mantém o modelo antigo. **Sempre limpar a sessão do canal após trocar o modelo**, deletando a entrada `agent:main:discord:channel:<id>` antes de reiniciar o gateway.
+- **Procedure correta para trocar modelo**:
+  1. Parar gateway
+  2. Backup do config
+  3. Alterar modelo no config
+  4. Deletar sessão do canal Discord afetado
+  5. Reiniciar gateway
+  6. Verificar logs — confirmar `agent model: <novo-modelo>` e `tool=message` no primeiro run.
+- **`gateway install --force` causa conflito de processos**: Rodar `openclaw gateway install --force` enquanto gateway está ativo cria um novo processo que conflita com o anterior pelo lock file (`gateway already running (pid X); lock timeout`). Resultado: crash loop. **Sempre parar o gateway antes de `gateway install --force`** e garantir que não há processos `openclaw-gateway` rodando com `ps aux | grep openclaw-gateway`.
+- **Delivery queue acumulada causa crash loop**: As 11 `pending delivery entries` acumuladas após múltiplos restarts podem causar falhas no health-monitor e derrubar o gateway em loop. Se o gateway crashar repetidamente após subir, verificar e limpar `/home/openclaw/.openclaw/delivery-queue/*.json` antes de reiniciar.
+- **Como adicionar novo provider de AI corretamente**:
+  1. Rodar `openclaw onboard --non-interactive --accept-risk --<provider>-api-key <key> --skip-channels --skip-skills --skip-health --skip-daemon --skip-ui`
+  2. Verificar auth profile criado no `openclaw.json` (o onboard usa o mode correto, ex: `api_key` para Google)
+  3. Adicionar `Environment=<PROVIDER>_API_KEY=<key>` no arquivo do serviço systemd user
+  4. Rodar `systemctl --user daemon-reload`
+  5. **Não adicionar auth profiles manualmente** — o formato exato (ex: `api_key` vs `api-key`) só é conhecido via onboard.
+- **Modelos Anthropic via Antigravity OAuth disponíveis**: Apenas `claude-opus-4-6-thinking` confirmado funcional. `claude-opus-4-6` (sem thinking) e `claude-sonnet-4-6` retornam 404. `claude-opus-4-5-thinking` e `claude-sonnet-4-5-thinking` também registrados mas não testados.
+- **`systemctl --user reset-failed` necessário após crash loop**: Após o gateway falhar várias vezes, o systemd marca o serviço como `failed` e impede restart. Sempre rodar `systemctl --user reset-failed openclaw-gateway` antes de tentar reiniciar após crash loop.
