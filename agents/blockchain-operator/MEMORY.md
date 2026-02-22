@@ -37,3 +37,10 @@
 
 - Incorporação de delegação A2A (Luna) para acesso a ferramentas externas (GitHub, Vercel, Supabase).
 - Automação da rotina de taxonomia e log de memória diária via cron job.
+- Sucesso na primeira grande operação multi-step live: swap 2 SOL (Jupiter) -> bridge Arbitrum -> deposit Hyperliquid, resultando em saldo final de 230 USDC na HL.
+
+### 2026-02-22
+
+- Estabilização da rotina de memória e taxonomia automática via cron.
+- Continuidade da operação multi-chain (Solana/Arbitrum/Hyperliquid) confirmada e logada.
+- Refinamento do rastreio de delegação vinda de outros agentes (Luna) para controle de workflows internos.

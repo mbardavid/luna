@@ -33,3 +33,9 @@
 - O fluxo de manutenção diária agora inclui obrigatoriamente uma revisão de taxonomia (Skills/Tools/Workflows), garantindo que aprendizados operacionais sejam movidos para documentação ou configurações permanentes de forma estruturada.
 - Ambiente operacional permanece estável (OpenClaw, Browser, Gmail) sob regime de healthcheck matinal.
 - Consolidado o uso do cron `daily-memory-24h-log` para automação de logging e taxonomia, reforçando a autonomia na destilação de aprendizados diários.
+- **Orquestração A2A Unblocked:** Ativada visibilidade global de sessões e `allowBots` no Discord para permitir que a Luna instrua agentes especializados como o Crypto Sage.
+- **Sucesso Operacional:** Concluída a primeira grande operação multi-step delegada: venda de 2 SOL -> bridge para Arbitrum -> depósito na Hyperliquid (total 230 USDC).
+- **GitHub Sync Diário:** Automatizada a sincronização do workspace com o repositório GitHub (`mbardavid/luna`) via cron diário, incluindo filtro automático de segredos.
+- **Acesso Permanente ao X:** Configurada sessão independente no servidor (`browser-profile-x`) com motor Stealth. O login foi realizado via injeção de `auth_token` e `ct0` capturados via Relay, garantindo acesso 24/7 sem dependência do computador do usuário.
+- **NautilusTrader Research:** Clonado o repositório oficial (`nautechsystems/nautilus_trader`) em `research/nautilus_trader`. Iniciada análise de adaptadores para Hyperliquid e Polymarket para futuras estratégias de quant trading e backtesting institucional.
+- **Mission Control Integration:** Iniciada a implementação do dashboard centralizado (`openclaw-mission-control`) para visualização de agentes, monitoramento de sinais A2A e orquestração de missões em tempo real.
