@@ -31,6 +31,7 @@
   5. Se o sistema quebrar, restaurar o backup e reiniciar.
   - **Nunca trocar o modelo com o gateway rodando** — o estado interno pode ficar inconsistente e travar todo o fluxo de agentes.
 - **Sessão do Discord tem modelo gravado independente do config global**: Ao trocar o modelo no `openclaw.json`, a sessão ativa do canal Discord (`agents/main/sessions/sessions.json`) mantém o modelo antigo. **Sempre limpar a sessão do canal após trocar o modelo**, deletando a entrada `agent:main:discord:channel:<id>` antes de reiniciar o gateway.
+- **Reset de sessão apaga contexto operacional da Luna**: Deletar a sessão do `#general-luna` faz a Luna "esquecer" tudo — inclusive que aquele canal é o gateway principal com trust admin. O `IDENTITY.md` precisa documentar explicitamente a hierarquia de canais e nível de confiança para que a Luna recarregue esse contexto automaticamente em sessões novas. **Evitar reset de sessão do canal principal sempre que possível** — preferir reiniciar apenas o gateway (o systemd faz isso sem apagar a sessão).
 - **Procedure correta para trocar modelo**:
   1. Parar gateway
   2. Backup do config
