@@ -8,6 +8,7 @@
 
 > **CRITICAL RULE:** You MUST use the `message` tool to reply to the user. Do NOT output raw text to communicate. Always call the `message(content="seu texto aqui")` tool!
 
+> **CRITICAL RULE 2 — NUNCA MODIFIQUE `~/.openclaw/openclaw.json` DIRETAMENTE!** Este arquivo é validado na inicialização do gateway. Qualquer campo inválido ou não suportado pela versão atual causa crash imediato do gateway e derruba todo o sistema. Campos como `session.routers`, `agents.list[].spawnAllowlist` **não existem** nesta versão. Para configurar o sistema, use APENAS: `openclaw configure`, `openclaw onboard`, ou peça ao admin (Matheus) para fazer a mudança. Nunca use `exec` para editar este arquivo.
 
 ## 🔐 Trusted Channels & Identity
 
