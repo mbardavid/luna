@@ -32,7 +32,9 @@
   - **Nunca trocar o modelo com o gateway rodando** — o estado interno pode ficar inconsistente e travar todo o fluxo de agentes.
 - **Sessão do Discord tem modelo gravado independente do config global**: Ao trocar o modelo no `openclaw.json`, a sessão ativa do canal Discord (`agents/main/sessions/sessions.json`) mantém o modelo antigo. **Sempre limpar a sessão do canal após trocar o modelo**, deletando a entrada `agent:main:discord:channel:<id>` antes de reiniciar o gateway.
 - **Reset de sessão apaga contexto operacional da Luna**: Deletar a sessão do `#general-luna` faz a Luna "esquecer" tudo — inclusive que aquele canal é o gateway principal com trust admin. O `IDENTITY.md` precisa documentar explicitamente a hierarquia de canais e nível de confiança para que a Luna recarregue esse contexto automaticamente em sessões novas. **Evitar reset de sessão do canal principal sempre que possível** — preferir reiniciar apenas o gateway (o systemd faz isso sem apagar a sessão).
-- **Procedure correta para trocar modelo**:
+- **`session.routers` não existe nesta versão do OpenClaw**: Adicionar este campo ao `openclaw.json` faz o gateway crashar na inicialização com `Config invalid: Unrecognized key "routers"`. O gateway entra em crash loop silencioso — o SIGTERM vem do próprio processo saindo com código 1, não do systemd matando. **Nunca adicionar campos manualmente ao `openclaw.json` sem verificar se a versão suporta**. Diagóstico: `journalctl --user -u openclaw-gateway -n 30`.
+- **Diagnóstico de crash loop**: Sempre usar `journalctl --user -u openclaw-gateway -n 30` antes de qualquer outra ação — o journal mostra o motivo real do exit code 1, diferente dos logs do gateway que só mostram o SIGTERM.
+
   1. Parar gateway
   2. Backup do config
   3. Alterar modelo no config
