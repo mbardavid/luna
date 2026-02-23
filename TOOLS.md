@@ -49,6 +49,13 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 - token: `/home/openclaw/.config/gogcli/token.json` (600)
 - scope: `https://www.googleapis.com/auth/gmail.readonly`
 
+### Whisper (Audio Transcription)
+
+- Script: `/home/openclaw/.local/bin/local-whisper-transcribe`
+- Engine: `faster-whisper` (model: `small`, CPU, int8)
+- Usage: `local-whisper-transcribe <audio_file>` → outputs transcribed text to stdout
+- Purpose: Transcrever áudios recebidos do Matheus
+
 ### Healthcheck Automation
 
 - script: `scripts/healthcheck.sh`

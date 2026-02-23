@@ -1,0 +1,13 @@
+{
+  "api_url": "http://localhost:8000/api/v1",
+  "public_url": "http://142.93.87.36:3000",
+  "auth_token": "luna_mission_control_access_token_stable_v1_6741ef7ffc207adb58ce632e7ff1d9913dbf2e9c44441aac",
+  "gateway_id": "69da4c17-b389-4189-9bac-ab3e03588eb6",
+  "board_id": "0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47",
+  "agents": {
+    "luna": "70bd8378-598e-4cc5-9642-acc618622df8",
+    "luan": "ccd2e6d0-4765-41cc-98fd-f95727e15606",
+    "crypto_sage": "ad3cf364-888d-462f-8522-11002bc35b09",
+    "quant_strategist": "b66bda98-1962-4759-88b9-7836dbac9c63"
+  }
+}

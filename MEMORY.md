@@ -39,3 +39,14 @@
 - **Acesso Permanente ao X:** Configurada sessão independente no servidor (`browser-profile-x`) com motor Stealth. O login foi realizado via injeção de `auth_token` e `ct0` capturados via Relay, garantindo acesso 24/7 sem dependência do computador do usuário.
 - **NautilusTrader Research:** Clonado o repositório oficial (`nautechsystems/nautilus_trader`) em `research/nautilus_trader`. Iniciada análise de adaptadores para Hyperliquid e Polymarket para futuras estratégias de quant trading e backtesting institucional.
 - **Mission Control Integration:** Iniciada a implementação do dashboard centralizado (`openclaw-mission-control`) para visualização de agentes, monitoramento de sinais A2A e orquestração de missões em tempo real.
+
+## 2026-02-22
+
+- **Operações gateway são de alto risco:** Trocar modelo, adicionar provider ou rodar `gateway install --force` com gateway ativo pode causar crash loop. Procedimentos documentados em `memory/lessons.md` com runbooks detalhados.
+- **Instalação deve ser exclusivamente no user `openclaw`:** Nunca rodar como root; verificar e remover `/root/.openclaw/` se existir.
+- **Modelos Anthropic via Antigravity:** Apenas `claude-opus-4-6-thinking` confirmado funcional. Variantes sem thinking e sonnet retornam 404.
+
+## 2026-02-23
+
+- Período de baixa atividade interativa (22-23 fev). Crons de manutenção operando normalmente.
+- Identificados 5 itens de taxonomia operacional pendentes de documentação permanente (runbooks de gateway, policy de instalação, registro de modelos).

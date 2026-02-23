@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+**/venv/
+
+# Embedded repos (use submodules if needed)
+openclaw-mission-control/
+research/nautilus_trader/
+
+# Secrets & credentials
+.env
+.env.*
+**/auth.json
+**/auth-profiles.json
+**/token*.json
+**/*secret*
+**/*key*.pem
+**/*.pem
+**/*.p12
+
+# Debug screenshots (root level)
+/*.png
+
+# OS / IDE
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
