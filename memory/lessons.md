@@ -21,6 +21,12 @@
 - **Browser Relay Tunnel**: The extension needs an active SSH tunnel (`ssh -L 18792:localhost:18792 openclaw@<remote-ip>`) to connect from a local machine to a remote VPS.
 - **X Persistent Session (Stealth)**: To achieve 24/7 access to X without user presence, use a persistent browser profile with a Stealth motor on the server. Capture `auth_token` and `ct0` cookies via Relay once and inject them into the server profile. This bypasses IP/Fingerprint blocks that expire simple cookie copies.
 
+## 2026-02-24
+- **Spawning de subagentes: usar a tool, não RPC**: para criar subagentes, usar `sessions_spawn` (tool). Não tentar `openclaw gateway call sessions.spawn` — o gateway não expõe esse método e retorna `unknown method`.
+- **Persistência de artefatos críticos**: qualquer plano/diagnóstico importante deve ser escrito em arquivo (tool `write`) e validado com `read`/`ls` imediatamente. Não assumir que “foi salvo”.
+- **A2A em Discord: thread-bound pode estar desabilitado**: se `mode=session` exigir `thread=true` mas o account tiver `threadBindings.spawnSubagentSessions=false`, usar `mode=run`.
+- **MC não é hook automático**: spawns feitos direto via `sessions_spawn` não aparecem no Mission Control sem criar/linkar task. Padronizar fluxo MC para rastreabilidade.
+
 ## 2026-02-22
 - **Instalação duplicada no root**: O OpenClaw estava instalado tanto em `/root/.openclaw/` quanto em `/home/openclaw/.openclaw/`. Isso causa confusão e conflitos potenciais. A instalação correta é **somente** no usuário `openclaw`. Sempre verificar e remover `/root/.openclaw/` se existir. Nunca rodar `openclaw` como root.
 - **Trocar modelo da Luna/gateway quebra o sistema**: Alterar o modelo de IA da Luna ou do gateway no `openclaw.json` é uma operação de alto risco que pode derrubar todo o sistema. Antes de trocar:

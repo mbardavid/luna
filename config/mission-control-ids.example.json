@@ -1,0 +1,13 @@
+{
+  "api_url": "http://localhost:8000/api/v1",
+  "public_url": "http://YOUR_HOST:3000",
+  "auth_token": "REPLACE_ME_LOCAL_AUTH_TOKEN",
+  "gateway_id": "REPLACE_ME_GATEWAY_UUID",
+  "board_id": "REPLACE_ME_BOARD_UUID",
+  "agents": {
+    "luna": "REPLACE_ME_AGENT_UUID",
+    "luan": "REPLACE_ME_AGENT_UUID",
+    "crypto_sage": "REPLACE_ME_AGENT_UUID",
+    "quant_strategist": "REPLACE_ME_AGENT_UUID"
+  }
+}

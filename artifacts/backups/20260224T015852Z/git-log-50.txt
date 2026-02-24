@@ -1,0 +1,22 @@
+b299a39 chore(daily): sync updates + memory log 2026-02-23 08:31 UTC
+f15b908 fix: forbid Luna from editing openclaw.json directly
+33e9b5a docs: add lesson about invalid config keys crashing gateway
+6f68147 fix: enforce message tool usage
+b911e6d docs: add lesson about session reset wiping Luna's channel context
+02569b6 identity: add trusted channels and admin identity for #general-luna
+f6a0a5e docs: add lessons from 2026-02-22 gateway troubleshooting session
+32c0010 docs: resolver conflito lessons.md - manter lições 2026-02-21 e 2026-02-22
+3075a36 ops: log delegated-human-proxy confirmations before live execution
+1ea687c docs: adicionar lições sobre instalação duplicada root e risco de trocar modelo da Luna/gateway
+fda0eb3 chore(daily): sync updates + memory log 2026-02-21 08:30 UTC
+08e16c5 chore(daily): sync updates + memory log 2026-02-21 08:00 UTC
+a4c4ea2 chore: re-align agents doc definition with active models and channel setup
+161116d ops: enforce automatic end-to-end multistep monitoring after live tx
+2dee98b docs: add live canary multistep HL pipeline runbook notes
+c6be483 chore(daily): sync updates + memory log 2026-02-20 08:30 UTC
+fc1dbce policy: allow EVM operator address for arbitrum bridge canary
+1cdb317 Implement HL multiroute pipelines with explicit deBridge/Bridge2 semantics
+ccdab1a Add first-class Hyperliquid USDC deposit flow
+85f750d fix bridge solana authority + hex tx decode + refresh blockhash
+3bf9cfe policy: allowlist hyperliquid account recipient
+3c3fb05 Set identity (Luna) and user prefs (Matheus, Brasilia, concise)

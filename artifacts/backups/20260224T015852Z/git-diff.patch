@@ -1,0 +1,12 @@
+diff --git a/.gitignore b/.gitignore
+index 1e55595..35a4114 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -27,3 +27,7 @@ research/nautilus_trader/
+ *~
+ .idea/
+ .vscode/
++
++# MC runtime state (not versioned)
++.mc-resource-state*.json
++logs/

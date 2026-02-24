@@ -17,6 +17,10 @@ research/nautilus_trader/
 **/*.pem
 **/*.p12
 
+# Large backup artifacts (keep metadata, skip binaries)
+artifacts/backups/**/*.tgz
+artifacts/backups/**/*.pg_dump*
+
 # Debug screenshots (root level)
 /*.png
 
@@ -27,3 +31,11 @@ research/nautilus_trader/
 *~
 .idea/
 .vscode/
+
+# MC runtime state (not versioned)
+.mc-resource-state*.json
+logs/
+
+# Local MC config (contains tokens)
+config/mission-control-ids.local.json
+artifacts/backups/**/openclaw.json

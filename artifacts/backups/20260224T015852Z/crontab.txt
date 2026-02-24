@@ -1,0 +1,7 @@
+
+
+# OPENCLAW MC PHASE1 MONITORING BEGIN
+*/15 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-watchdog.sh --verbose --max-retries 2 >> "/home/openclaw/.openclaw/workspace/logs/mc-watchdog-cron.log" 2>&1
+*/15 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-delivery.sh --status done --max-to-deliver "50" --channel "1473367119377731800" >> "/home/openclaw/.openclaw/workspace/logs/mc-delivery-cron.log" 2>&1
+*/15 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-resource-monitor.sh --warn-pct "80" --degrade-pct "90" --recover-pct "85" --kill-pct "95" --kill-allowlist --allowlist node_modules/.bin/*,/tmp/puppeteer* >> "/home/openclaw/.openclaw/workspace/logs/mc-resource-monitor-cron.log" 2>&1
+# OPENCLAW MC PHASE1 MONITORING END

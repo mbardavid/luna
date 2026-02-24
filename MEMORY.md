@@ -50,3 +50,14 @@
 
 - Período de baixa atividade interativa (22-23 fev). Crons de manutenção operando normalmente.
 - Identificados 5 itens de taxonomia operacional pendentes de documentação permanente (runbooks de gateway, policy de instalação, registro de modelos).
+
+## 2026-02-24
+
+- **Mission Control Fase 1 operacional:** Kanban funcional acessível em `142.93.87.36:3000`; plano unificado v2 finalizado; runbook com 8 cenários de teste criado. Board limpo com 8 tasks reais.
+- **Diretriz do Matheus: MC deve ser alimentado automaticamente.** Tasks devem ser criadas pela Luna conforme trabalho acontece, sem intervenção humana. Agentes devem aparecer em tempo real.
+- **Diretriz do Matheus: sempre avisar antes de ações disruptivas** (gateway restart, model swap, etc.) — nunca surpreender com desconexão.
+- **Gateway restart notify hook criado** (`scripts/gateway-restart-notify.sh` + systemd drop-in ExecStartPost) — notifica `#general-luna` automaticamente.
+- **Edits concorrentes entre agentes causam conflito:** pg-gpt + Luna editando mesmos arquivos resultou em timeout. Coordenação (locking ou turn-based) é necessária para A2A com edits.
+- **Modelo do Luan corrigido** para `claude-opus-4-6-thinking` (modelo Codex anterior falhava com `Unknown model`).
+- **Reasoning leak:** `claude-opus-4-6-thinking` vaza thinking blocks no Discord via gateway v2026.2.22-2; problema upstream sem fix do lado do agente.
+- **OpenClaw updates globais requerem `sudo`** quando instalação está em `/usr/lib` (não `~/.local/lib`).

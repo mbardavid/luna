@@ -1,7 +1,7 @@
 {
   "api_url": "http://localhost:8000/api/v1",
   "public_url": "http://142.93.87.36:3000",
-  "auth_token": "luna_mission_control_access_token_stable_v1_6741ef7ffc207adb58ce632e7ff1d9913dbf2e9c44441aac",
+  "auth_token": "REPLACE_ME_LOCAL_AUTH_TOKEN",
   "gateway_id": "69da4c17-b389-4189-9bac-ab3e03588eb6",
   "board_id": "0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47",
   "agents": {

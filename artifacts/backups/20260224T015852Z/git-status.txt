@@ -1,0 +1,15 @@
+ M .gitignore
+?? artifacts/backups/
+?? docs/mission-control-phase1-runbook.md
+?? docs/mission-control-unified-plan.md
+?? fase1_qa_validate.sh
+?? scripts/gateway-restart-notify.sh
+?? scripts/mc-bootstrap-custom-fields.sh
+?? scripts/mc-client.sh
+?? scripts/mc-delivery.sh
+?? scripts/mc-link-task-session.sh
+?? scripts/mc-phase1-cron.sh
+?? scripts/mc-resource-monitor.sh
+?? scripts/mc-spawn-wrapper.sh
+?? scripts/mc-task-update.sh
+?? scripts/mc-watchdog.sh
