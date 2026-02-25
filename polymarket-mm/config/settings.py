@@ -48,7 +48,8 @@ class Settings(BaseSettings):
     # ── Complete-Set Arbitrage ──────────────────────────────────
     COMPLETE_SET_MIN_PROFIT_USD: Decimal = Field(default=Decimal("0.50"))
     GAS_COST_PER_MERGE_USD: Decimal = Field(default=Decimal("1.00"))
-    GAS_PRICE_ABORT_GWEI: Decimal = Field(default=Decimal("100"))
+    # NOTE: GAS_PRICE_ABORT_GWEI removed — gas management is now
+    # handled by Crypto-Sage via A2A delegation (see a2a/ package).
 
     # ── Timing / Heartbeat ──────────────────────────────────────
     HEARTBEAT_INTERVAL_SECONDS: int = 5
@@ -62,8 +63,8 @@ class Settings(BaseSettings):
     # ── Network / API ───────────────────────────────────────────
     CLOB_REST_BASE_URL: str = "https://clob.polymarket.com"
     CLOB_WS_URL: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
-    POLYGON_RPC_URL: str = "https://polygon-rpc.com"
-    POLYGON_RPC_FALLBACK_URL: str = ""
+    # NOTE: POLYGON_RPC_URL and POLYGON_RPC_FALLBACK_URL removed —
+    # RPC management is now handled by Crypto-Sage via A2A delegation.
 
     # ── Credentials (never commit real values) ──────────────────
     POLYMARKET_API_KEY: str = ""
@@ -77,9 +78,24 @@ class Settings(BaseSettings):
 
     # ── Monitoring ──────────────────────────────────────────────
     METRICS_PORT: int = 8080
+    HEALTH_HOST: str = "0.0.0.0"
     ALERT_DISCORD_WEBHOOK: str = ""
     ALERT_TELEGRAM_BOT_TOKEN: str = ""
     ALERT_TELEGRAM_CHAT_ID: str = ""
+    ALERT_RATE_LIMIT_SECONDS: int = 60
+
+    # ── Cold Storage ────────────────────────────────────────────
+    COLD_STORAGE_DSN: str = "sqlite:///data/cold_storage.db"
+    COLD_FLUSH_INTERVAL_SECONDS: int = 10
+    COLD_BUFFER_MAX_SIZE: int = 5000
+
+    # ── Email Alerts (optional) ─────────────────────────────────
+    ALERT_SMTP_HOST: str = ""
+    ALERT_SMTP_PORT: int = 587
+    ALERT_SMTP_USER: str = ""
+    ALERT_SMTP_PASSWORD: str = ""
+    ALERT_EMAIL_FROM: str = ""
+    ALERT_EMAIL_TO: str = ""
 
 
 settings = Settings()

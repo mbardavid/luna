@@ -1,2 +1,0 @@
-# Official Hyperliquid signing/trading SDK used by scripts/hyperliquid_live_bridge.py
-hyperliquid-python-sdk==0.22.0

@@ -39,3 +39,6 @@ logs/
 # Local MC config (contains tokens)
 config/mission-control-ids.local.json
 artifacts/backups/**/openclaw.json
+__pycache__/
+.hypothesis/
+*.pyc

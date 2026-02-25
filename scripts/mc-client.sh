@@ -101,13 +101,13 @@ mc_normalize_status() {
       normalized="stalled" ;;
     retry|retrying)
       normalized="retry" ;;
-    needs_approval|needs-approval|requires_approval|requires-approval|needs_review|awaiting_approval)
+    needs_approval|needs-approval|requires_approval|requires-approval|awaiting_approval)
       normalized="needs_approval" ;;
     completed|done)
       normalized="done" ;;
     failed|error)
       normalized="failed" ;;
-    waiting|review)
+    waiting|review|needs_review)
       normalized="review" ;;
     *)
       normalized="$status" ;;

@@ -254,15 +254,50 @@ When a subagent fails (timeout, error, crash):
 
 Because OpenClaw hooks currently do **not** provide a post-tool-call hook for `sessions_spawn`, tracking must be enforced as a **turn-atomic operational protocol**.
 
-### The rule (hybrid: 1 as base, 2 as accelerator)
+### Lifecycle Scripts (use these, not manual curl/PATCH)
 
-1) **Base (mandatory):** in the same turn that we spawn a sub-agent we must:
-   - create an MC task (status `in_progress`)
-   - spawn via `sessions_spawn` with `label = <taskId>`
-   - link `mc_session_key` to the task (via `scripts/mc-link-task-session.sh <taskId> <sessionKey>`)
-   - mirror `TASK_UPDATE {...}` blocks into MC (via `scripts/mc-task-update.sh`)
+| Action | Script | Example |
+|--------|--------|---------|
+| **Spawn prep** | `scripts/mc-spawn.sh` | `bash scripts/mc-spawn.sh --agent luan --title "Fix X" --task "Desc..." --json` |
+| **Link session** | `scripts/mc-link-task-session.sh` | `bash scripts/mc-link-task-session.sh <taskId> <sessionKey>` |
+| **Complete** | `scripts/mc-complete.sh` | `bash scripts/mc-complete.sh --task-id <id> --summary "Result"` |
+| **Fail + retry** | `scripts/mc-fail.sh` | `bash scripts/mc-fail.sh --task-id <id> --error "Timeout" --retry` |
+| **TASK_UPDATE** | `scripts/mc-task-update.sh` | Mirror `TASK_UPDATE {...}` blocks into MC |
 
-2) **Accelerator (optional but preferred):** use `scripts/a2a-mc-track.sh --json` to create the MC task and generate the ready-to-use spawn payload + TASK_UPDATE contract.
+### The spawn flow (step-by-step)
+
+1. **Prep:** `bash scripts/mc-spawn.sh --agent <name> --title "<title>" --task "<desc>" --json`
+   - Creates MC task (status: `in_progress`, correct `assigned_agent_id`)
+   - Returns JSON with `mc_task_id` + `spawn_params` ready for `sessions_spawn`
+2. **Spawn:** Call `sessions_spawn` tool with the returned `spawn_params`
+3. **Link:** `bash scripts/mc-link-task-session.sh <mc_task_id> <session_key>`
+
+### On completion
+
+Call: `bash scripts/mc-complete.sh --task-id <id> --summary "What was done"`
+- Sets status=`done`, `mc_output_summary`, `mc_delivered`=true
+- Add `--notify` to also send a Discord message
+
+### On failure
+
+Call: `bash scripts/mc-fail.sh --task-id <id> --error "What went wrong" --retry`
+- With `--retry`: increments retry count, re-queues to inbox if under max (2)
+- Without `--retry`: marks as failed immediately
+- At max retries: moves to review for manual intervention
+
+### Safety net: Watchdog
+
+`scripts/mc-watchdog.sh` runs every 15min via cron and:
+- Detects tasks with sessions that ended without MC update → auto-completes (if progress ≥ 80%) or moves to review
+- Detects stalled tasks (no activity > 60min) → moves to review
+- Handles missing session keys → flags for manual linking
+
+### Agent ID lookup
+
+`config/mc-agent-ids.json` maps agent names to short IDs:
+```json
+{"luan": "ccd2e6d0", "crypto-sage": "ad3cf364", "main": "70bd8378", "quant-strategist": "b66bda98"}
+```
 
 ### Definition of Done (objective)
 - Within **5 seconds** of any A2A spawn request:
@@ -274,6 +309,7 @@ Because OpenClaw hooks currently do **not** provide a post-tool-call hook for `s
 
 ### Anti-footgun
 - Never attempt to spawn via `openclaw gateway call sessions.spawn` (RPC method does not exist).
+- `sessions_spawn` only works as a tool call — `mc-spawn.sh` prepares the payload, Luna does the actual spawn.
 
 ---
 

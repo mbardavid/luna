@@ -26,6 +26,8 @@
 - **Persistência de artefatos críticos**: qualquer plano/diagnóstico importante deve ser escrito em arquivo (tool `write`) e validado com `read`/`ls` imediatamente. Não assumir que “foi salvo”.
 - **A2A em Discord: thread-bound pode estar desabilitado**: se `mode=session` exigir `thread=true` mas o account tiver `threadBindings.spawnSubagentSessions=false`, usar `mode=run`.
 - **MC não é hook automático**: spawns feitos direto via `sessions_spawn` não aparecem no Mission Control sem criar/linkar task. Padronizar fluxo MC para rastreabilidade.
+- **Tasks do MC precisam de contexto completo**: Cada task no MC deve ter na description: (1) referência ao documento/plano fonte com seção específica, (2) lista de entregáveis concretos (arquivos/módulos), (3) critério de validação (comando de teste). Sem isso, o card é inútil — ninguém sabe o que precisa ser feito. Template: `**Plano:** \`path/to/doc.md\` → Seção X\n**Entregáveis:** file1.py, file2.py\n**Validação:** \`pytest tests/test_x.py\``
+- **NUNCA spawnar subagent sem criar card no MC ANTES**: O spawn e o card devem ser atômicos — criar card (in_progress) → spawnar → linkar session_key. Se spawnar sem card, o trabalho fica invisível no MC e o Matheus não consegue acompanhar. Isso já foi cobrado 2x.
 - **Pós-restart: reassumir tarefas imediatamente, sem esperar prompt**: Quando o gateway reinicia e a sessão volta, a PRIMEIRA coisa a fazer é: (1) verificar status do gateway, (2) checar subagents ativos/recentes, (3) validar trabalho em andamento, (4) re-spawnar o que parou, (5) reportar ao Matheus — tudo isso ANTES de qualquer interação. Nunca esperar o humano perguntar "voltou?"
 - **Execução contínua: quando instrução é "execute o plano", não parar entre fases**: Se o Matheus diz "execute esse plano com o Luan", significa spawnar fase após fase automaticamente, sem esperar confirmação entre cada uma. Cada fase que termina deve imediatamente iniciar a próxima.
 - **Subagent falhou → reagir imediatamente, sem esperar o humano cobrar**: Quando um subagente falha (timeout, erro, crash), a Luna DEVE automaticamente: (1) investigar o motivo (sessions_history, subagents list), (2) decidir se re-spawna com ajustes (mais tempo, task simplificada) ou reporta ao Matheus, (3) agir sem esperar provocação. Nunca deixar falha de subagente "morrer em silêncio". O Matheus não deveria precisar perguntar "porque falhou?" — a Luna deve antecipar.
@@ -62,3 +64,34 @@
   5. **Não adicionar auth profiles manualmente** — o formato exato (ex: `api_key` vs `api-key`) só é conhecido via onboard.
 - **Modelos Anthropic via Antigravity OAuth disponíveis**: Apenas `claude-opus-4-6-thinking` confirmado funcional. `claude-opus-4-6` (sem thinking) e `claude-sonnet-4-6` retornam 404. `claude-opus-4-5-thinking` e `claude-sonnet-4-5-thinking` também registrados mas não testados.
 - **`systemctl --user reset-failed` necessário após crash loop**: Após o gateway falhar várias vezes, o systemd marca o serviço como `failed` e impede restart. Sempre rodar `systemctl --user reset-failed openclaw-gateway` antes de tentar reiniciar após crash loop.
+
+## 2026-02-25: Responsividade e A2A
+
+### Nunca travar turno com timeouts longos
+- `sessions_send` com timeout > 30s trava a Luna e impede responder ao Matheus
+- Usar `sessions_spawn` (fire-and-forget, auto-announces) em vez de `sessions_send` síncrono
+- Se precisar de `sessions_send`, timeout máximo de 30s
+
+### Updates intermediários obrigatórios
+- Antes de cadeia longa de tool calls (>3), mandar update curto pro Matheus
+- "Investigando X, volto em 1 min" é melhor que silêncio de 5 min
+- Nunca fazer >5 tool calls sem dar status
+
+### A2A correto
+- `sessions_spawn` para delegar tasks a outros agentes (fire-and-forget)
+- `sessions_send` só para mensagens curtas com timeout baixo
+- Discord é superfície de output, não de orquestração entre agentes
+
+### MC card obrigatório no turno do spawn
+- Protocolo AGENTS.md já exige: criar MC task no mesmo turno do `sessions_spawn`
+- Falha em 2026-02-25: spawn do crypto-sage sem card, Matheus cobrou
+- Checklist atômico: 1) criar card MC → 2) spawn → 3) linkar session_key
+
+### Atualizar MC no mesmo turno que recebe resultado de subagent
+- Quando subagent auto-announces (completion), o turno DEVE:
+  1. Processar o resultado
+  2. Atualizar MC task → `done` + `mc_output_summary`
+  3. Reportar pro Matheus no Discord
+- Falha em 2026-02-25: Luan completou 2 tasks mas MC ficou `in_progress`
+- Matheus cobrou: "Esse seu sistema de monitoramento não está 100%"
+- Regra: MC update é PARTE do processamento do resultado, não step separado

@@ -70,3 +70,11 @@
 - **Polymarket Market Maker** — Novo direcionamento do quant-strategist. Matheus quer market maker maker-only no Polymarket. Research consolidado em `research/polymarket-mm-research.md`. Plano detalhado finalizado em `docs/polymarket-mm-plan.md` (GPT 5.2 Pro + Gemini 3 Deep Think). Scaffold do projeto em `polymarket-mm/` com ~15 módulos. Execução sequencial via MC task drain.
 - **Spawning rules consolidadas** em `memory/spawning-rules.md` — 5 golden rules para orquestração A2A + MC tracking obrigatório.
 - **Plano de estabilidade gateway** documentado após incidente de heap pressure por sessões grandes + tempestade de crons no boot (`docs/stability-plan-crash-2026-02-24.md`).
+
+## 2026-02-25 (tarde)
+
+- **A2A consolidado:** `sessions_spawn` é o padrão pra delegação inter-agentes (fire-and-forget, auto-announce). `sessions_send` só pra mensagens curtas com timeout < 30s. Discord é superfície de output, não orquestração.
+- **MC Automation v2 operacional:** `mc-spawn.sh` (prep atômico), `mc-complete.sh` (done + summary), `mc-fail.sh` (retry logic), watchdog com auto-complete. Spec em `docs/mc-automation-upgrade-spec.md`.
+- **Crypto-sage workspace consolidado:** Dois workspaces (workspace-crypto-sage + agents/blockchain-operator) fundidos em um. 5 chains no portfolio (Base, Solana, HL, Arbitrum, Polygon).
+- **Heartbeat ativado:** 30min, modelo gemini-3-flash. Pre-flight check (cron guard + subagents + MC in_progress) antes de drainer inbox.
+- **Responsividade:** Nunca travar turno com timeouts longos. Updates intermediários obrigatórios. MC update é parte do processamento de resultado, não step separado.

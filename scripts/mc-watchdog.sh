@@ -157,7 +157,7 @@ def _coerce_epoch_ms(value):
 def session_history_last_ms(session_key):
   history = gateway_call(
     "chat.history",
-    {"sessionKey": session_key, "limit": 12, "includeTools": True},
+    {"sessionKey": session_key, "limit": 12},
   )
   if not isinstance(history, dict):
     return None
@@ -239,6 +239,8 @@ stats = {
   "stalled": 0,
   "unstalled": 0,
   "blocked_missing_session_key": 0,
+  "auto_completed": 0,
+  "session_ended_review": 0,
   "errors": 0,
 }
 
@@ -286,6 +288,48 @@ def handle_task(task, sessions_by_key):
     return
 
   if not session_entry:
+    # Session not in active list. Check if it's a completed session (ended
+    # normally) vs truly missing. If task is in_progress and had a session,
+    # the session likely completed without MC being updated.
+    if status == "in_progress" and session_key and progress >= 80:
+      # High-confidence auto-complete: progress was >= 80%, session ended
+      update_counter(stats, "auto_completed")
+      mc_update_task(
+        t_id,
+        status="done",
+        comment=(
+          f"[mc-watchdog] {now_iso()} session ended (not in active list). "
+          f"Progress was {progress}%. Auto-completed by watchdog."
+        ),
+        fields={
+          "mc_progress": 100,
+          "mc_output_summary": f"Auto-completed by watchdog (session ended, progress was {progress}%)",
+          "mc_delivered": False,
+          "mc_last_error": "",
+        },
+      )
+      maybe_log(f"[mc-watchdog] auto-completed task {t_id} (progress={progress}%, session ended)")
+      return
+
+    if status == "in_progress" and session_key and progress < 80:
+      # Low-confidence: session ended but progress was low. Move to review.
+      update_counter(stats, "session_ended_review")
+      mc_update_task(
+        t_id,
+        status="review",
+        comment=(
+          f"[mc-watchdog] {now_iso()} session ended (not in active list) but "
+          f"progress was only {progress}%. Moved to review for manual check."
+        ),
+        fields={
+          args.retry_count_field: current_retry,
+          "mc_progress": progress,
+          "mc_last_error": "session_ended_incomplete",
+        },
+      )
+      maybe_log(f"[mc-watchdog] task {t_id} session ended but progress={progress}%, moved to review")
+      return
+
     if current_retry < args.max_retries:
       update_counter(stats, "recovered")
       next_retry = current_retry + 1
