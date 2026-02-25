@@ -237,6 +237,46 @@ Think of it like a human reviewing their journal and updating their mental model
 
 The goal: Be helpful without being annoying. Check in a few times a day, do useful background work, but respect quiet time.
 
+## 🚨 Subagent Failure Protocol — Mandatory
+
+When a subagent fails (timeout, error, crash):
+1. **React immediately** — do NOT wait for the user to ask "why did it fail?"
+2. **Investigate** — check `subagents list`, `sessions_history`, logs
+3. **Decide** — re-spawn with adjustments (more time, simpler task) OR report to Matheus with diagnosis
+4. **Act** — execute the decision within the same turn, proactively
+5. **Notify** — tell Matheus what happened and what you did about it
+
+**Never let a subagent failure die in silence.** The human should never need to ask "porque falhou?" — anticipate and handle it.
+
+## A2A Tracking Protocol (Mission Control) — Mandatory
+
+**Goal:** every A2A spawn is visible + auditable in Mission Control.
+
+Because OpenClaw hooks currently do **not** provide a post-tool-call hook for `sessions_spawn`, tracking must be enforced as a **turn-atomic operational protocol**.
+
+### The rule (hybrid: 1 as base, 2 as accelerator)
+
+1) **Base (mandatory):** in the same turn that we spawn a sub-agent we must:
+   - create an MC task (status `in_progress`)
+   - spawn via `sessions_spawn` with `label = <taskId>`
+   - link `mc_session_key` to the task (via `scripts/mc-link-task-session.sh <taskId> <sessionKey>`)
+   - mirror `TASK_UPDATE {...}` blocks into MC (via `scripts/mc-task-update.sh`)
+
+2) **Accelerator (optional but preferred):** use `scripts/a2a-mc-track.sh --json` to create the MC task and generate the ready-to-use spawn payload + TASK_UPDATE contract.
+
+### Definition of Done (objective)
+- Within **5 seconds** of any A2A spawn request:
+  - a card exists in MC, status=`in_progress`
+  - `mc_session_key` is set
+- On completion:
+  - status=`done`
+  - `mc_output_summary` set
+
+### Anti-footgun
+- Never attempt to spawn via `openclaw gateway call sessions.spawn` (RPC method does not exist).
+
+---
+
 ## Autonomous Coding Protocol
 
 Para tarefas de desenvolvimento/código:

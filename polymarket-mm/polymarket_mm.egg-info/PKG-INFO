@@ -1,0 +1,76 @@
+Metadata-Version: 2.4
+Name: polymarket-mm
+Version: 0.1.0
+Summary: Polymarket Market Maker — maker-only bilateral quoting on CLOB
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: uvloop>=0.19.0
+Requires-Dist: structlog>=24.1.0
+Requires-Dist: asyncpg>=0.29.0
+Requires-Dist: pydantic-settings>=2.1.0
+Requires-Dist: pydantic>=2.5.0
+Requires-Dist: httpx[http2]>=0.26.0
+Requires-Dist: websockets>=12.0
+Requires-Dist: web3>=6.14.0
+Requires-Dist: redis>=5.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: hypothesis>=6.92.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.8.0; extra == "dev"
+
+# Polymarket Market Maker
+
+Maker-only bilateral quoting bot for Polymarket's CLOB.
+
+## Quick Start
+
+```bash
+# Install dependencies
+make install
+
+# Run in paper mode (empty heartbeat loop)
+make run-paper
+
+# Start infrastructure (Postgres + Redis)
+make up
+
+# Run tests
+make test
+
+# Lint
+make lint
+
+# Stop infrastructure
+make down
+```
+
+## Project Structure
+
+```
+polymarket-mm/
+├── config/          # Pydantic settings, market configs
+├── core/            # Entrypoint, logger, event bus, heartbeat
+├── models/          # Domain models (MarketState, QuotePlan, Order, Position)
+├── data/            # Market data: WS client, REST client, oracle collectors
+├── strategy/        # Quote engine, inventory skew, spread model, toxic flow
+├── execution/       # Order management, quantizer, queue tracker
+├── web3_infra/      # CTF adapter, EIP-712 signer, RPC manager
+├── storage/         # Memory store, cold writer, migrations
+├── monitoring/      # Prometheus metrics, health endpoint, alerts
+├── ai_copilot/      # Post-mortem, param tuner, anomaly detector
+├── paper/           # Paper venue, chaos injector, replay engine
+└── tests/           # Unit and property-based tests
+```
+
+## Configuration
+
+All settings are managed via environment variables (see `.env.example`).
+Monetary values use `Decimal` — **never** `float`.
+
+## Phases
+
+See `docs/polymarket-mm-plan.md` for the full 11-phase roadmap.
+Currently: **Fase 0 — Bootstrap Infra** (empty heartbeat loop).

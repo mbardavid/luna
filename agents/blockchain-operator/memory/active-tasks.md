@@ -2,7 +2,8 @@
 *Leia este arquivo primeiro em toda sessão.*
 
 ## In Progress
-- Nenhuma tarefa ativa no momento.
+- [ ] Finalizar seção de Troubleshooting de Bridges em `workflow-registry.md`.
+- [ ] Testar resiliência de tokens de longa duração para sub-agentes.
 
 ## Next Up
 - Revisar periodicamente `config/policy.live.json` antes de qualquer mudança de modo dry-run -> live.

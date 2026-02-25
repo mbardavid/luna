@@ -61,3 +61,12 @@
 - **Modelo do Luan corrigido** para `claude-opus-4-6-thinking` (modelo Codex anterior falhava com `Unknown model`).
 - **Reasoning leak:** `claude-opus-4-6-thinking` vaza thinking blocks no Discord via gateway v2026.2.22-2; problema upstream sem fix do lado do agente.
 - **OpenClaw updates globais requerem `sudo`** quando instalação está em `/usr/lib` (não `~/.local/lib`).
+
+## 2026-02-25
+
+- **Lição crítica: reagir automaticamente a falhas de subagentes.** Matheus cobrou que a Luna não investigou/re-spawnou um subagente que deu timeout. Regra nova: quando subagente falha, investigar + agir imediatamente sem esperar o humano perguntar. Documentado em AGENTS.md e lessons.md.
+- **Bird CLI instalado** (v0.8.0) — CLI do X/Twitter via GraphQL + cookie auth. Conta @lunabardabot autenticada com auth_token + ct0. Credenciais persistidas em .bashrc + systemd drop-in.
+- **Quant Strategist vinculado** ao canal Discord `1475989470883872860`. Binding adicionado via openclaw.json → bindings array.
+- **Polymarket Market Maker** — Novo direcionamento do quant-strategist. Matheus quer market maker maker-only no Polymarket. Research consolidado em `research/polymarket-mm-research.md`. Plano detalhado finalizado em `docs/polymarket-mm-plan.md` (GPT 5.2 Pro + Gemini 3 Deep Think). Scaffold do projeto em `polymarket-mm/` com ~15 módulos. Execução sequencial via MC task drain.
+- **Spawning rules consolidadas** em `memory/spawning-rules.md` — 5 golden rules para orquestração A2A + MC tracking obrigatório.
+- **Plano de estabilidade gateway** documentado após incidente de heap pressure por sessões grandes + tempestade de crons no boot (`docs/stability-plan-crash-2026-02-24.md`).

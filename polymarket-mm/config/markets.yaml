@@ -1,0 +1,83 @@
+# Polymarket MM — Market Allowlist Configuration
+# Each entry defines a market to quote with per-market parameters.
+
+markets:
+  # ── Crypto markets ─────────────────────────────────────
+  - market_id: "market-btc-100k"
+    condition_id: "0xabc123def456789"
+    token_id_yes: "tok-btc-100k-yes"
+    token_id_no: "tok-btc-100k-no"
+    market_type: "CRYPTO_5M"
+    description: "Will BTC reach $100k by end of Q1 2026?"
+    enabled: true
+    params:
+      tick_size: "0.01"
+      min_order_size: "5"
+      neg_risk: false
+      spread_min_bps: 30
+      max_position_size: "500"
+      gamma_override: null          # null → use global GAMMA_RISK_AVERSION
+      rewards_aggressiveness: "0.5"
+      param_group: "A"
+
+  - market_id: "market-eth-5k"
+    condition_id: "0xdef789abc123456"
+    token_id_yes: "tok-eth-5k-yes"
+    token_id_no: "tok-eth-5k-no"
+    market_type: "CRYPTO_15M"
+    description: "Will ETH reach $5k by end of Q2 2026?"
+    enabled: true
+    params:
+      tick_size: "0.01"
+      min_order_size: "5"
+      neg_risk: false
+      spread_min_bps: 40
+      max_position_size: "300"
+      gamma_override: "0.5"
+      rewards_aggressiveness: "0.3"
+      param_group: "B"
+
+  # ── Politics markets ───────────────────────────────────
+  - market_id: "market-us-election-2028"
+    condition_id: "0x111222333444555"
+    token_id_yes: "tok-election-yes"
+    token_id_no: "tok-election-no"
+    market_type: "POLITICS"
+    description: "Will the incumbent win the 2028 US election?"
+    enabled: false                   # disabled — not quoting yet
+    params:
+      tick_size: "0.01"
+      min_order_size: "10"
+      neg_risk: true
+      spread_min_bps: 80
+      max_position_size: "200"
+      gamma_override: "0.8"
+      rewards_aggressiveness: "0.2"
+      param_group: "A"
+
+  # ── Sports markets ────────────────────────────────────
+  - market_id: "market-nba-finals"
+    condition_id: "0xaaa111bbb222ccc"
+    token_id_yes: "tok-nba-finals-yes"
+    token_id_no: "tok-nba-finals-no"
+    market_type: "SPORTS"
+    description: "Will Lakers win the 2026 NBA Finals?"
+    enabled: false
+    params:
+      tick_size: "0.01"
+      min_order_size: "10"
+      neg_risk: false
+      spread_min_bps: 100
+      max_position_size: "100"
+      gamma_override: null
+      rewards_aggressiveness: "0.1"
+      param_group: "A"
+
+# ── Global defaults (used when param_group overrides are null) ──
+defaults:
+  spread_min_bps: 50
+  max_position_size: "500"
+  gamma: "0.3"
+  rewards_aggressiveness: "0.5"
+  data_gap_tolerance_seconds: 8
+  reconciliation_interval_seconds: 60

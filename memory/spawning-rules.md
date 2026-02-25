@@ -20,6 +20,15 @@
 5) **When patching files, avoid blind `edit` operations**.
    - Always `read` the exact target region first, then apply a precise `edit` match.
 
+## Recommended approach (hybrid)
+
+- **1) Rule-based (mandatory):** treat tracking as an atomic part of the orchestration turn:
+  create MC task → `sessions_spawn` (label=taskId) → link `sessionKey` → mirror `TASK_UPDATE`.
+
+- **2) Helper script (accelerator):** prefer `scripts/a2a-mc-track.sh --json` to generate the MC task + spawn payload + TASK_UPDATE contract.
+
+**DoD (objective):** any A2A spawn appears in MC within 5s with `mc_session_key` set; finishes with `mc_output_summary`.
+
 ## Operational checklist
 
 - Before spawning:
