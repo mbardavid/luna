@@ -171,3 +171,17 @@
   - Qualquer etapa onde "executar rápido" é pior que "esperar feedback"
 - **Dependency chain também deve ser configurada:** Usar `dependency_chain` no `heartbeat-blocklist.json` para garantir que fases sequenciais não sejam dispatched fora de ordem, mesmo que o MC não tenha `depends_on_task_ids` configurado.
 - **Arquivo:** `config/heartbeat-blocklist.json` — `blocked_task_ids` (human-gate) + `dependency_chain` (sequência).
+
+### [CRÍTICO] Nunca fazer `npm update/install -g openclaw` com o gateway rodando
+- Em 26/02, Luna executou `sudo npm update -g openclaw` via `exec` enquanto o gateway estava ativo
+- O npm **removeu o binário** `/usr/bin/openclaw` e **corrompeu os módulos** que o processo estava usando em tempo real
+- Resultado: todos os plugins ficaram `not found` (telegram, discord, google-antigravity-auth, memory-core) — gateway virou zumbi sem funcionalidade
+- O processo continuou "rodando" (porta aberta, systemd reportava `active`) mas não respondia a nenhuma mensagem
+- **Fix aplicado pelo Matheus**: rollback para versão anterior (`2026.2.22-2`) via `sudo npm install -g openclaw@2026.2.22-2`, kill dos processos zumbis, restart limpo
+- **Regra absoluta:** updates do openclaw são operação do Matheus. Luna NUNCA deve executar `npm update/install -g openclaw` via `exec` — isso corrompe o gateway em tempo real e pode causar perda de sessões ativas
+- **Procedimento correto de update (somente Matheus):**
+  1. Parar o gateway: `sudo systemctl stop openclaw-gateway`
+  2. Instalar versão nova: `sudo npm install -g openclaw@<versão>`
+  3. Verificar binário: `which openclaw && openclaw --version`
+  4. Iniciar: `sudo systemctl start openclaw-gateway`
+  5. Verificar logs: `journalctl -u openclaw-gateway --since '1 minute ago'`
