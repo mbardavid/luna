@@ -185,3 +185,12 @@
   3. Verificar binário: `which openclaw && openclaw --version`
   4. Iniciar: `sudo systemctl start openclaw-gateway`
   5. Verificar logs: `journalctl -u openclaw-gateway --since '1 minute ago'`
+
+### [CRÍTICO] Restrição de versão: openclaw máximo 2026.2.22-2 enquanto usar Antigravity
+- O provider `google-antigravity` e o plugin `google-antigravity-auth` foram **permanentemente removidos** a partir da versão `2026.2.23`
+- A partir de `2026.2.25` isso é um BREAKING CHANGE explícito: *"removed Google Antigravity provider support and the bundled google-antigravity-auth plugin. Existing google-antigravity/* model/profile configs no longer work"*
+- **`2026.2.22-2` é a versão máxima** compatível com o modelo `google-antigravity/claude-opus-4-6-thinking` da Luna
+- Qualquer update para `2026.2.23+` quebra todos os modelos da Luna silenciosamente (gateway sobe mas não processa nada)
+- **Antes de sugerir ou executar qualquer update do openclaw**, verificar se a versão alvo ainda suporta `google-antigravity` no changelog
+- Quando quiser migrar para versão nova, será necessário primeiro trocar o provider dos modelos (provavelmente para `google-gemini-cli` com auth Anthropic direta) — essa decisão é do Matheus
+- **Versão atual pinada:** `2026.2.22-2` — NÃO atualizar sem autorização explícita do Matheus
