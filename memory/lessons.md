@@ -95,3 +95,27 @@
 - Falha em 2026-02-25: Luan completou 2 tasks mas MC ficou `in_progress`
 - Matheus cobrou: "Esse seu sistema de monitoramento não está 100%"
 - Regra: MC update é PARTE do processamento do resultado, não step separado
+
+## 2026-02-26
+
+### [CRÍTICO] Nunca operar o gateway via tool `exec`
+- Em 26/02, o gateway caiu 3 vezes porque a Luna detectou conflito de serviços e executou `sudo systemctl stop openclaw-gateway.service` via `exec`
+- Isso matou o próprio gateway no meio da execução — a tool retornou `Command aborted by signal SIGTERM`
+- **Regra absoluta: nunca usar `exec` para stop/start/restart do gateway**
+- Se detectar instabilidade: **listar o diagnóstico e reportar ao Matheus** — o systemd com `Restart=always` cuida do restart automaticamente
+
+### [RESOLVIDO] Conflito user-service vs system-service eliminado (26/02)
+- Havia dois serviços systemd concorrentes na porta 18789:
+  - **User-service** (`~/.config/systemd/user/`): tinha `--bind lan`, `Restart=always`, envs dos agentes (bird, crypto-sage, polymarket)
+  - **System-service** (`/etc/systemd/system/`): legado sem os envs, estava `disabled`
+- Quando um subia bloqueava a porta do outro → crash loop → Luna tentava corrigir → se matava → loop infinito
+- **Fix aplicado pelo Matheus**: user-service desabilitado; drop-ins de env migrados para system-service; `execstart-lan.conf` criado com `--bind lan` e `Restart=always`; system-service habilitado no boot com `systemctl enable`
+- **Estado atual**: existe apenas o system-service, com todos os envs e `Restart=always`. Conflito resolvido permanentemente
+
+### Runbook seguro para investigar gateway instável
+1. `sudo systemctl status openclaw-gateway --no-pager -l`
+2. `journalctl -u openclaw-gateway --no-pager --since '30 minutes ago'`
+3. `ss -tlnp | grep 18789`
+4. `free -h`
+5. **Reportar diagnóstico ao Matheus** — nunca executar stop/start via `exec`
+6. Se Matheus autorizar: `sudo systemctl restart openclaw-gateway`
