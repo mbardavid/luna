@@ -70,7 +70,8 @@ class Settings(BaseSettings):
     POLYMARKET_API_KEY: str = ""
     POLYMARKET_SECRET: str = ""
     POLYMARKET_PASSPHRASE: str = ""
-    PRIVATE_KEY: str = ""
+    POLYMARKET_PRIVATE_KEY: str = ""
+    PRIVATE_KEY: str = ""  # Alias for POLYMARKET_PRIVATE_KEY
 
     # ── Database ────────────────────────────────────────────────
     POSTGRES_DSN: str = "postgresql://mm:mm_dev_pass@localhost:5432/polymarket_mm"

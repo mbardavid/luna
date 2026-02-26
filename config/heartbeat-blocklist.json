@@ -1,0 +1,12 @@
+{
+  "description": "Tasks que NUNCA devem ser auto-dispatched pelo heartbeat. Requerem intervenção humana explícita.",
+  "blocked_task_ids": {
+    "34e8907c-2a39-41f0-b066-3bef7510fdf4": "PMM-PROD P6: Deploy production — requer aprovação explícita do Matheus após P5 validado (pode levar semanas)"
+  },
+  "dependency_chain": {
+    "051146d7-113d-4980-b659-53a05fbbeb83": [],
+    "4b38f7a7-442c-4b2a-a398-f5dcb9cfa1c9": ["051146d7-113d-4980-b659-53a05fbbeb83"],
+    "34e8907c-2a39-41f0-b066-3bef7510fdf4": ["4b38f7a7-442c-4b2a-a398-f5dcb9cfa1c9"]
+  },
+  "notes": "dependency_chain: task_id → [lista de task_ids que precisam estar done antes]. Se qualquer dep não estiver done, task é pulada no FIFO."
+}

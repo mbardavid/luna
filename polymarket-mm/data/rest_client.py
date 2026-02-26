@@ -1,22 +1,38 @@
-"""CLOBRestClient — REST client for Polymarket CLOB API.
+"""CLOBRestClient — Real REST client for Polymarket CLOB API.
 
-Provides:
+Wraps py-clob-client ClobClient for:
 - Orderbook snapshots via REST
 - Active markets fetch with metadata (token_ids, tick_size, neg_risk)
+- Balance & allowance queries
+- Order lifecycle (create, cancel, list)
+- L2 auth via HMAC-SHA256 (handled by py-clob-client)
 - Rate limiting with token bucket
-- httpx.AsyncClient with automatic retry
+- Retry with exponential backoff
 """
 
 from __future__ import annotations
 
 import asyncio
+import functools
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any
+from typing import Any, Optional
 
-import httpx
 import structlog
+
+from py_clob_client.client import ClobClient
+from py_clob_client.clob_types import (
+    ApiCreds,
+    BalanceAllowanceParams,
+    BookParams,
+    OpenOrderParams,
+    OrderArgs,
+    OrderType as ClobOrderType,
+    PartialCreateOrderOptions,
+    TradeParams,
+)
+from py_clob_client.order_builder.constants import BUY, SELL
 
 logger = structlog.get_logger("data.rest_client")
 
@@ -61,217 +77,491 @@ class _RateLimiter:
 class CLOBRestClient:
     """Async REST client for the Polymarket CLOB API.
 
+    Wraps py-clob-client (sync) by running calls in an executor.
+    All public methods are async-safe and rate-limited.
+
     Parameters
     ----------
     base_url:
         CLOB REST API base URL.
+    chain_id:
+        Polygon chain ID (137 for mainnet).
+    private_key:
+        Hex-encoded private key for signing.
     api_key:
-        Optional API key for authenticated endpoints.
+        L2 API key.
+    api_secret:
+        L2 API secret (base64).
+    api_passphrase:
+        L2 API passphrase.
     rate_limit_rps:
         Max requests per second (default 10).
     max_retries:
         Maximum number of retries on transient errors (default 3).
-    timeout:
-        Request timeout in seconds (default 10).
     """
 
     def __init__(
         self,
         base_url: str = _DEFAULT_BASE_URL,
+        chain_id: int = 137,
+        private_key: str = "",
         api_key: str = "",
+        api_secret: str = "",
+        api_passphrase: str = "",
         rate_limit_rps: float = 10.0,
         max_retries: int = 3,
-        timeout: float = 10.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
+        self._chain_id = chain_id
+        self._private_key = private_key
         self._api_key = api_key
+        self._api_secret = api_secret
+        self._api_passphrase = api_passphrase
         self._max_retries = max_retries
-        self._timeout = timeout
         self._rate_limiter = _RateLimiter(rate=rate_limit_rps, burst=int(rate_limit_rps * 2))
-        self._client: httpx.AsyncClient | None = None
+        self._client: ClobClient | None = None
+        self._connected = False
+
+    @property
+    def clob_client(self) -> ClobClient:
+        """Return the underlying ClobClient (for direct use if needed)."""
+        if self._client is None:
+            raise RuntimeError("Call connect() before using the client")
+        return self._client
 
     # ── Lifecycle ────────────────────────────────────────────────
 
     async def connect(self) -> None:
-        """Create the httpx AsyncClient."""
-        headers: dict[str, str] = {
-            "Accept": "application/json",
-        }
-        if self._api_key:
-            headers["Authorization"] = f"Bearer {self._api_key}"
-
-        self._client = httpx.AsyncClient(
-            base_url=self._base_url,
-            headers=headers,
-            timeout=httpx.Timeout(self._timeout),
-            follow_redirects=True,
+        """Create the ClobClient with L2 auth credentials."""
+        creds = ApiCreds(
+            api_key=self._api_key,
+            api_secret=self._api_secret,
+            api_passphrase=self._api_passphrase,
         )
-        logger.info("rest_client.connected", base_url=self._base_url)
+
+        self._client = ClobClient(
+            host=self._base_url,
+            chain_id=self._chain_id,
+            key=self._private_key,
+            creds=creds,
+        )
+
+        # Verify connectivity
+        ok = await self._run_sync(self._client.get_ok)
+        logger.info(
+            "rest_client.connected",
+            base_url=self._base_url,
+            address=self._client.get_address(),
+            ok=ok,
+        )
+        self._connected = True
 
     async def disconnect(self) -> None:
-        """Close the httpx AsyncClient."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        """Disconnect the client."""
+        self._client = None
+        self._connected = False
         logger.info("rest_client.disconnected")
 
-    # ── Public API ───────────────────────────────────────────────
+    # ── Public API: Markets ──────────────────────────────────────
 
-    async def get_active_markets(self) -> list[dict[str, Any]]:
-        """Fetch active markets with metadata.
+    async def get_active_markets(
+        self, max_pages: int = 5
+    ) -> list[dict[str, Any]]:
+        """Fetch active markets with metadata by paginating through the API.
 
-        Returns a list of dicts with at least::
+        Returns a list of dicts with::
 
             {
-                "market_id": str,
+                "market_id": str (condition_id),
                 "condition_id": str,
+                "question": str,
                 "token_id_yes": str,
                 "token_id_no": str,
                 "tick_size": Decimal,
                 "min_order_size": Decimal,
                 "neg_risk": bool,
             }
-
-        NOTE: This is a stub — returns sample data in dev mode.
-        In production, parses real API response from ``/markets``.
         """
-        # STUB: In production, call GET /markets and parse
-        # data = await self._request("GET", "/markets", params={"active": "true"})
-        logger.info("rest_client.get_active_markets")
+        assert self._client is not None, "Call connect() first"
 
-        # Return stub data for development
-        return [
-            {
-                "market_id": "market-btc-100k",
-                "condition_id": "0xabc123",
-                "token_id_yes": "tok-btc-100k-yes",
-                "token_id_no": "tok-btc-100k-no",
-                "tick_size": Decimal("0.01"),
-                "min_order_size": Decimal("5"),
-                "neg_risk": False,
-                "market_type": "CRYPTO_5M",
-                "description": "Will BTC reach $100k?",
-            }
-        ]
+        all_markets: list[dict[str, Any]] = []
+        cursor = "MA=="
+
+        for page in range(max_pages):
+            await self._rate_limiter.acquire()
+            raw = await self._run_sync(
+                self._client.get_sampling_simplified_markets,
+                next_cursor=cursor,
+            )
+
+            data = raw if isinstance(raw, list) else raw.get("data", [])
+            next_cursor = raw.get("next_cursor", "") if isinstance(raw, dict) else ""
+
+            for m in data:
+                tokens = m.get("tokens", [])
+                if len(tokens) < 2:
+                    continue
+
+                yes_token = next((t for t in tokens if t.get("outcome") == "Yes"), tokens[0])
+                no_token = next((t for t in tokens if t.get("outcome") == "No"), tokens[-1])
+
+                all_markets.append({
+                    "market_id": m.get("condition_id", ""),
+                    "condition_id": m.get("condition_id", ""),
+                    "question": m.get("question", ""),
+                    "token_id_yes": yes_token.get("token_id", ""),
+                    "token_id_no": no_token.get("token_id", ""),
+                    "tick_size": Decimal(str(m.get("minimum_tick_size", "0.01"))),
+                    "min_order_size": Decimal(str(m.get("minimum_order_size", "5"))),
+                    "neg_risk": m.get("neg_risk", False),
+                    "active": m.get("active", True),
+                    "closed": m.get("closed", False),
+                })
+
+            if not next_cursor or next_cursor == "LTE=":
+                break
+            cursor = next_cursor
+
+        logger.info("rest_client.get_active_markets", count=len(all_markets))
+        return all_markets
+
+    async def get_market_info(self, condition_id: str) -> dict[str, Any]:
+        """Fetch detailed market info including tick_size and token IDs."""
+        assert self._client is not None, "Call connect() first"
+
+        await self._rate_limiter.acquire()
+        raw = await self._run_sync(self._client.get_market, condition_id)
+
+        tokens = raw.get("tokens", [])
+        yes_token = next((t for t in tokens if t.get("outcome") == "Yes"), tokens[0] if tokens else {})
+        no_token = next((t for t in tokens if t.get("outcome") == "No"), tokens[-1] if tokens else {})
+
+        return {
+            "market_id": raw.get("condition_id", condition_id),
+            "condition_id": raw.get("condition_id", condition_id),
+            "question": raw.get("question", ""),
+            "token_id_yes": yes_token.get("token_id", ""),
+            "token_id_no": no_token.get("token_id", ""),
+            "tick_size": Decimal(str(raw.get("minimum_tick_size", "0.01"))),
+            "min_order_size": Decimal(str(raw.get("minimum_order_size", "5"))),
+            "neg_risk": raw.get("neg_risk", False),
+        }
+
+    # ── Public API: Orderbook ────────────────────────────────────
 
     async def get_orderbook(self, token_id: str) -> dict[str, Any]:
         """Fetch a full orderbook snapshot for a single token.
 
+        Returns dict with ``bids``, ``asks``, ``timestamp``, ``hash``,
+        ``tick_size``, ``min_order_size``, ``neg_risk``.
+        """
+        assert self._client is not None, "Call connect() first"
+
+        await self._rate_limiter.acquire()
+        ob = await self._run_sync(self._client.get_order_book, token_id)
+
+        # OrderBookSummary → dict
+        bids_raw = ob.bids if hasattr(ob, "bids") and ob.bids else []
+        asks_raw = ob.asks if hasattr(ob, "asks") and ob.asks else []
+
+        def _parse_level(lvl: Any) -> dict[str, Decimal]:
+            if hasattr(lvl, "price"):
+                return {"price": Decimal(str(lvl.price)), "size": Decimal(str(lvl.size))}
+            return {"price": Decimal(str(lvl["price"])), "size": Decimal(str(lvl["size"]))}
+
+        result = {
+            "asset_id": getattr(ob, "asset_id", token_id),
+            "market": getattr(ob, "market", ""),
+            "bids": [_parse_level(b) for b in bids_raw],
+            "asks": [_parse_level(a) for a in asks_raw],
+            "timestamp": datetime.now(timezone.utc),
+            "hash": getattr(ob, "hash", None),
+            "tick_size": Decimal(str(getattr(ob, "tick_size", "0.01") or "0.01")),
+            "min_order_size": Decimal(str(getattr(ob, "min_order_size", "5") or "5")),
+            "neg_risk": getattr(ob, "neg_risk", False),
+            "last_trade_price": getattr(ob, "last_trade_price", None),
+        }
+
+        logger.debug(
+            "rest_client.get_orderbook",
+            token_id=token_id[:20] + "...",
+            bids=len(result["bids"]),
+            asks=len(result["asks"]),
+        )
+        return result
+
+    async def get_midpoint(self, token_id: str) -> Decimal:
+        """Get the midpoint price for a token."""
+        assert self._client is not None
+        await self._rate_limiter.acquire()
+        mid = await self._run_sync(self._client.get_midpoint, token_id)
+        # API returns {"mid": "0.50"} or a plain value
+        if isinstance(mid, dict):
+            mid = mid.get("mid", "0")
+        return Decimal(str(mid))
+
+    async def get_spread(self, token_id: str) -> Decimal:
+        """Get the spread for a token."""
+        assert self._client is not None
+        await self._rate_limiter.acquire()
+        spread = await self._run_sync(self._client.get_spread, token_id)
+        # API returns {"spread": "0.02"} or a plain value
+        if isinstance(spread, dict):
+            spread = spread.get("spread", "0")
+        return Decimal(str(spread))
+
+    # ── Public API: Balances ─────────────────────────────────────
+
+    async def get_balance_allowance(
+        self, asset_type: str = "COLLATERAL"
+    ) -> dict[str, Any]:
+        """Fetch balance and allowance for the wallet.
+
+        Parameters
+        ----------
+        asset_type:
+            "COLLATERAL" for USDC or "CONDITIONAL" for CT tokens.
+
+        Returns dict with ``balance`` and ``allowances``.
+        """
+        assert self._client is not None, "Call connect() first"
+
+        await self._rate_limiter.acquire()
+        params = BalanceAllowanceParams(asset_type=asset_type)
+        result = await self._run_sync(self._client.get_balance_allowance, params)
+
+        logger.info(
+            "rest_client.balance_allowance",
+            asset_type=asset_type,
+            balance=result.get("balance", "0"),
+        )
+        return result
+
+    # ── Public API: Orders ───────────────────────────────────────
+
+    async def create_and_post_order(
+        self,
+        token_id: str,
+        price: float,
+        size: float,
+        side: str,
+        order_type: str = "GTC",
+        post_only: bool = True,
+        tick_size: Optional[str] = None,
+        neg_risk: Optional[bool] = None,
+    ) -> dict[str, Any]:
+        """Create, sign, and post an order in one step.
+
         Parameters
         ----------
         token_id:
-            The token ID to fetch the book for.
-
-        Returns
-        -------
-        dict with ``bids``, ``asks``, ``timestamp``, ``hash``.
-
-        NOTE: Stub — in production, calls GET ``/book?token_id=...``
+            The conditional token ID.
+        price:
+            Order price (e.g., 0.50).
+        size:
+            Order size in shares.
+        side:
+            "BUY" or "SELL".
+        order_type:
+            "GTC", "FOK", "GTD", or "FAK".
+        post_only:
+            If True, order will only be maker (default True for MM).
+        tick_size:
+            Tick size for the market (auto-detected if None).
+        neg_risk:
+            Whether this is a neg-risk market (auto-detected if None).
         """
-        # STUB: In production:
-        # data = await self._request("GET", "/book", params={"token_id": token_id})
-        logger.info("rest_client.get_orderbook", token_id=token_id)
+        assert self._client is not None, "Call connect() first"
 
-        return {
-            "bids": [
-                {"price": Decimal("0.45"), "size": Decimal("100")},
-                {"price": Decimal("0.44"), "size": Decimal("200")},
-                {"price": Decimal("0.43"), "size": Decimal("150")},
-            ],
-            "asks": [
-                {"price": Decimal("0.55"), "size": Decimal("100")},
-                {"price": Decimal("0.56"), "size": Decimal("180")},
-                {"price": Decimal("0.57"), "size": Decimal("120")},
-            ],
-            "timestamp": datetime.now(timezone.utc),
-            "hash": None,
-        }
+        clob_side = BUY if side.upper() == "BUY" else SELL
+        clob_order_type = getattr(ClobOrderType, order_type.upper(), ClobOrderType.GTC)
 
-    async def get_market_info(self, market_id: str) -> dict[str, Any]:
-        """Fetch detailed market info including tick_size and token IDs.
+        order_args = OrderArgs(
+            token_id=token_id,
+            price=price,
+            size=size,
+            side=clob_side,
+        )
 
-        NOTE: Stub — in production calls GET ``/markets/{market_id}``
-        """
-        logger.info("rest_client.get_market_info", market_id=market_id)
-        return {
-            "market_id": market_id,
-            "condition_id": f"cond-{market_id}",
-            "token_id_yes": f"{market_id}-yes",
-            "token_id_no": f"{market_id}-no",
-            "tick_size": Decimal("0.01"),
-            "min_order_size": Decimal("5"),
-            "neg_risk": False,
-        }
+        options = None
+        if tick_size is not None or neg_risk is not None:
+            options = PartialCreateOrderOptions(
+                tick_size=tick_size,
+                neg_risk=neg_risk,
+            )
 
-    # ── Internal: HTTP with retry ────────────────────────────────
+        await self._rate_limiter.acquire()
 
-    async def _request(
+        # create_and_post_order handles signing + posting
+        result = await self._run_sync(
+            self._client.create_and_post_order,
+            order_args,
+            options,
+        )
+
+        logger.info(
+            "rest_client.order_posted",
+            token_id=token_id[:20] + "...",
+            side=side,
+            price=price,
+            size=size,
+            order_type=order_type,
+            result=str(result)[:200],
+        )
+        return result
+
+    async def post_order(
         self,
-        method: str,
-        path: str,
-        params: dict[str, str] | None = None,
-        json_body: dict[str, Any] | None = None,
+        signed_order: Any,
+        order_type: str = "GTC",
+        post_only: bool = True,
     ) -> dict[str, Any]:
-        """Make an HTTP request with rate limiting and retry.
+        """Post a pre-signed order.
 
-        Retries on 429, 500, 502, 503, 504 with exponential backoff.
+        Parameters
+        ----------
+        signed_order:
+            A signed order object from ``create_order()``.
+        order_type:
+            "GTC", "FOK", etc.
+        post_only:
+            Maker-only flag.
         """
-        assert self._client is not None, "Call connect() before making requests"
+        assert self._client is not None
 
+        clob_type = getattr(ClobOrderType, order_type.upper(), ClobOrderType.GTC)
+        await self._rate_limiter.acquire()
+        result = await self._run_sync(
+            self._client.post_order, signed_order, clob_type, post_only,
+        )
+        return result
+
+    async def cancel_order(self, order_id: str) -> bool:
+        """Cancel a single order by its exchange order ID.
+
+        Returns True if successfully cancelled.
+        """
+        assert self._client is not None, "Call connect() first"
+
+        await self._rate_limiter.acquire()
+        try:
+            result = await self._run_sync(self._client.cancel, order_id)
+            logger.info("rest_client.order_cancelled", order_id=order_id, result=result)
+            return True
+        except Exception as exc:
+            logger.warning(
+                "rest_client.cancel_failed",
+                order_id=order_id,
+                error=str(exc),
+            )
+            return False
+
+    async def cancel_all_orders(self) -> bool:
+        """Cancel all open orders."""
+        assert self._client is not None
+
+        await self._rate_limiter.acquire()
+        try:
+            result = await self._run_sync(self._client.cancel_all)
+            logger.info("rest_client.all_orders_cancelled", result=result)
+            return True
+        except Exception as exc:
+            logger.warning("rest_client.cancel_all_failed", error=str(exc))
+            return False
+
+    async def get_open_orders(
+        self,
+        market: str = "",
+        asset_id: str = "",
+    ) -> list[dict[str, Any]]:
+        """Fetch open orders, optionally filtered by market or asset.
+
+        Returns a list of order dicts from the exchange.
+        """
+        assert self._client is not None, "Call connect() first"
+
+        params = OpenOrderParams(market=market or None, asset_id=asset_id or None)
+        await self._rate_limiter.acquire()
+        result = await self._run_sync(self._client.get_orders, params)
+
+        orders = result if isinstance(result, list) else result.get("data", [])
+        logger.debug("rest_client.open_orders", count=len(orders))
+        return orders
+
+    async def get_trades(
+        self,
+        market: str = "",
+        asset_id: str = "",
+    ) -> list[dict[str, Any]]:
+        """Fetch trade history."""
+        assert self._client is not None
+
+        params = TradeParams(market=market or None, asset_id=asset_id or None)
+        await self._rate_limiter.acquire()
+        result = await self._run_sync(self._client.get_trades, params)
+        return result if isinstance(result, list) else result.get("data", [])
+
+    # ── Public API: Utility ──────────────────────────────────────
+
+    async def get_server_time(self) -> int:
+        """Fetch server unix timestamp."""
+        assert self._client is not None
+        await self._rate_limiter.acquire()
+        return await self._run_sync(self._client.get_server_time)
+
+    async def get_tick_size(self, token_id: str) -> str:
+        """Get tick size for a token (e.g. '0.01', '0.001')."""
+        assert self._client is not None
+        await self._rate_limiter.acquire()
+        return await self._run_sync(self._client.get_tick_size, token_id)
+
+    async def get_neg_risk(self, token_id: str) -> bool:
+        """Check if a token belongs to a neg-risk market."""
+        assert self._client is not None
+        await self._rate_limiter.acquire()
+        return await self._run_sync(self._client.get_neg_risk, token_id)
+
+    # ── Internal: run sync in executor ───────────────────────────
+
+    async def _run_sync(self, fn, *args, **kwargs) -> Any:
+        """Run a synchronous py-clob-client function in a thread executor.
+
+        Retries on transient errors with exponential backoff.
+        """
+        loop = asyncio.get_running_loop()
         last_exc: Exception | None = None
+
         for attempt in range(1, self._max_retries + 1):
-            await self._rate_limiter.acquire()
-
             try:
-                response = await self._client.request(
-                    method,
-                    path,
-                    params=params,
-                    json=json_body,
+                result = await loop.run_in_executor(
+                    None,
+                    functools.partial(fn, *args, **kwargs),
                 )
-
-                if response.status_code == 429:
-                    retry_after = float(response.headers.get("Retry-After", "2"))
-                    logger.warning(
-                        "rest_client.rate_limited",
-                        path=path,
-                        retry_after=retry_after,
-                        attempt=attempt,
-                    )
-                    await asyncio.sleep(retry_after)
-                    continue
-
-                response.raise_for_status()
-                return response.json()  # type: ignore[no-any-return]
-
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code in {500, 502, 503, 504}:
+                return result
+            except Exception as exc:
+                error_str = str(exc)
+                # Retry on server errors / rate limits / connection errors
+                is_retryable = any(
+                    indicator in error_str.lower()
+                    for indicator in [
+                        "429", "500", "502", "503", "504",
+                        "timeout", "connection", "rate",
+                    ]
+                )
+                if is_retryable and attempt < self._max_retries:
                     delay = 2 ** attempt
                     logger.warning(
-                        "rest_client.server_error",
-                        status=exc.response.status_code,
-                        path=path,
-                        delay=delay,
+                        "rest_client.retrying",
+                        fn=fn.__name__,
                         attempt=attempt,
+                        delay=delay,
+                        error=error_str[:200],
                     )
                     last_exc = exc
                     await asyncio.sleep(delay)
                     continue
                 raise
 
-            except (httpx.ConnectError, httpx.ReadTimeout) as exc:
-                delay = 2 ** attempt
-                logger.warning(
-                    "rest_client.connection_error",
-                    error=str(exc),
-                    path=path,
-                    delay=delay,
-                    attempt=attempt,
-                )
-                last_exc = exc
-                await asyncio.sleep(delay)
-                continue
-
         raise RuntimeError(
-            f"REST request failed after {self._max_retries} retries: {path}"
+            f"REST call failed after {self._max_retries} retries"
         ) from last_exc

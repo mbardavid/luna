@@ -61,25 +61,27 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 - script: `scripts/healthcheck.sh`
 - daily cron job: `daily-setup-healthcheck-summary`
 
-### OpenClaw Gateway — Safe Reset Runbook (anti-limbo)
+### OpenClaw Gateway — Operational Rules (2026-02-26)
 
-1. **Detect mode first**
-   - `systemctl --user status openclaw-gateway.service` (if available)
-   - `pgrep -af openclaw-gateway`
-2. **If systemd user service exists, use only systemd path**
-   - `export XDG_RUNTIME_DIR=/run/user/$(id -u)`
-   - `export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus`
-   - `systemctl --user daemon-reload`
-   - `systemctl --user restart openclaw-gateway.service`
-3. **If service is not installed, install once (as openclaw user)**
-   - `openclaw gateway install`
-   - `systemctl --user enable --now openclaw-gateway.service`
-4. **Never mix modes**
-   - Do **not** run `openclaw gateway` foreground while service is active.
-5. **Verify after reset**
-   - `systemctl --user is-active openclaw-gateway.service`
-   - `journalctl --user -u openclaw-gateway.service -n 80 --no-pager`
-   - `openclaw agents list --bindings`
+**Serviço único:** system-service (`/etc/systemd/system/openclaw-gateway.service`)
+- User-service foi desabilitado permanentemente (conflito resolvido)
+- Drop-ins migrados: bird-env, crypto-sage-env, polymarket-env
+- Config: `--bind lan`, `Restart=always`, `KillMode=process`, enabled on boot
+
+**⚠️ REGRA CRÍTICA: NUNCA parar/reiniciar o gateway via exec**
+- `sudo systemctl stop/restart openclaw-gateway` mata a Luna junto
+- Se detectar instabilidade → **apenas alertar Matheus**
+- O systemd cuida do restart automaticamente
+
+**Diagnóstico (somente leitura):**
+- `sudo systemctl status openclaw-gateway` — status atual
+- `journalctl -u openclaw-gateway -n 50 --no-pager` — logs recentes
+- `pgrep -af openclaw-gateway` — PID
+- `ss -tlnp | grep 18789` — porta
+
+**Config reload (seguro, non-disruptive):**
+- `kill -USR1 $(pgrep -f openclaw-gateway)` — hot reload da config
+- ⚠️ Pode causar brief disconnect mas NÃO mata o processo
 
 ---
 

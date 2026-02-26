@@ -96,6 +96,33 @@
 - Matheus cobrou: "Esse seu sistema de monitoramento não está 100%"
 - Regra: MC update é PARTE do processamento do resultado, não step separado
 
+## Lição: Auto-chain sequential tasks (2026-02-25)
+- Quando Matheus diz "execute P1-P5", cada conclusão de fase DEVE spawnar a próxima automaticamente no mesmo turno
+- Nunca esperar heartbeat ou próxima mensagem do humano pra continuar uma cadeia prometida
+- Se o resultado do subagent chega como auto-announce, processar resultado + spawnar próximo + update MC — tudo no mesmo turno
+
+## 2026-02-25 (failure detection gap)
+- **Subagent failure detection has 3 gaps:**
+  1. **Luna (context):** During context compaction, failure auto-announce messages can be lost or not acted upon. Rule: ALWAYS react to `❌ Subagent failed` messages immediately, regardless of other activity.
+  2. **MC Watchdog (timing):** Runs every 15min. A failed subagent can sit as `in_progress` for up to 15min before detection. The watchdog also requires `mc_progress >= 80%` to auto-complete — low-progress failures get moved to `review` but don't notify anyone.
+  3. **Heartbeat (blind spot):** Only checked `inbox` tasks. Tasks stuck in `in_progress` with dead sessions were invisible to heartbeat.
+- **Fix deployed:**
+  - New cron `mc-failure-detector` (every 5min) — checks all `in_progress` MC tasks against active sessions list. If session is dead, notifies `#general-luna` via Discord. Has 30min cooldown per task to avoid spam.
+  - Heartbeat updated to detect failed subagents in `subagents list` recent entries and notify.
+  - Together: 3-layer detection (Luna immediate + failure-detector 5min + heartbeat 30min + watchdog 15min).
+- **Hooks investigation:** OpenClaw doesn't have post-session-end hooks. The `openclaw hooks` CLI hangs/times out. Failure detection must be polling-based (cron) or inline (Luna reacting to auto-announce). No event-driven option available in current version.
+
+## 2026-02-25 (crypto-sage executor role)
+- **Crypto-sage é EXECUTOR, não pesquisador.** Nunca delegar tasks que exigem pesquisa, análise de documentação, ou raciocínio complexo pro crypto-sage (Gemini Flash). Ele deve receber payloads prontos pra execução.
+- **Padrão correto de delegação para executores:**
+  - Luna (Opus) faz o research/raciocínio
+  - Luna monta payload exato (contrato, função, parâmetros, script)
+  - Executor recebe: "execute este comando/script com estes parâmetros"
+  - Executor NÃO decide o quê fazer, só COMO executar
+- **Gemini Flash tem bug de loop degenerativo:** Quando não sabe o que fazer, repete a mesma tool call infinitamente (visto: 15x web_fetch da mesma URL). Isso infla o contexto até estourar o token ou timeout.
+- **Nunca mandar contexto de "verificar" ou "investigar" pra executor Flash.** Se precisa de research, usar Luan (Claude Opus) ou fazer na própria Luna.
+- **38M tokens queimados por delegação errada** — custo evitável com payload pronto.
+
 ## 2026-02-26
 
 ### [CRÍTICO] Nunca operar o gateway via tool `exec`
@@ -119,3 +146,28 @@
 4. `free -h`
 5. **Reportar diagnóstico ao Matheus** — nunca executar stop/start via `exec`
 6. Se Matheus autorizar: `sudo systemctl restart openclaw-gateway`
+
+### Heartbeat spam → OOM crash
+- **Heartbeat sem state tracking causa spam e crash.** O Flash notificava "4 inbox tasks" a cada 30min sem checar se já tinha notificado. As notificações falhavam com "Channel is required" (faltava `channel: discord`), retry acumulava, gateway atingiu OOM e foi SIGKILLed.
+- **SEMPRE especificar `channel: discord`** no `message` tool quando há múltiplos canais configurados (telegram + discord). Sem isso: erro → retry storm → OOM.
+- **State file é obrigatório para notificações periódicas.** Heartbeat agora usa `/tmp/.heartbeat-last-notify.json` para rastrear último estado notificado. Só notifica se inbox count mudou ou subagent falhado é novo.
+- **Processo órfão após SIGKILL:** Quando o gateway é morto por OOM, processos filhos podem sobreviver segurando a porta → crash loop de restart. Fix manual: `kill <pid_orfao>` antes de reiniciar.
+
+### Gateway dual-service crash — CRITICAL
+- **Dois serviços systemd conflitavam pela mesma porta (18789):** user-service (`systemctl --user`) e system-service (`sudo systemctl`). Quando um morria, o outro subia e bloqueava o restart do primeiro → crash loop.
+- **Luna tentou fix via `sudo systemctl stop` 3 vezes — e se matou todas as 3.** O gateway roda a Luna. Parar o gateway = parar a Luna. NUNCA executar `sudo systemctl stop/restart openclaw-gateway` via exec.
+- **Resolução (feita pelo Matheus):** user-service desabilitado permanentemente. Drop-ins migrados pro system-service. System-service ajustado com `--bind lan`, `Restart=always`, `KillMode=process`, enabled on boot.
+- **Regra permanente:** Se detectar instabilidade no gateway → APENAS alertar Matheus. NÃO tentar corrigir. O systemd cuida do restart automaticamente.
+- **Diagnóstico seguro:** `sudo systemctl status openclaw-gateway` e `journalctl -u openclaw-gateway` (somente leitura). Config reload via `SIGUSR1` é seguro mas pode causar brief disconnect.
+
+### Human-gate em planos complexos
+- **Planos multi-fase devem ter human-gates nas etapas críticas.** Nem toda task do inbox deve ser auto-dispatched. Tasks que envolvem dinheiro real, deploys de produção, ou decisões que dependem de validação humana devem ser marcadas como `blocked` no `config/heartbeat-blocklist.json`.
+- **Luna é responsável por adicionar human-gates proativamente.** Ao criar planos grandes (P1→P6, fases sequenciais), identificar quais etapas precisam de aprovação explícita do Matheus e adicioná-las à blocklist ANTES de spawnar a cadeia.
+- **Critérios para human-gate:**
+  - Envolve dinheiro real / transações on-chain com risco
+  - Deploy de produção (qualquer sistema)
+  - Resultado depende de validação qualitativa que pode levar dias/semanas (ex: P5 paper trading precisa provar lucratividade)
+  - Decisões arquiteturais irreversíveis
+  - Qualquer etapa onde "executar rápido" é pior que "esperar feedback"
+- **Dependency chain também deve ser configurada:** Usar `dependency_chain` no `heartbeat-blocklist.json` para garantir que fases sequenciais não sejam dispatched fora de ordem, mesmo que o MC não tenha `depends_on_task_ids` configurado.
+- **Arquivo:** `config/heartbeat-blocklist.json` — `blocked_task_ids` (human-gate) + `dependency_chain` (sequência).

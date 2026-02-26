@@ -78,3 +78,10 @@
 - **Crypto-sage workspace consolidado:** Dois workspaces (workspace-crypto-sage + agents/blockchain-operator) fundidos em um. 5 chains no portfolio (Base, Solana, HL, Arbitrum, Polygon).
 - **Heartbeat ativado:** 30min, modelo gemini-3-flash. Pre-flight check (cron guard + subagents + MC in_progress) antes de drainer inbox.
 - **Responsividade:** Nunca travar turno com timeouts longos. Updates intermediários obrigatórios. MC update é parte do processamento de resultado, não step separado.
+
+## 2026-02-26
+
+- **Gateway crash post-mortem:** Heartbeat AI (gemini-3-flash) causou OOM por retry storm de notificações sem `channel: discord`. User-service desabilitado permanentemente; system-service é agora o único modo de execução. **Regra absoluta: NUNCA parar/reiniciar gateway via exec** — mata a Luna junto.
+- **Heartbeat V2 operacional:** Substituiu heartbeat AI por bash puro (`heartbeat-v2.sh` + `gateway-wake-sentinel.sh`). Zero tokens, determinístico, 9 fases incluindo circuit breaker e rate limit. Crontab a cada 10min.
+- **PMM pronto para trading:** Wallet com ~228 USDC.e + ~8.38 POL na Polygon, 6 allowances setadas. Próximos passos: P4 (seleção mercados), P5 (paper trading), P6 (produção — requer aprovação Matheus).
+- **Token burn lesson:** Flash como agente executor (crypto-sage) entrou em loop de web_fetch 15x → 38M tokens queimados. Agentes especializados com modelo barato devem ter guardrails de loop/retry.
