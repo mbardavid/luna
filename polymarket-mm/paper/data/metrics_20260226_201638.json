@@ -1,0 +1,48 @@
+{
+  "start_time": "2026-02-26T20:10:25.687056+00:00",
+  "end_time": "2026-02-26T20:16:38.839706+00:00",
+  "total_hours": 1,
+  "totals": {
+    "quotes": 425,
+    "orders": 423,
+    "fills": 14,
+    "ws_messages": 1472,
+    "book_updates": 605,
+    "errors": 0
+  },
+  "hourly": [
+    {
+      "hour": 0,
+      "start_time": "2026-02-26T20:10:25.687056+00:00",
+      "end_time": "2026-02-26T20:16:38.839593+00:00",
+      "quotes_generated": 425,
+      "orders_submitted": 423,
+      "fills": 14,
+      "fill_rate_pct": 3.31,
+      "total_pnl": 0.0,
+      "avg_spread_captured_bps": 4255.1,
+      "inventory_drift": {
+        "us-strikes-iran-by-march-31-2026": {
+          "qty_yes": 173.0,
+          "qty_no": 0.0,
+          "net": 173.0,
+          "realized_pnl": 0.0
+        }
+      },
+      "ws_messages": 1472,
+      "book_updates": 605,
+      "errors": 0,
+      "per_market": {
+        "us-strikes-iran-by-march-31-2026": {
+          "quotes": 425,
+          "orders": 423,
+          "fills": 14,
+          "avg_spread_bps": 4255.1,
+          "book_updates": 605,
+          "inventory_yes": 173.0,
+          "inventory_no": 0.0
+        }
+      }
+    }
+  ]
+}

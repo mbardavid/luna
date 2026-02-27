@@ -194,3 +194,20 @@
 - **Antes de sugerir ou executar qualquer update do openclaw**, verificar se a versão alvo ainda suporta `google-antigravity` no changelog
 - Quando quiser migrar para versão nova, será necessário primeiro trocar o provider dos modelos (provavelmente para `google-gemini-cli` com auth Anthropic direta) — essa decisão é do Matheus
 - **Versão atual pinada:** `2026.2.22-2` — NÃO atualizar sem autorização explícita do Matheus
+
+### Procedimento de update do OpenClaw — BLOQUEADO
+- **Updates do OpenClaw são responsabilidade EXCLUSIVA do Matheus.** Luna NÃO tem permissão para atualizar.
+- **3 camadas de proteção:** (1) Lessons.md — saber que não deve, (2) sudoers — `sudo npm` exige senha, (3) wrapper `npm-safe` — bloqueia pacote `openclaw` por lógica.
+- **Versão pinada:** `2026.2.22-2`. Só o Matheus altera.
+- **Se versão nova for publicada:** informar Matheus e deixar ELE decidir quando/se atualizar.
+- **Script `gateway-update.sh` existe** mas só deve ser usado pelo Matheus manualmente.
+
+## hb-respawn cron one-shot → "Channel is required" storm → OOM (2026-02-26)
+
+**Cenário:** heartbeat-v2.sh Phase 4 detecta subagent falhado → cria cron one-shot com `openclaw cron add --agent main --session isolated --no-deliver`. O agente roda em sessão isolada (sem canal Discord), tenta usar `message` tool → "Channel is required" → retry infinito → **3.623 erros/hora** → memória 820MB → Discord listener bloqueado 32+ min.
+
+**Mesmo padrão** do crash de 03h (heartbeat Flash spam sem `channel: discord`). Sessões isoladas NUNCA devem tentar enviar mensagens.
+
+**Fix:** Auto-respawn via cron one-shot DESABILITADO. Phase 4 agora apenas notifica `#general-luna` + `#notifications` e move task pra `review`. Re-spawn manual pela Luna na sessão principal (que TEM canal).
+
+**Regra geral:** NUNCA criar cron one-shots que esperam que o agente envie mensagens. Sessões isoladas não têm canal de output. Use `--no-deliver` E garanta que o agente responda `NO_REPLY`, OU não crie a sessão.

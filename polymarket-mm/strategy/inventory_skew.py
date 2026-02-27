@@ -32,6 +32,10 @@ logger = structlog.get_logger("strategy.inventory_skew")
 _ZERO = Decimal("0")
 _ONE = Decimal("1")
 
+# Minimum volatility floor — prevents skew from being zero when
+# historical data is insufficient (e.g. paper trading with short series).
+MIN_SIGMA = Decimal("0.005")  # 0.5% as volatility floor
+
 
 # ── Configuration ────────────────────────────────────────────────────
 
@@ -62,6 +66,13 @@ class InventorySkewConfig:
 
     # Non-linear ramp exponent above soft threshold (1 = linear, 2 = quadratic)
     ramp_exponent: Decimal = Decimal("1.5")
+
+    # Linear skew coefficient — adds a volatility-independent skew component
+    # that guarantees meaningful mean-reversion even when σ is tiny.
+    # linear_skew = linear_coeff * (q / max_inventory)
+    # Default 0.15 means ±15% price shift at full inventory, providing
+    # strong mean-reversion pressure even in low-vol / paper trading.
+    linear_coeff: Decimal = Decimal("0.15")
 
 
 # ── InventorySkew ────────────────────────────────────────────────────
@@ -126,14 +137,29 @@ class InventorySkew:
         if q == _ZERO:
             return _ZERO
 
+        # Apply volatility floor — when sigma=0 (e.g. insufficient data
+        # in paper trading), the skew formula produces 0 regardless of
+        # inventory, preventing any mean-reversion. The floor ensures
+        # a minimum skew response to inventory imbalances.
+        effective_sigma = max(volatility, MIN_SIGMA)
+
         # σ² (variance)
-        sigma_sq = volatility * volatility
+        sigma_sq = effective_sigma * effective_sigma
 
         # (T - t) — remaining time fraction, floored at 0
         t_remaining = self._time_remaining(elapsed_hours)
 
         # Base Avellaneda-Stoikov: δ = γ · σ² · (T-t) · q
         skew = c.gamma * sigma_sq * t_remaining * q
+
+        # Linear skew component — guarantees a minimum inventory-dependent
+        # price shift regardless of σ.  This is essential for paper trading
+        # or low-vol markets where σ² ≈ 0 renders the A-S formula inert.
+        # The linear component is also scaled by t_remaining so it decays
+        # to zero at the time horizon boundary, consistent with A-S.
+        if c.max_inventory > _ZERO and c.linear_coeff > _ZERO and t_remaining > _ZERO:
+            linear_skew = c.linear_coeff * (q / c.max_inventory) * t_remaining
+            skew = skew + linear_skew
 
         # Non-linear ramp for large inventories
         skew = self._apply_nonlinear_ramp(skew, q)
@@ -148,6 +174,7 @@ class InventorySkew:
             "inventory_skew.computed",
             q=str(q),
             sigma=str(volatility),
+            effective_sigma=str(effective_sigma),
             sigma_sq=str(sigma_sq),
             t_remaining=str(t_remaining),
             raw_skew=str(c.gamma * sigma_sq * t_remaining * q),

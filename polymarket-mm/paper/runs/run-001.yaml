@@ -1,0 +1,21 @@
+# Run 001 — H7: Fill Rate Calibration
+# Teste com fill_probability=0.20 para simular fill rates realistas (10-30%)
+# em vez dos 96% do PaperVenue padrão.
+
+run_id: "run-001"
+duration_hours: 4
+hypothesis: "H7"  # Fill Rate Realista
+initial_balance: 500
+
+params:
+  quote_interval_s: 2.0
+  default_order_size: 50
+  default_half_spread_bps: 50
+  gamma_risk_aversion: 0.3
+  fill_probability: 0.20  # Simular fill rate mais realista
+  markets:
+    - "will-axiom-be-accused-of-insider-trading"
+    - "us-strikes-iran-by-march-31-2026"
+
+parent_run: null
+changes_from_parent: null

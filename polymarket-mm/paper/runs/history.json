@@ -1,0 +1,52 @@
+[
+  {
+    "run_id": "run-001",
+    "hypothesis": "H7",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.3,
+    "fill_rate": 19.19,
+    "max_drawdown": 0.0,
+    "timestamp": "2026-02-26T18:05:50.933781+00:00"
+  },
+  {
+    "run_id": "run-002",
+    "hypothesis": "H7",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.19,
+    "fill_rate": 3.33,
+    "max_drawdown": 0.0,
+    "timestamp": "2026-02-26T18:18:01.944617+00:00"
+  },
+  {
+    "run_id": "run-003",
+    "hypothesis": "H1",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.61,
+    "fill_rate": 37.14,
+    "max_drawdown": 0.0,
+    "timestamp": "2026-02-26T19:59:43.900885+00:00"
+  },
+  {
+    "run_id": "run-005",
+    "hypothesis": "H1",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.1,
+    "fill_rate": 3.31,
+    "max_drawdown": 0.0,
+    "timestamp": "2026-02-26T20:16:38.845691+00:00"
+  },
+  {
+    "run_id": "run-004",
+    "hypothesis": "H1",
+    "result": "FAIL",
+    "pnl_per_hour": 0.0,
+    "duration_h": 4.0,
+    "fill_rate": 18.18,
+    "max_drawdown": 0.0,
+    "timestamp": "2026-02-26T23:59:58.802999+00:00"
+  }
+]

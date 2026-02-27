@@ -1,0 +1,29 @@
+{
+  "drawdown": {
+    "triggered": true,
+    "state": "HALTED",
+    "loss": "60",
+    "limit": "50"
+  },
+  "heartbeat_missed": {
+    "triggered": true,
+    "state": "HALTED"
+  },
+  "data_gap": {
+    "triggered": true,
+    "paused_markets": [
+      "test-market"
+    ]
+  },
+  "engine_restart": {
+    "triggered": true,
+    "state": "PAUSED",
+    "auto_resumed": true
+  },
+  "reconciliation_mismatch": {
+    "triggered": true,
+    "state": "HALTED"
+  },
+  "all_passed": true,
+  "total_orders_cancelled": 10
+}

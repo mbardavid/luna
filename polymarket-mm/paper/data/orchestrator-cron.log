@@ -1,0 +1,153 @@
+[2026-02-26T18:00:01Z] === Orchestrator check ===
+[2026-02-26T18:00:01Z] State: status=, process=ALIVE
+[2026-02-26T18:00:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-26T18:00:02Z] === Check complete ===
+[2026-02-26T18:30:01Z] === Orchestrator check ===
+[2026-02-26T18:30:01Z] State: status=, process=DEAD
+[2026-02-26T18:30:01Z] FINISHED: run  completed
+[2026-02-26T18:30:01Z] Triggering analysis for  via cron one-shot
+{
+  "id": "392083bd-e0b9-4a02-b65d-260d3554e852",
+  "agentId": "main",
+  "name": "smoke-analyze-",
+  "enabled": true,
+  "deleteAfterRun": true,
+  "createdAtMs": 1772130608743,
+  "updatedAtMs": 1772130608743,
+  "schedule": {
+    "kind": "at",
+    "at": "2026-02-26T18:30:31.000Z"
+  },
+  "sessionTarget": "isolated",
+  "wakeMode": "now",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Smoke test  terminou. Resultados em paper/data/metrics_latest.json e paper/data/trades.jsonl.\n\nInstruções:\n1. Leia paper/data/metrics_latest.json + paper/data/live_state.json\n2. Leia paper/data/trades.jsonl (últimas linhas)\n3. Gere relatório em paper/reports/-report.md\n4. Avalie a hipótese testada (PASS/FAIL/INCONCLUSIVE)\n5. Decida próximos parâmetros\n6. Gere config do próximo run se aplicável\n7. Notifique #general-luna com resumo",
+    "thinking": "medium",
+    "timeoutSeconds": 600
+  },
+  "delivery": {
+    "mode": "none",
+    "channel": "last"
+  },
+  "state": {
+    "nextRunAtMs": 1772130631000
+  }
+}
+[2026-02-26T18:30:09Z] === Check complete ===
+[2026-02-26T19:00:01Z] === Orchestrator check ===
+[2026-02-26T19:00:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-26T19:00:01Z] ANALYZING: waiting for Luna to finish
+[2026-02-26T19:00:01Z] === Check complete ===
+[2026-02-26T19:30:01Z] === Orchestrator check ===
+[2026-02-26T19:30:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-26T19:30:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-26T19:30:02Z] === Check complete ===
+[2026-02-26T20:00:01Z] === Orchestrator check ===
+[2026-02-26T20:00:02Z] State: status=ANALYZING, process=ALIVE
+[2026-02-26T20:00:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-26T20:00:02Z] === Check complete ===
+[2026-02-26T20:30:01Z] === Orchestrator check ===
+[2026-02-26T20:30:02Z] State: status=ANALYZING, process=DEAD
+[2026-02-26T20:30:02Z] FINISHED: run  completed
+[2026-02-26T20:30:02Z] Triggering analysis for  via cron one-shot
+[2026-02-26T20:30:39Z] ERROR: Failed to create analysis cron job
+[2026-02-26T20:30:39Z] DISCORD: ⚠️ Smoke test: falha ao criar cron de análise para 
+✅ Sent via Discord. Message ID: 1476677889406537849
+[2026-02-26T20:30:44Z] === Check complete ===
+[2026-02-26T21:00:01Z] === Orchestrator check ===
+[2026-02-26T21:00:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-26T21:00:01Z] ANALYZING: waiting for Luna to finish
+[2026-02-26T21:00:01Z] === Check complete ===
+[2026-02-26T21:30:01Z] === Orchestrator check ===
+[2026-02-26T21:30:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-26T21:30:01Z] ANALYZING: waiting for Luna to finish
+[2026-02-26T21:30:01Z] === Check complete ===
+[2026-02-26T22:00:01Z] === Orchestrator check ===
+[2026-02-26T22:00:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-26T22:00:01Z] ANALYZING: waiting for Luna to finish
+[2026-02-26T22:00:01Z] === Check complete ===
+[2026-02-26T22:30:01Z] === Orchestrator check ===
+[2026-02-26T22:30:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-26T22:30:01Z] ANALYZING: waiting for Luna to finish
+[2026-02-26T22:30:01Z] === Check complete ===
+[2026-02-26T23:00:01Z] === Orchestrator check ===
+[2026-02-26T23:00:02Z] State: status=ANALYZING, process=NO_PID
+[2026-02-26T23:00:02Z] ANALYZING: waiting for Luna to finish
+[2026-02-26T23:00:02Z] === Check complete ===
+[2026-02-26T23:30:01Z] === Orchestrator check ===
+[2026-02-26T23:30:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-26T23:30:02Z] ANALYZING: waiting for Luna to finish
+[2026-02-26T23:30:02Z] === Check complete ===
+[2026-02-27T00:00:01Z] === Orchestrator check ===
+[2026-02-27T00:00:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-27T00:00:01Z] ANALYZING: waiting for Luna to finish
+[2026-02-27T00:00:01Z] === Check complete ===
+[2026-02-27T00:30:01Z] === Orchestrator check ===
+[2026-02-27T00:30:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-27T00:30:01Z] ANALYZING: waiting for Luna to finish
+[2026-02-27T00:30:01Z] === Check complete ===
+[2026-02-27T01:00:01Z] === Orchestrator check ===
+[2026-02-27T01:00:02Z] State: status=ANALYZING, process=NO_PID
+[2026-02-27T01:00:02Z] ANALYZING: waiting for Luna to finish
+[2026-02-27T01:00:02Z] === Check complete ===
+[2026-02-27T01:30:01Z] === Orchestrator check ===
+[2026-02-27T01:30:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-27T01:30:01Z] ANALYZING: waiting for Luna to finish
+[2026-02-27T01:30:02Z] === Check complete ===
+[2026-02-27T02:00:01Z] === Orchestrator check ===
+[2026-02-27T02:00:02Z] State: status=ANALYZING, process=NO_PID
+[2026-02-27T02:00:02Z] ANALYZING: waiting for Luna to finish
+[2026-02-27T02:00:02Z] === Check complete ===
+[2026-02-27T02:30:01Z] === Orchestrator check ===
+[2026-02-27T02:30:01Z] State: status=ANALYZING, process=NO_PID
+[2026-02-27T02:30:01Z] ANALYZING: waiting for Luna to finish
+[2026-02-27T02:30:02Z] === Check complete ===
+[2026-02-27T03:00:01Z] === Orchestrator check ===
+[2026-02-27T03:00:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T03:00:01Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T03:00:01Z] === Check complete ===
+[2026-02-27T03:30:01Z] === Orchestrator check ===
+[2026-02-27T03:30:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T03:30:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T03:30:02Z] === Check complete ===
+[2026-02-27T04:00:01Z] === Orchestrator check ===
+[2026-02-27T04:00:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T04:00:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T04:00:02Z] === Check complete ===
+[2026-02-27T04:30:01Z] === Orchestrator check ===
+[2026-02-27T04:30:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T04:30:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T04:30:02Z] === Check complete ===
+[2026-02-27T05:00:01Z] === Orchestrator check ===
+[2026-02-27T05:00:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T05:00:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T05:00:02Z] === Check complete ===
+[2026-02-27T05:30:01Z] === Orchestrator check ===
+[2026-02-27T05:30:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T05:30:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T05:30:02Z] === Check complete ===
+[2026-02-27T06:00:01Z] === Orchestrator check ===
+[2026-02-27T06:00:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T06:00:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T06:00:02Z] === Check complete ===
+[2026-02-27T06:30:01Z] === Orchestrator check ===
+[2026-02-27T06:30:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T06:30:01Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T06:30:01Z] === Check complete ===
+[2026-02-27T07:00:01Z] === Orchestrator check ===
+[2026-02-27T07:00:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T07:00:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T07:00:02Z] === Check complete ===
+[2026-02-27T07:30:01Z] === Orchestrator check ===
+[2026-02-27T07:30:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T07:30:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T07:30:02Z] === Check complete ===
+[2026-02-27T08:00:01Z] === Orchestrator check ===
+[2026-02-27T08:00:01Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T08:00:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T08:00:02Z] === Check complete ===
+[2026-02-27T08:30:02Z] === Orchestrator check ===
+[2026-02-27T08:30:02Z] State: status=ANALYZING, process=ALIVE
+[2026-02-27T08:30:02Z] RUNNING: elapsed=0s, target=14400s, max=17280.0s
+[2026-02-27T08:30:02Z] === Check complete ===

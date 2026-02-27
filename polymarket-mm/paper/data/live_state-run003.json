@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-02-26T19:59:43.900216+00:00",
+  "run_id": "run-003",
+  "status": "FINISHED",
+  "uptime_seconds": 2197.7,
+  "duration_target_hours": 4.0,
+  "progress_pct": 15.3,
+  "pnl": {
+    "cumulative": 0.0,
+    "realized": 0.0,
+    "unrealized": 49.83,
+    "per_hour_avg": 0.0,
+    "max_drawdown": -0.0,
+    "sharpe_estimate": 0
+  },
+  "markets": {
+    "us-strikes-iran-by-march-31-2026": {
+      "description": "US strikes Iran by March 31, 2026?",
+      "mid_price": 0.54,
+      "spread_bps": 370,
+      "our_bid": 0,
+      "our_ask": 0,
+      "position_net": 175.0,
+      "pnl": 0.0,
+      "fills_count": 0,
+      "last_fill_ago_s": 0,
+      "kill_switch": "HALTED",
+      "data_gap_s": 7.2
+    }
+  },
+  "totals": {
+    "quotes_generated": 35,
+    "orders_submitted": 35,
+    "fills": 13,
+    "fill_rate_pct": 37.14,
+    "ws_messages": 5965,
+    "errors": 0
+  },
+  "system": {
+    "memory_mb": 50.1,
+    "ws_connected": true
+  },
+  "hypothesis_under_test": "H1",
+  "run_config_path": "/home/openclaw/.openclaw/workspace/polymarket-mm/paper/runs/run-003.yaml",
+  "wallet": {
+    "initial_balance": 500.0,
+    "available_balance": 214.75,
+    "locked_balance": 207.25054272,
+    "total_equity": 423.75054272,
+    "pnl_pct": -15.25,
+    "exposure_pct": 49.3
+  }
+}

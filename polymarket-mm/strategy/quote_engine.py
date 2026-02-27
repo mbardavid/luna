@@ -79,6 +79,19 @@ class QuoteEngineConfig:
     # Below this, the engine returns an empty QuotePlan.
     min_data_quality: float = 0.3
 
+    # Minimum order size as fallback when dynamic sizing computes
+    # below the market minimum. Used for balance-proportional sizing.
+    min_order_size_fallback: Decimal = Decimal("5")
+
+    # Maximum fraction of available balance per single order.
+    # E.g. 0.05 = max 5% of available balance per order.
+    max_balance_fraction_per_order: Decimal = Decimal("0.05")
+
+    # Inventory saturation threshold — when position for a token side
+    # exceeds this fraction of max_position_size, BID generation for
+    # that side is suppressed to prevent further accumulation.
+    inventory_saturation_pct: Decimal = Decimal("0.80")
+
     # Strategy tag for generated quotes
     strategy_tag: str = "quote_engine_v1"
 
@@ -153,6 +166,9 @@ class QuoteEngine:
         features: FeatureVector,
         position: Position | None = None,
         elapsed_hours: Decimal = _ZERO,
+        available_balance: Decimal | None = None,
+        max_position_size: Decimal | None = None,
+        market_min_spread_bps: Decimal | None = None,
     ) -> QuotePlan:
         """Generate a bilateral QuotePlan for the given market.
 
@@ -166,6 +182,18 @@ class QuoteEngine:
             Current position in this market. If None, assumes flat.
         elapsed_hours:
             Hours elapsed in the current time horizon (for A-S skew).
+        available_balance:
+            Available cash balance for sizing orders. When provided,
+            order sizes are capped so each order uses at most
+            ``max_balance_fraction_per_order`` of the available balance.
+        max_position_size:
+            Maximum position size per token side. When provided, BID
+            generation is suppressed for token sides where the current
+            position exceeds ``inventory_saturation_pct`` of this limit.
+        market_min_spread_bps:
+            Market-specific minimum half-spread in basis points from
+            markets.yaml. Passed through to SpreadModel and RewardsFarming
+            to enforce a floor that prevents BID/ASK price collapse.
 
         Returns
         -------
@@ -227,6 +255,7 @@ class QuoteEngine:
             fee_bps=features.expected_fee_bps,
             liquidity_score=features.liquidity_score,
             mid_price=mid_price,
+            market_min_spread_bps=market_min_spread_bps,
         )
 
         # ── Step 2: Toxic flow widening (not halt) ───────────────
@@ -245,6 +274,7 @@ class QuoteEngine:
                 base_half_spread=half_spread,
                 mid_price=mid_price,
                 fee_bps=features.expected_fee_bps,
+                market_min_spread_bps=market_min_spread_bps,
             )
 
         # ── Step 4: Inventory skew ───────────────────────────────
@@ -277,6 +307,26 @@ class QuoteEngine:
             min_order_size=state.min_order_size,
         )
         plan.slices.extend(no_slices)
+
+        # ── Step 7: Position-aware filtering ─────────────────────
+        # Filter out ASK slices when we don't have enough tokens to
+        # sell, and suppress BID slices when position is saturated.
+        plan.slices = self._filter_by_position(
+            slices=plan.slices,
+            position=position,
+            min_order_size=state.min_order_size,
+            max_position_size=max_position_size,
+        )
+
+        # ── Step 8: Dynamic order sizing ─────────────────────────
+        # Cap order sizes based on available balance to prevent
+        # exhausting capital in a few trades.
+        if available_balance is not None:
+            plan.slices = self._apply_balance_sizing(
+                slices=plan.slices,
+                available_balance=available_balance,
+                min_order_size=state.min_order_size,
+            )
 
         logger.info(
             "quote_engine.plan_generated",
@@ -402,6 +452,146 @@ class QuoteEngine:
                 )
 
         return slices
+
+    # ── Position-aware filtering ──────────────────────────────
+
+    def _filter_by_position(
+        self,
+        slices: list[QuoteSlice],
+        position: Position | None,
+        min_order_size: Decimal,
+        max_position_size: Decimal | None,
+    ) -> list[QuoteSlice]:
+        """Filter slices based on current position.
+
+        - ASK slices are removed if we don't hold enough tokens to sell.
+          If we hold some but less than slice size, resize to what we have.
+        - BID slices are removed when position for that token side exceeds
+          inventory_saturation_pct of max_position_size.
+        """
+        if position is None:
+            return slices
+
+        c = self._config
+        filtered: list[QuoteSlice] = []
+
+        for s in slices:
+            # ── ASK filtering ────────────────────────────────
+            # In binary markets (Polymarket), selling YES is economically
+            # equivalent to buying NO.  Therefore the bot can ALWAYS place
+            # ASK orders — even when it holds zero tokens — because the
+            # exchange will match the order via the complement side.
+            #
+            # We only resize ASKs when the bot holds *some* tokens but
+            # fewer than the requested slice size, so that the order
+            # reflects what it physically holds.  When the position is
+            # flat (available_qty == 0) the ASK passes through at its
+            # original size; the venue / execution layer is responsible
+            # for routing it as a complement trade if necessary.
+            if s.side == QuoteSide.ASK:
+                if s.token == TokenSide.YES:
+                    available_qty = position.qty_yes
+                else:
+                    available_qty = position.qty_no
+
+                if available_qty > _ZERO and available_qty < s.size:
+                    # Partial: resize to what we have
+                    s = QuoteSlice(
+                        side=s.side,
+                        token=s.token,
+                        price=s.price,
+                        size=available_qty,
+                        ttl_ms=s.ttl_ms,
+                    )
+
+                filtered.append(s)
+                continue
+
+            # ── BID filtering: check inventory saturation ────
+            if s.side == QuoteSide.BID and max_position_size is not None:
+                saturation_limit = max_position_size * c.inventory_saturation_pct
+
+                if s.token == TokenSide.YES:
+                    current_qty = position.qty_yes
+                else:
+                    current_qty = position.qty_no
+
+                if current_qty >= saturation_limit:
+                    logger.debug(
+                        "quote_engine.bid_filtered_saturated",
+                        token=s.token.value,
+                        current=str(current_qty),
+                        limit=str(saturation_limit),
+                    )
+                    continue
+
+            filtered.append(s)
+
+        return filtered
+
+    def _apply_balance_sizing(
+        self,
+        slices: list[QuoteSlice],
+        available_balance: Decimal,
+        min_order_size: Decimal,
+    ) -> list[QuoteSlice]:
+        """Cap order sizes based on available balance.
+
+        Each BID order's value (price × size) is capped at
+        max_balance_fraction_per_order of available_balance.
+        ASK orders don't cost cash, so they are not resized here.
+        """
+        c = self._config
+
+        if available_balance <= _ZERO:
+            # No cash — remove all BID slices
+            return [s for s in slices if s.side == QuoteSide.ASK]
+
+        max_order_value = available_balance * c.max_balance_fraction_per_order
+        result: list[QuoteSlice] = []
+
+        for s in slices:
+            if s.side == QuoteSide.BID:
+                # Compute max shares we can afford
+                if s.price > _ZERO:
+                    max_shares = (max_order_value / s.price).quantize(
+                        Decimal("1"), rounding=ROUND_DOWN
+                    )
+                else:
+                    max_shares = s.size
+
+                dynamic_size = min(s.size, max_shares)
+
+                # Floor to minimums, but NEVER exceed the balance cap.
+                # This prevents the min_order_size_fallback from overriding
+                # the balance constraint and exhausting the wallet.
+                effective_min = max(c.min_order_size_fallback, min_order_size)
+                if dynamic_size < effective_min:
+                    if effective_min <= max_shares:
+                        dynamic_size = effective_min
+                    else:
+                        # We can't afford even the minimum order — drop
+                        # this BID slice entirely instead of overspending.
+                        logger.debug(
+                            "quote_engine.bid_too_expensive",
+                            price=str(s.price),
+                            max_shares=str(max_shares),
+                            min_required=str(effective_min),
+                        )
+                        continue
+
+                if dynamic_size != s.size:
+                    s = QuoteSlice(
+                        side=s.side,
+                        token=s.token,
+                        price=s.price,
+                        size=dynamic_size,
+                        ttl_ms=s.ttl_ms,
+                    )
+
+            result.append(s)
+
+        return result
 
     # ── Helpers ──────────────────────────────────────────────────
 

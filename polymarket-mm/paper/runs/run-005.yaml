@@ -1,0 +1,25 @@
+# Run 005 — H1: Lucratividade (fix complement routing + kill switch threshold)
+# Fix 1: Disable complement routing in paper (was causing double exposure)
+#         - SELL with 0 position → REJECTED (not complement-routed)
+#         - SELL with partial position → resized to held qty (unchanged)
+# Fix 2: Kill switch threshold 10% → 25%, alert at 15%
+
+run_id: "run-005"
+duration_hours: 4
+hypothesis: "H1"
+
+initial_balance: 500
+
+params:
+  quote_interval_s: 2.0
+  default_order_size: 25
+  default_half_spread_bps: 50
+  gamma_risk_aversion: 0.3
+  fill_probability: 0.25
+  kill_switch_max_drawdown_pct: 25.0
+  kill_switch_alert_pct: 15.0
+  markets:
+    - "us-strikes-iran-by-march-31-2026"
+
+parent_run: "run-004"
+changes_from_parent: "Disable complement routing (paper), kill switch 10%→25%"

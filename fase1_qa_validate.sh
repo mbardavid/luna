@@ -161,7 +161,7 @@ scenario3() {
   local pending
 
   t=$(run_task "${PREFIX} - delivery dryrun" "Scenario 3" done "$fields")
-  out=$(MC_DELIVERY_DRYRUN=1 $MC_DELIVERY --status done --max-to-deliver 10 --channel 1473367119377731800)
+  out=$(MC_DELIVERY_DRYRUN=1 $MC_DELIVERY --status done --max-to-deliver 10 --channel 1476255906894446644)
   out_json="$(extract_last_json "$out")"
 
   delivered="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1] if sys.argv[1] else "{}").get("delivered",0))' "$out_json")"

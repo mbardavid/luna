@@ -94,6 +94,7 @@ class SpreadModel:
         fee_bps: Decimal,
         liquidity_score: float,
         mid_price: Decimal = Decimal("0.50"),
+        market_min_spread_bps: Decimal | None = None,
     ) -> Decimal:
         """Compute optimal half-spread in price units.
 
@@ -108,6 +109,9 @@ class SpreadModel:
             Normalised liquidity score [0, 1] where 1 is very liquid.
         mid_price:
             Current mid-price (used only for bps→price conversion).
+        market_min_spread_bps:
+            Optional market-specific minimum half-spread in basis points.
+            When provided, overrides config.min_half_spread_bps if larger.
 
         Returns
         -------
@@ -134,7 +138,10 @@ class SpreadModel:
         adjusted = base * liq_mult
 
         # 5. Clamp to [min, max] (in price units)
-        min_hs = _bps_to_price(c.min_half_spread_bps, mid_price)
+        effective_min_bps = c.min_half_spread_bps
+        if market_min_spread_bps is not None and market_min_spread_bps > effective_min_bps:
+            effective_min_bps = market_min_spread_bps
+        min_hs = _bps_to_price(effective_min_bps, mid_price)
         max_hs = _bps_to_price(c.max_half_spread_bps, mid_price)
 
         result = _clamp(adjusted, min_hs, max_hs)

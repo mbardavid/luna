@@ -4,6 +4,7 @@
   "auth_token": "REPLACE_ME_LOCAL_AUTH_TOKEN",
   "gateway_id": "69da4c17-b389-4189-9bac-ab3e03588eb6",
   "board_id": "0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47",
+  "notifications_channel": "1476255906894446644",
   "agents": {
     "luna": "70bd8378-598e-4cc5-9642-acc618622df8",
     "luan": "ccd2e6d0-4765-41cc-98fd-f95727e15606",

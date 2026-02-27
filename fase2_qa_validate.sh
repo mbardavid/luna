@@ -29,7 +29,7 @@ scenario6() {
   local t
   t=$(call_client create-task "${PREFIX} - delivery output summary" "Scenario 6" luna medium done '{"mc_progress":100,"mc_delivered":false,"mc_output_summary":"OK: output summary used"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')
 
-  out=$(MC_DELIVERY_DRYRUN=1 $MC_DELIVERY --status done --max-to-deliver 5 --channel 1473367119377731800)
+  out=$(MC_DELIVERY_DRYRUN=1 $MC_DELIVERY --status done --max-to-deliver 5 --channel 1476255906894446644)
   # We can't see the exact message body in dry-run output reliably; validate at least that it scanned >=1.
   scanned=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("scanned",0))' "$(echo "$out" | tail -n 1)")
 

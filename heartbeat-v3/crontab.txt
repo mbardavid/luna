@@ -1,0 +1,16 @@
+# Heartbeat V3 — Crontab Entries (REFERENCE ONLY)
+#
+# DO NOT install these until Matheus gives explicit go-ahead.
+# This file is for documentation purposes only.
+#
+# See docs/INSTALL.md for the full installation procedure.
+
+# ─── Heartbeat V3 ───────────────────────────────────────────
+# Detection + queue dispatch (every 10min)
+*/10 * * * * /home/openclaw/.openclaw/workspace/heartbeat-v3/scripts/heartbeat-v3.sh >> /home/openclaw/.openclaw/workspace/logs/heartbeat-v3-cron.log 2>&1
+
+# Queue escalation — deterministic escalation (every 5min)
+*/5 * * * * /home/openclaw/.openclaw/workspace/heartbeat-v3/scripts/queue-escalation.sh >> /home/openclaw/.openclaw/workspace/logs/queue-escalation-cron.log 2>&1
+
+# Session GC — zombie session cleanup (every 30min)
+*/30 * * * * /home/openclaw/.openclaw/workspace/heartbeat-v3/scripts/session-gc.sh >> /home/openclaw/.openclaw/workspace/logs/session-gc-cron.log 2>&1

@@ -1,0 +1,22 @@
+# Run 002 — H7: Fill Rate Calibration (com Virtual Wallet)
+# Fix: Virtual wallet ativo, position check em SELL, initial balance $500
+# Mudanças vs run-001: wallet enforcement, fill_probability confirmado
+
+run_id: "run-002"
+duration_hours: 4
+hypothesis: "H7"  # Fill Rate Realista
+
+initial_balance: 500
+
+params:
+  quote_interval_s: 2.0
+  default_order_size: 50
+  default_half_spread_bps: 50
+  gamma_risk_aversion: 0.3
+  fill_probability: 0.20
+  markets:
+    - "will-axiom-be-accused-of-insider-trading"
+    - "us-strikes-iran-by-march-31-2026"
+
+parent_run: "run-001"
+changes_from_parent: "Virtual wallet ($500), position check em SELL, fix PnL calc. Run-001 tinha PnL fictício por vender tokens sem posição."

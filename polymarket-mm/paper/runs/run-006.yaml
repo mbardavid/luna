@@ -1,0 +1,23 @@
+# Run 006 — Overnight smoke test (H1: Lucratividade)
+# All fixes applied: sync fills, no complement routing, kill switch 25%
+# Duration: 8 hours (overnight)
+
+run_id: "run-006"
+duration_hours: 8
+hypothesis: "H1"
+
+initial_balance: 500
+
+params:
+  quote_interval_s: 2.0
+  default_order_size: 25
+  default_half_spread_bps: 50
+  gamma_risk_aversion: 0.3
+  fill_probability: 0.25
+  kill_switch_max_drawdown_pct: 25.0
+  kill_switch_alert_pct: 15.0
+  markets:
+    - "us-strikes-iran-by-march-31-2026"
+
+parent_run: "run-005"
+changes_from_parent: "Sync fills fix (BUY fills immediately, SELL sees position), 8h overnight duration"

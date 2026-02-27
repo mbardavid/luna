@@ -90,6 +90,7 @@ class RewardsFarming:
         base_half_spread: Decimal,
         mid_price: Decimal,
         fee_bps: Decimal,
+        market_min_spread_bps: Decimal | None = None,
     ) -> Decimal:
         """Tighten the half-spread to earn more rewards.
 
@@ -101,6 +102,11 @@ class RewardsFarming:
             Current mid-price of the market.
         fee_bps:
             Exchange fee in basis points.
+        market_min_spread_bps:
+            Optional market-specific minimum half-spread in basis points.
+            When provided, the adjusted spread will NEVER go below this
+            floor, preventing BID and ASK from collapsing to the same
+            tick.
 
         Returns
         -------
@@ -135,6 +141,11 @@ class RewardsFarming:
         min_hs = (c.min_post_reward_spread_bps * mid_price) / _BPS_DIVISOR
         fee_floor = (fee_bps * mid_price) / _BPS_DIVISOR
         floor = max(min_hs, fee_floor)
+
+        # 5b. Market-specific minimum spread floor — NEVER tighten below this
+        if market_min_spread_bps is not None and market_min_spread_bps > _ZERO:
+            market_floor = (market_min_spread_bps * mid_price) / _BPS_DIVISOR
+            floor = max(floor, market_floor)
 
         adjusted = max(adjusted, floor)
 

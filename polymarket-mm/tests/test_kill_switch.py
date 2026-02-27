@@ -325,3 +325,59 @@ class TestDataGapCheck:
         gaps = ks.check_data_gaps()
         assert "market-1" in gaps
         assert gaps["market-1"] >= 10
+
+
+# ── Tests: Configurable drawdown thresholds ─────────────────────────
+
+
+class TestDrawdownThresholds:
+    """Kill switch with configurable drawdown thresholds (run-005 fix)."""
+
+    @pytest.fixture
+    def ks_25pct(self, event_bus: EventBus, cancel_all_mock: AsyncMock) -> KillSwitch:
+        """Kill switch with 25% max drawdown (125 USD on $500 balance)."""
+        return KillSwitch(
+            event_bus=event_bus,
+            alert_manager=None,
+            order_cancel_callback=cancel_all_mock,
+            max_daily_loss_usd=Decimal("125"),  # 25% of $500
+            engine_restart_base_seconds=1,
+            engine_restart_max_seconds=4,
+            data_gap_tolerance_seconds=8,
+        )
+
+    @pytest.mark.asyncio
+    async def test_does_not_halt_at_15pct(self, ks_25pct: KillSwitch) -> None:
+        """15% drawdown should NOT trigger halt with 25% threshold."""
+        await ks_25pct.trigger_max_drawdown(Decimal("75"))  # 15% of $500
+        assert ks_25pct.state == KillSwitchState.RUNNING
+
+    @pytest.mark.asyncio
+    async def test_does_not_halt_at_20pct(self, ks_25pct: KillSwitch) -> None:
+        """20% drawdown should NOT trigger halt with 25% threshold."""
+        await ks_25pct.trigger_max_drawdown(Decimal("100"))  # 20% of $500
+        assert ks_25pct.state == KillSwitchState.RUNNING
+
+    @pytest.mark.asyncio
+    async def test_halts_at_25pct(self, ks_25pct: KillSwitch) -> None:
+        """25% drawdown SHOULD trigger halt."""
+        await ks_25pct.trigger_max_drawdown(Decimal("125"))  # 25% of $500
+        assert ks_25pct.state == KillSwitchState.HALTED
+
+    @pytest.mark.asyncio
+    async def test_halts_above_25pct(self, ks_25pct: KillSwitch) -> None:
+        """30% drawdown SHOULD trigger halt."""
+        await ks_25pct.trigger_max_drawdown(Decimal("150"))  # 30% of $500
+        assert ks_25pct.state == KillSwitchState.HALTED
+
+    @pytest.mark.asyncio
+    async def test_old_10pct_threshold_would_halt(self, event_bus: EventBus, cancel_all_mock: AsyncMock) -> None:
+        """Verify that the old 10% threshold ($50) still works when configured."""
+        ks_10pct = KillSwitch(
+            event_bus=event_bus,
+            alert_manager=None,
+            order_cancel_callback=cancel_all_mock,
+            max_daily_loss_usd=Decimal("50"),  # 10% of $500
+        )
+        await ks_10pct.trigger_max_drawdown(Decimal("50"))
+        assert ks_10pct.state == KillSwitchState.HALTED

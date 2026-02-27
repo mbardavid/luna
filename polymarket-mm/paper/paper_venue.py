@@ -96,9 +96,20 @@ class MarketSimConfig:
     market_type: MarketType = MarketType.OTHER
     initial_yes_mid: Decimal = Decimal("0.50")
     volatility: Decimal = Decimal("0.005")  # per-step random walk σ
+    fill_probability: float = 0.5  # probability that a submitted order fills
 
 
 # ── PaperVenue ───────────────────────────────────────────────────────
+
+
+class InsufficientFundsError(Exception):
+    """Raised when a BUY order exceeds available balance."""
+    pass
+
+
+class InsufficientPositionError(Exception):
+    """Raised when a SELL order exceeds held position."""
+    pass
 
 
 class PaperVenue(MarketDataProvider):
@@ -110,6 +121,7 @@ class PaperVenue(MarketDataProvider):
     - Price-time priority matching engine
     - Configurable fill latency + partial fills
     - Position and PnL tracking in memory
+    - Virtual wallet with balance management
     - Heartbeat simulation
     - EventBus integration (publishes ``book``, ``fill``, ``heartbeat`` events)
     """
@@ -123,6 +135,7 @@ class PaperVenue(MarketDataProvider):
         partial_fill_probability: float = 0.3,
         heartbeat_interval_s: float = 5.0,
         seed: int | None = None,
+        initial_balance: Decimal = Decimal("500"),
     ) -> None:
         self._event_bus = event_bus
         self._fill_latency_ms = fill_latency_ms
@@ -135,6 +148,13 @@ class PaperVenue(MarketDataProvider):
             self._configs: list[MarketSimConfig] = list(configs)
         else:
             self._configs = self._generate_random_configs(num_random_markets)
+
+        # ── Virtual Wallet ───────────────────────────────────────
+        self._initial_balance: Decimal = initial_balance
+        self._available_balance: Decimal = initial_balance
+        self._locked_balance: Decimal = Decimal("0")
+        # Track locked cost per order for accurate unlock on fill/cancel
+        self._order_locked_cost: dict[UUID, Decimal] = {}
 
         # Runtime state
         self._books_yes: dict[str, _SimulatedBook] = {}
@@ -201,6 +221,74 @@ class PaperVenue(MarketDataProvider):
                     "timestamp": event.timestamp,
                 }
 
+    # ── Virtual Wallet Properties ──────────────────────────────────
+
+    @property
+    def initial_balance(self) -> Decimal:
+        """Initial wallet balance."""
+        return self._initial_balance
+
+    @property
+    def available_balance(self) -> Decimal:
+        """Balance available for new orders."""
+        return self._available_balance
+
+    @property
+    def locked_balance(self) -> Decimal:
+        """Balance locked in pending orders."""
+        return self._locked_balance
+
+    def total_equity(self, mid_prices: dict[str, Decimal] | None = None) -> Decimal:
+        """Compute total equity = available + locked + mark-to-market positions.
+
+        If *mid_prices* is not provided, uses internal mid prices from the
+        random walk simulation.
+        """
+        mids = mid_prices or self._mid_prices
+        position_value = Decimal("0")
+        for market_id, pos in self._positions.items():
+            mid = mids.get(market_id, Decimal("0"))
+            if mid > Decimal("0"):
+                # YES position value = qty * mid
+                position_value += pos.qty_yes * mid
+                # NO position value = qty * (1 - mid)
+                position_value += pos.qty_no * (Decimal("1") - mid)
+        return self._available_balance + self._locked_balance + position_value
+
+    def wallet_snapshot(self, mid_prices: dict[str, Decimal] | None = None) -> dict:
+        """Return wallet state as a JSON-safe dict."""
+        equity = self.total_equity(mid_prices)
+        pnl_pct = (
+            float((equity - self._initial_balance) / self._initial_balance * 100)
+            if self._initial_balance > Decimal("0")
+            else 0.0
+        )
+        exposure = self._locked_balance + self._position_value(mid_prices)
+        exposure_pct = (
+            float(exposure / equity * 100)
+            if equity > Decimal("0")
+            else 0.0
+        )
+        return {
+            "initial_balance": float(self._initial_balance),
+            "available_balance": float(self._available_balance),
+            "locked_balance": float(self._locked_balance),
+            "total_equity": float(equity),
+            "pnl_pct": round(pnl_pct, 2),
+            "exposure_pct": round(exposure_pct, 1),
+        }
+
+    def _position_value(self, mid_prices: dict[str, Decimal] | None = None) -> Decimal:
+        """Sum of mark-to-market value of all positions."""
+        mids = mid_prices or self._mid_prices
+        value = Decimal("0")
+        for market_id, pos in self._positions.items():
+            mid = mids.get(market_id, Decimal("0"))
+            if mid > Decimal("0"):
+                value += pos.qty_yes * mid
+                value += pos.qty_no * (Decimal("1") - mid)
+        return value
+
     # ── Order management (used by PaperExecution) ────────────────
 
     async def submit_order(self, order: Order) -> Order:
@@ -243,6 +331,70 @@ class PaperVenue(MarketDataProvider):
             )
             return order
 
+        # ── Wallet balance checks ────────────────────────────────
+        if order.side == Side.BUY:
+            cost = order.price * order.size
+            if self._available_balance < cost:
+                order = order.model_copy(update={"status": OrderStatus.REJECTED})
+                logger.warning(
+                    "paper_venue.insufficient_funds",
+                    client_order_id=str(order.client_order_id),
+                    required=str(cost),
+                    available=str(self._available_balance),
+                )
+                await self._event_bus.publish(
+                    "order_rejected",
+                    {
+                        "client_order_id": str(order.client_order_id),
+                        "reason": "INSUFFICIENT_FUNDS",
+                        "required": str(cost),
+                        "available": str(self._available_balance),
+                    },
+                )
+                return order
+            # Lock the cost
+            self._available_balance -= cost
+            self._locked_balance += cost
+            self._order_locked_cost[order.client_order_id] = cost
+        else:
+            # SELL: check position and handle complement routing
+            pos = self._positions.get(order.market_id)
+            is_yes = order.token_id == market_cfg.token_id_yes
+
+            if pos is not None:
+                held_qty = pos.qty_yes if is_yes else pos.qty_no
+            else:
+                held_qty = Decimal("0")
+
+            if held_qty >= order.size:
+                # We have enough position — proceed with SELL as-is
+                pass
+            elif held_qty > Decimal("0"):
+                # Partial position: resize SELL to what we actually hold
+                logger.info(
+                    "paper_venue.sell_resized_to_held",
+                    client_order_id=str(order.client_order_id),
+                    original_size=str(order.size),
+                    held=str(held_qty),
+                    token="YES" if is_yes else "NO",
+                )
+                order = order.model_copy(update={"size": held_qty})
+            else:
+                # No position held — reject in paper trading.
+                # Real CLOB handles this via complement matching natively,
+                # but in paper the complement routing caused double exposure
+                # (accumulating positions on both YES and NO sides).
+                order = order.model_copy(
+                    update={"status": OrderStatus.REJECTED}
+                )
+                logger.debug(
+                    "paper_venue.sell_rejected_no_position",
+                    client_order_id=str(order.client_order_id),
+                    token="YES" if is_yes else "NO",
+                    market_id=order.market_id,
+                )
+                return order
+
         # Accept and try to match
         order = order.model_copy(update={"status": OrderStatus.OPEN})
         pending = _PendingOrder(order=order)
@@ -252,21 +404,68 @@ class PaperVenue(MarketDataProvider):
         latency_s = self._fill_latency_ms / 1000.0
         await asyncio.sleep(latency_s)
 
-        # Attempt match
-        order = await self._try_match(order)
-        if order.status in (OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED):
-            if order.status == OrderStatus.FILLED:
-                self._open_orders.pop(order.client_order_id, None)
-            else:
-                self._open_orders[order.client_order_id] = _PendingOrder(order=order)
+        # Fill probability gate: randomly reject fills to simulate realistic fill rates
+        fill_prob = market_cfg.fill_probability
+        if self._rng.random() >= fill_prob:
+            # Order stays open but doesn't match (simulates queue position / no counterparty)
+            return order
 
-        return order
+        # ── Direct fill (paper trading) ──────────────────────────
+        # In paper trading, once the fill probability gate passes, we
+        # fill the order synchronously at the order price.  This avoids
+        # the async mismatch where BUY fills only happen in the random
+        # walk loop (too late for same-cycle SELL position checks).
+        #
+        # Partial fill simulation: with configured probability, fill
+        # only a random fraction of the order.
+        fill_qty = order.size
+        if self._rng.random() < self._partial_fill_prob:
+            frac = Decimal(str(round(self._rng.uniform(0.3, 0.9), 2)))
+            fill_qty = _quantize(fill_qty * frac, Decimal("1"))
+            if fill_qty <= Decimal("0"):
+                fill_qty = Decimal("1")
+
+        fill_price = order.price
+
+        # Publish fill event
+        await self._event_bus.publish(
+            "fill",
+            {
+                "client_order_id": str(order.client_order_id),
+                "market_id": order.market_id,
+                "token_id": order.token_id,
+                "side": order.side.value,
+                "fill_price": str(fill_price),
+                "fill_qty": str(fill_qty),
+            },
+        )
+
+        # Update position and wallet
+        self._update_position(order, fill_price, fill_qty)
+
+        if fill_qty >= order.size:
+            new_status = OrderStatus.FILLED
+            self._open_orders.pop(order.client_order_id, None)
+            self._order_locked_cost.pop(order.client_order_id, None)
+        else:
+            new_status = OrderStatus.PARTIALLY_FILLED
+            self._open_orders[order.client_order_id] = _PendingOrder(order=order)
+
+        return order.model_copy(update={
+            "filled_qty": fill_qty,
+            "status": new_status,
+        })
 
     async def cancel_order(self, client_order_id: UUID) -> bool:
         pending = self._open_orders.pop(client_order_id, None)
         if pending is None:
             return False
         cancelled = pending.order.model_copy(update={"status": OrderStatus.CANCELLED})
+        # Unlock balance for cancelled BUY orders
+        locked_cost = self._order_locked_cost.pop(client_order_id, None)
+        if locked_cost is not None and locked_cost > Decimal("0"):
+            self._locked_balance -= locked_cost
+            self._available_balance += locked_cost
         # Don't store cancelled orders back
         await self._event_bus.publish(
             "order_cancelled",
@@ -304,6 +503,20 @@ class PaperVenue(MarketDataProvider):
 
     def get_position(self, market_id: str) -> Position | None:
         return self._positions.get(market_id)
+
+    def reset_position(self, market_id: str) -> None:
+        """Reset position for a market (keeps PnL, clears inventory)."""
+        old_pos = self._positions.get(market_id)
+        if old_pos:
+            cfg = next((c for c in self._configs if c.market_id == market_id), None)
+            if cfg:
+                new_pos = Position(
+                    market_id=market_id,
+                    token_id_yes=cfg.token_id_yes,
+                    token_id_no=cfg.token_id_no,
+                )
+                new_pos.realized_pnl = old_pos.realized_pnl
+                self._positions[market_id] = new_pos
 
     def get_all_positions(self) -> dict[str, Position]:
         return dict(self._positions)
@@ -552,6 +765,22 @@ class PaperVenue(MarketDataProvider):
         is_yes = order.token_id == cfg.token_id_yes
 
         if order.side == Side.BUY:
+            # On BUY fill: locked cost was already reserved at submit time.
+            # Unlock the filled portion from locked_balance.
+            fill_cost = fill_price * fill_qty
+            # Adjust locked: the order locked (order.price * order.size) at submit,
+            # but the fill may be at a different level price. We unlock the
+            # proportional share of the originally locked cost.
+            orig_locked = self._order_locked_cost.get(order.client_order_id, Decimal("0"))
+            if orig_locked > Decimal("0") and order.size > Decimal("0"):
+                # Unlock proportional to qty filled
+                unlock_amount = (fill_qty / order.size) * orig_locked
+                # Clamp to what's actually locked
+                unlock_amount = min(unlock_amount, self._locked_balance)
+                self._locked_balance -= unlock_amount
+                # Update remaining locked cost for this order
+                self._order_locked_cost[order.client_order_id] = orig_locked - unlock_amount
+
             if is_yes:
                 new_qty = pos.qty_yes + fill_qty
                 if new_qty > Decimal("0"):
@@ -577,6 +806,10 @@ class PaperVenue(MarketDataProvider):
                     update={"qty_no": new_qty, "avg_entry_no": new_avg}
                 )
         else:  # SELL
+            # On SELL fill: credit proceeds to available balance
+            proceeds = fill_price * fill_qty
+            self._available_balance += proceeds
+
             if is_yes:
                 sell_qty = min(fill_qty, pos.qty_yes)
                 pnl = (fill_price - pos.avg_entry_yes) * sell_qty

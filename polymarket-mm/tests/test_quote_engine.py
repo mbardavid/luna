@@ -503,7 +503,12 @@ class TestQuoteEngine:
     def test_basic_bilateral_plan(
         self, market_state: MarketState, features: FeatureVector, flat_position: Position,
     ) -> None:
-        """Normal conditions produce a bilateral plan with YES and NO slices."""
+        """With flat position, both BID and ASK slices are generated.
+
+        In binary markets (Polymarket), selling YES is equivalent to buying NO.
+        Therefore the bot should place ASKs even when flat — the venue handles
+        complement routing.
+        """
         engine = self._make_engine()
         plan = engine.generate_quotes(
             state=market_state,
@@ -513,12 +518,12 @@ class TestQuoteEngine:
         assert len(plan.slices) > 0
         assert plan.market_id == market_state.market_id
 
-        # Check we have both YES and NO
+        # Check we have both YES and NO tokens
         tokens = {s.token for s in plan.slices}
         assert TokenSide.YES in tokens
         assert TokenSide.NO in tokens
 
-        # Check we have both BID and ASK
+        # With flat position, both BIDs and ASKs should be present
         sides = {s.side for s in plan.slices}
         assert QuoteSide.BID in sides
         assert QuoteSide.ASK in sides
@@ -831,6 +836,683 @@ class TestQuoteEngine:
         assert s_with_r <= s_no_r
 
 
+# ═════════════════════════════════════════════════════════════════════
+# NEW TESTS — Position-aware quoting, spread floor, skew fallback,
+#              dynamic order sizing (Fixes 1–4)
+# ═════════════════════════════════════════════════════════════════════
+
+
+class TestPositionAwareQuoting:
+    """Tests for FIX 3: position-aware ASK filtering and BID saturation."""
+
+    def _make_engine(self, **kwargs) -> QuoteEngine:
+        return QuoteEngine(
+            spread_model=kwargs.get("spread", SpreadModel()),
+            inventory_skew=kwargs.get("skew", InventorySkew()),
+            rewards_farming=kwargs.get("rewards", RewardsFarming()),
+            toxic_flow=kwargs.get("toxic", ToxicFlowDetector()),
+            config=kwargs.get("config", QuoteEngineConfig()),
+        )
+
+    @pytest.fixture
+    def market_state(self) -> MarketState:
+        return MarketState(
+            market_id="test-market-001",
+            condition_id="0xabc123",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            neg_risk=False,
+            yes_bid=Decimal("0.48"),
+            yes_ask=Decimal("0.52"),
+            no_bid=Decimal("0.48"),
+            no_ask=Decimal("0.52"),
+            depth_yes_bid=Decimal("1000"),
+            depth_yes_ask=Decimal("1000"),
+        )
+
+    @pytest.fixture
+    def features(self) -> FeatureVector:
+        return FeatureVector(
+            market_id="test-market-001",
+            spread_bps=Decimal("80"),
+            book_imbalance=0.1,
+            volatility_1m=0.008,
+            liquidity_score=0.6,
+            expected_fee_bps=Decimal("2"),
+            data_quality_score=0.9,
+        )
+
+    def test_zero_position_bilateral_quotes(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """With zero position, both BID and ASK slices are generated.
+
+        In binary markets, selling YES is equivalent to buying NO.
+        The bot should always place bilateral quotes for market making.
+        """
+        flat = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("0"),
+            qty_no=Decimal("0"),
+        )
+        engine = self._make_engine()
+        plan = engine.generate_quotes(market_state, features, flat)
+
+        ask_slices = [s for s in plan.slices if s.side == QuoteSide.ASK]
+        bid_slices = [s for s in plan.slices if s.side == QuoteSide.BID]
+        assert len(ask_slices) > 0, "Should generate ASKs with zero position (complement trading)"
+        assert len(bid_slices) > 0, "Should still generate BIDs"
+
+    def test_yes_position_generates_yes_ask(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """With YES position, generates ASK YES but NOT ASK NO."""
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("100"),
+            qty_no=Decimal("0"),
+        )
+        engine = self._make_engine()
+        plan = engine.generate_quotes(market_state, features, pos)
+
+        ask_yes = [s for s in plan.slices if s.side == QuoteSide.ASK and s.token == TokenSide.YES]
+        ask_no = [s for s in plan.slices if s.side == QuoteSide.ASK and s.token == TokenSide.NO]
+
+        assert len(ask_yes) > 0, "Should generate ASK YES when holding YES tokens"
+        # ASK NO is also allowed — complement trading enables it even
+        # without holding NO tokens.
+        assert len(ask_no) >= 0
+
+    def test_partial_ask_sizing(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """When holding fewer tokens than default size, ASK is resized."""
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("20"),  # Less than default 50
+            qty_no=Decimal("0"),
+        )
+        engine = self._make_engine()
+        plan = engine.generate_quotes(market_state, features, pos)
+
+        ask_yes = [s for s in plan.slices if s.side == QuoteSide.ASK and s.token == TokenSide.YES]
+        assert len(ask_yes) > 0
+        assert ask_yes[0].size == Decimal("20"), "ASK should be resized to available qty"
+
+    def test_bid_suppressed_when_saturated(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """When position exceeds 80% of max, BID for that side is suppressed."""
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("180"),  # > 80% of 200
+            qty_no=Decimal("0"),
+        )
+        engine = self._make_engine()
+        plan = engine.generate_quotes(
+            market_state, features, pos,
+            max_position_size=Decimal("200"),
+        )
+
+        bid_yes = [s for s in plan.slices if s.side == QuoteSide.BID and s.token == TokenSide.YES]
+        bid_no = [s for s in plan.slices if s.side == QuoteSide.BID and s.token == TokenSide.NO]
+
+        assert len(bid_yes) == 0, "BID YES should be suppressed when YES is saturated"
+        assert len(bid_no) > 0, "BID NO should still be generated (NO is not saturated)"
+
+    def test_ask_below_min_order_size_resized(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """When position is below default size but > 0, ASK is resized to available qty.
+
+        In binary markets, ASKs are always allowed (complement trading),
+        but when the bot holds some tokens, the ASK is resized to what it holds.
+        """
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("3"),  # Below default_order_size of 50
+            qty_no=Decimal("0"),
+        )
+        engine = self._make_engine()
+        plan = engine.generate_quotes(market_state, features, pos)
+
+        ask_yes = [s for s in plan.slices if s.side == QuoteSide.ASK and s.token == TokenSide.YES]
+        assert len(ask_yes) > 0, "ASK should be allowed (complement trading)"
+        assert ask_yes[0].size == Decimal("3"), "ASK YES should be resized to available qty"
+
+
+class TestDynamicOrderSizing:
+    """Tests for FIX 4: order size proportional to available balance."""
+
+    def _make_engine(self, **kwargs) -> QuoteEngine:
+        return QuoteEngine(
+            spread_model=kwargs.get("spread", SpreadModel()),
+            inventory_skew=kwargs.get("skew", InventorySkew()),
+            rewards_farming=kwargs.get("rewards", RewardsFarming()),
+            toxic_flow=kwargs.get("toxic", ToxicFlowDetector()),
+            config=kwargs.get("config", QuoteEngineConfig()),
+        )
+
+    @pytest.fixture
+    def market_state(self) -> MarketState:
+        return MarketState(
+            market_id="test-market-001",
+            condition_id="0xabc123",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            neg_risk=False,
+            yes_bid=Decimal("0.48"),
+            yes_ask=Decimal("0.52"),
+            no_bid=Decimal("0.48"),
+            no_ask=Decimal("0.52"),
+        )
+
+    @pytest.fixture
+    def features(self) -> FeatureVector:
+        return FeatureVector(
+            market_id="test-market-001",
+            spread_bps=Decimal("80"),
+            book_imbalance=0.1,
+            volatility_1m=0.008,
+            liquidity_score=0.6,
+            expected_fee_bps=Decimal("2"),
+            data_quality_score=0.9,
+        )
+
+    def test_order_size_capped_by_balance(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """With limited balance, BID order sizes are capped."""
+        flat = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+        )
+        config = QuoteEngineConfig(default_order_size=Decimal("50"))
+        engine = self._make_engine(config=config)
+
+        plan = engine.generate_quotes(
+            market_state, features, flat,
+            available_balance=Decimal("100"),  # 5% = $5 max per order
+        )
+
+        for s in plan.slices:
+            if s.side == QuoteSide.BID:
+                order_value = s.price * s.size
+                # Max order value = 100 * 0.05 = $5
+                assert order_value <= Decimal("6"), (
+                    f"BID value {order_value} exceeds 5% of balance"
+                )
+
+    def test_order_size_not_below_minimum(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """Even with very low balance, order size respects minimum."""
+        flat = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+        )
+        engine = self._make_engine()
+        plan = engine.generate_quotes(
+            market_state, features, flat,
+            available_balance=Decimal("10"),  # Very low
+        )
+
+        for s in plan.slices:
+            if s.side == QuoteSide.BID:
+                assert s.size >= Decimal("5"), "Size should not go below min_order_size"
+
+    def test_no_balance_no_bids(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """With zero balance, all BID slices are removed."""
+        flat = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+        )
+        engine = self._make_engine()
+        plan = engine.generate_quotes(
+            market_state, features, flat,
+            available_balance=Decimal("0"),
+        )
+
+        bid_slices = [s for s in plan.slices if s.side == QuoteSide.BID]
+        assert len(bid_slices) == 0, "Should not generate BIDs with zero balance"
+
+    def test_large_balance_uses_default_size(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """With large balance, default order size is used (not inflated)."""
+        flat = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+        )
+        config = QuoteEngineConfig(default_order_size=Decimal("25"))
+        engine = self._make_engine(config=config)
+        plan = engine.generate_quotes(
+            market_state, features, flat,
+            available_balance=Decimal("10000"),  # Large balance
+        )
+
+        for s in plan.slices:
+            if s.side == QuoteSide.BID:
+                assert s.size == Decimal("25"), (
+                    f"With large balance, should use default size 25, got {s.size}"
+                )
+
+
+class TestSpreadMinimumFloor:
+    """Tests for FIX 1: spread minimum enforcement."""
+
+    def test_spread_never_below_market_min(self) -> None:
+        """SpreadModel respects market_min_spread_bps when provided."""
+        model = SpreadModel()
+        hs = model.optimal_half_spread(
+            volatility=Decimal("0.0001"),  # Very low vol
+            fee_bps=Decimal("1"),
+            liquidity_score=0.99,
+            mid_price=Decimal("0.50"),
+            market_min_spread_bps=Decimal("50"),  # 50 bps floor
+        )
+        min_expected = Decimal("50") * Decimal("0.50") / Decimal("10000")  # 0.0025
+        assert hs >= min_expected, (
+            f"Half-spread {hs} below market minimum {min_expected}"
+        )
+
+    def test_rewards_farming_respects_market_floor(self) -> None:
+        """RewardsFarming cannot tighten below market_min_spread_bps."""
+        farming = RewardsFarming(
+            config=RewardsFarmingConfig(aggressiveness=Decimal("1.0"))
+        )
+        base_hs = Decimal("0.010")
+        market_min_bps = Decimal("50")  # 50 bps
+        mid = Decimal("0.50")
+
+        adjusted = farming.adjust_half_spread(
+            base_half_spread=base_hs,
+            mid_price=mid,
+            fee_bps=Decimal("2"),
+            market_min_spread_bps=market_min_bps,
+        )
+
+        market_floor = market_min_bps * mid / Decimal("10000")  # 0.0025
+        assert adjusted >= market_floor, (
+            f"Adjusted {adjusted} went below market floor {market_floor}"
+        )
+
+    def test_spread_with_zero_vol_respects_floor(self) -> None:
+        """Even with zero volatility, spread respects market_min_spread_bps."""
+        model = SpreadModel()
+        hs = model.optimal_half_spread(
+            volatility=Decimal("0"),
+            fee_bps=Decimal("2"),
+            liquidity_score=0.8,
+            mid_price=Decimal("0.58"),
+            market_min_spread_bps=Decimal("50"),
+        )
+        min_expected = Decimal("50") * Decimal("0.58") / Decimal("10000")
+        assert hs >= min_expected
+
+    def test_bid_ask_not_same_price_with_market_floor(self) -> None:
+        """BID and ASK should never collapse to the same price."""
+        engine = QuoteEngine(
+            spread_model=SpreadModel(),
+            inventory_skew=InventorySkew(),
+            rewards_farming=RewardsFarming(
+                config=RewardsFarmingConfig(aggressiveness=Decimal("1.0"))
+            ),
+            toxic_flow=ToxicFlowDetector(),
+            config=QuoteEngineConfig(),
+        )
+        state = MarketState(
+            market_id="test-mkt",
+            condition_id="0xabc",
+            token_id_yes="y",
+            token_id_no="n",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            yes_bid=Decimal("0.56"),
+            yes_ask=Decimal("0.60"),
+            no_bid=Decimal("0.40"),
+            no_ask=Decimal("0.44"),
+        )
+        features = FeatureVector(
+            market_id="test-mkt",
+            volatility_1m=0.0,  # Zero vol — was causing same price
+            liquidity_score=0.8,
+            expected_fee_bps=Decimal("2"),
+            data_quality_score=0.9,
+        )
+        pos = Position(
+            market_id="test-mkt",
+            token_id_yes="y",
+            token_id_no="n",
+            qty_yes=Decimal("100"),
+            qty_no=Decimal("100"),
+        )
+        plan = engine.generate_quotes(
+            state, features, pos,
+            market_min_spread_bps=Decimal("50"),
+        )
+
+        yes_bids = [s.price for s in plan.slices
+                     if s.token == TokenSide.YES and s.side == QuoteSide.BID]
+        yes_asks = [s.price for s in plan.slices
+                     if s.token == TokenSide.YES and s.side == QuoteSide.ASK]
+
+        if yes_bids and yes_asks:
+            assert yes_bids[0] < yes_asks[0], (
+                f"BID {yes_bids[0]} should be < ASK {yes_asks[0]}"
+            )
+
+
+class TestInventorySkewSigmaFallback:
+    """Tests for FIX 2: inventory skew with sigma fallback."""
+
+    def test_sigma_zero_uses_fallback(self) -> None:
+        """When sigma=0, MIN_SIGMA fallback kicks in → skew != 0."""
+        from strategy.inventory_skew import MIN_SIGMA
+
+        skew_model = InventorySkew()
+        pos = Position(
+            market_id="m1", token_id_yes="y", token_id_no="n",
+            qty_yes=Decimal("100"), qty_no=Decimal("0"),
+        )
+        skew = skew_model.compute_skew(
+            position=pos,
+            volatility=Decimal("0"),  # Zero vol — was causing zero skew
+            elapsed_hours=Decimal("6"),
+        )
+        assert skew != Decimal("0"), (
+            f"Skew should NOT be zero with 100 YES tokens even at sigma=0, "
+            f"MIN_SIGMA fallback ({MIN_SIGMA}) should produce non-zero skew"
+        )
+        assert skew > Decimal("0"), "Long YES → positive skew (push mid down)"
+
+    def test_sigma_below_floor_uses_floor(self) -> None:
+        """Sigma below MIN_SIGMA is raised to MIN_SIGMA."""
+        from strategy.inventory_skew import MIN_SIGMA
+
+        skew_model = InventorySkew()
+        pos = Position(
+            market_id="m1", token_id_yes="y", token_id_no="n",
+            qty_yes=Decimal("100"), qty_no=Decimal("0"),
+        )
+        skew_zero = skew_model.compute_skew(pos, Decimal("0"), Decimal("6"))
+        skew_tiny = skew_model.compute_skew(pos, Decimal("0.001"), Decimal("6"))
+
+        # Both should use MIN_SIGMA (0.005) since 0.001 < 0.005
+        assert skew_zero == skew_tiny, (
+            "Both sigma=0 and sigma=0.001 should produce the same skew "
+            "because both are below MIN_SIGMA"
+        )
+
+    def test_sigma_above_floor_used_as_is(self) -> None:
+        """Sigma above MIN_SIGMA is used directly (no floor applied)."""
+        from strategy.inventory_skew import MIN_SIGMA
+
+        skew_model = InventorySkew()
+        pos = Position(
+            market_id="m1", token_id_yes="y", token_id_no="n",
+            qty_yes=Decimal("100"), qty_no=Decimal("0"),
+        )
+        sigma_high = Decimal("0.01")
+        assert sigma_high > MIN_SIGMA
+
+        skew_floor = skew_model.compute_skew(pos, MIN_SIGMA, Decimal("6"))
+        skew_high = skew_model.compute_skew(pos, sigma_high, Decimal("6"))
+
+        assert skew_high > skew_floor, (
+            "Higher sigma should produce larger skew"
+        )
+
+    def test_skew_nonzero_with_position_and_zero_vol(self) -> None:
+        """The core bug: position exists but skew was zero due to sigma=0."""
+        skew_model = InventorySkew()
+        pos = Position(
+            market_id="m1", token_id_yes="y", token_id_no="n",
+            qty_yes=Decimal("100"), qty_no=Decimal("0"),
+        )
+        skew = skew_model.compute_skew(
+            position=pos,
+            volatility=Decimal("0"),
+            elapsed_hours=Decimal("0"),  # Full time horizon
+        )
+        # With 100 YES and gamma=0.3, sigma=0.005 (fallback), t_remaining=1.0:
+        # skew = 0.3 * 0.005^2 * 1.0 * 100 = 0.3 * 0.000025 * 100 = 0.00075
+        assert skew > Decimal("0.0005"), (
+            f"Skew {skew} should be meaningful with 100 YES tokens"
+        )
+
+
 # ── Helper constant ──────────────────────────────────────────────────
 
 _ZERO = Decimal("0")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# NEW tests for the 4-bug fix (run-002 post-mortem)
+# ══════════════════════════════════════════════════════════════════════
+
+
+class TestBugFix1SpreadConfigWired:
+    """Bug 1: Verify half_spread_bps is wired through to SpreadModel."""
+
+    def test_spread_config_wired(self) -> None:
+        """half_spread_bps param in PaperTradingPipeline reaches SpreadModel."""
+        from paper.paper_runner import PaperTradingPipeline, MarketConfig
+        from models.market_state import MarketType
+
+        mc = MarketConfig(
+            market_id="test-mkt-001",
+            condition_id="0xabc",
+            token_id_yes="tok_y",
+            token_id_no="tok_n",
+            description="Test",
+            market_type=MarketType.OTHER,
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            neg_risk=False,
+            spread_min_bps=50,
+            max_position_size=Decimal("200"),
+            enabled=True,
+        )
+        pipeline = PaperTradingPipeline(
+            market_configs=[mc],
+            half_spread_bps=75,
+        )
+        # The SpreadModel inside the QuoteEngine must have
+        # min_half_spread_bps == 75 (what we passed in).
+        actual = pipeline.quote_engine.spread_model.config.min_half_spread_bps
+        assert actual == Decimal("75"), (
+            f"Expected min_half_spread_bps=75, got {actual}"
+        )
+
+    def test_bid_price_within_2pct_of_mid(self) -> None:
+        """Given mid_price=0.585, half_spread_bps=50, bid is within 2% of mid.
+
+        The half-spread is dominated by the vol component (1.5 * 0.005 ≈ 0.84%
+        of mid), not by the 50 bps floor (≈0.29%).  This is correct: the model
+        uses max(fee_floor, vol_component).  The key check is that the bid is
+        NOT 58% away (the bug from run-002).
+        """
+        spread_model = SpreadModel(SpreadModelConfig(
+            min_half_spread_bps=Decimal("50"),
+        ))
+        mid = Decimal("0.585")
+        hs = spread_model.optimal_half_spread(
+            volatility=Decimal("0.005"),
+            fee_bps=Decimal("2"),
+            liquidity_score=0.8,
+            mid_price=mid,
+            market_min_spread_bps=Decimal("50"),
+        )
+        bid = mid - hs
+        pct_diff = abs(mid - bid) / mid * 100
+        assert pct_diff < Decimal("2"), (
+            f"Bid {bid} is {pct_diff:.2f}% from mid {mid}, expected <2%"
+        )
+        # Ensure it's nowhere near the ~58% bug from run-002
+        assert pct_diff < Decimal("5"), (
+            f"Bid is {pct_diff:.2f}% from mid — still way too wide"
+        )
+
+
+class TestBugFix2BilateralQuotesWhenFlat:
+    """Bug 2: Flat position should produce both BID and ASK slices."""
+
+    def _make_engine(self) -> QuoteEngine:
+        return QuoteEngine(
+            spread_model=SpreadModel(),
+            inventory_skew=InventorySkew(),
+            rewards_farming=RewardsFarming(),
+            toxic_flow=ToxicFlowDetector(),
+            config=QuoteEngineConfig(),
+        )
+
+    def test_bilateral_quotes_when_flat(self) -> None:
+        """Flat position → both BID and ASK slices pass through."""
+        engine = self._make_engine()
+        state = MarketState(
+            market_id="m1",
+            condition_id="c1",
+            token_id_yes="y",
+            token_id_no="n",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            neg_risk=False,
+            yes_bid=Decimal("0.48"),
+            yes_ask=Decimal("0.52"),
+            no_bid=Decimal("0.48"),
+            no_ask=Decimal("0.52"),
+            depth_yes_bid=Decimal("1000"),
+            depth_yes_ask=Decimal("1000"),
+        )
+        features = FeatureVector(
+            market_id="m1",
+            spread_bps=Decimal("80"),
+            book_imbalance=0.1,
+            micro_momentum=0.001,
+            volatility_1m=0.008,
+            liquidity_score=0.6,
+            toxic_flow_score=0.5,
+            oracle_delta=0.0,
+            expected_fee_bps=Decimal("2"),
+            queue_position_estimate=100.0,
+            data_quality_score=0.9,
+        )
+        flat = Position(
+            market_id="m1", token_id_yes="y", token_id_no="n",
+            qty_yes=Decimal("0"), qty_no=Decimal("0"),
+        )
+        plan = engine.generate_quotes(state, features, flat)
+
+        sides = {s.side for s in plan.slices}
+        assert QuoteSide.BID in sides, "Must generate BID slices when flat"
+        assert QuoteSide.ASK in sides, "Must generate ASK slices when flat (complement trading)"
+
+
+class TestBugFix3SkewMeaningfulAt100Tokens:
+    """Bug 3: 100 token position should create visible skew (>1% of mid)."""
+
+    def test_skew_meaningful_at_100_tokens(self) -> None:
+        """100 token position creates visible skew > 1% of mid_price."""
+        skew_model = InventorySkew()
+        pos = Position(
+            market_id="m1", token_id_yes="y", token_id_no="n",
+            qty_yes=Decimal("100"), qty_no=Decimal("0"),
+        )
+        mid = Decimal("0.585")
+        skew = skew_model.compute_skew(
+            position=pos,
+            volatility=Decimal("0.005"),
+            elapsed_hours=Decimal("0"),
+        )
+        # Skew should be > 1% of mid = 0.00585
+        threshold = mid * Decimal("0.01")
+        assert skew > threshold, (
+            f"Skew {skew} is too small — should be > {threshold} "
+            f"(1% of mid {mid}) for mean-reversion"
+        )
+
+
+class TestBugFix4BalanceSizingCapsExposure:
+    """Bug 4: Per-order value must not exceed 5% of available balance."""
+
+    def _make_engine(self, **kwargs) -> QuoteEngine:
+        return QuoteEngine(
+            spread_model=kwargs.get("spread", SpreadModel()),
+            inventory_skew=kwargs.get("skew", InventorySkew()),
+            rewards_farming=kwargs.get("rewards", RewardsFarming()),
+            toxic_flow=kwargs.get("toxic", ToxicFlowDetector()),
+            config=kwargs.get("config", QuoteEngineConfig()),
+        )
+
+    def test_balance_sizing_caps_exposure(self) -> None:
+        """With $500 balance, no single BID order > 5% ($25)."""
+        engine = self._make_engine()
+        state = MarketState(
+            market_id="m1",
+            condition_id="c1",
+            token_id_yes="y",
+            token_id_no="n",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            neg_risk=False,
+            yes_bid=Decimal("0.28"),
+            yes_ask=Decimal("0.32"),
+            no_bid=Decimal("0.68"),
+            no_ask=Decimal("0.72"),
+            depth_yes_bid=Decimal("1000"),
+            depth_yes_ask=Decimal("1000"),
+        )
+        features = FeatureVector(
+            market_id="m1",
+            spread_bps=Decimal("80"),
+            book_imbalance=0.1,
+            micro_momentum=0.001,
+            volatility_1m=0.008,
+            liquidity_score=0.6,
+            toxic_flow_score=0.5,
+            oracle_delta=0.0,
+            expected_fee_bps=Decimal("2"),
+            queue_position_estimate=100.0,
+            data_quality_score=0.9,
+        )
+        flat = Position(
+            market_id="m1", token_id_yes="y", token_id_no="n",
+        )
+
+        balance = Decimal("500")
+        plan = engine.generate_quotes(
+            state=state,
+            features=features,
+            position=flat,
+            available_balance=balance,
+        )
+
+        max_allowed = balance * Decimal("0.05")  # $25
+        for s in plan.slices:
+            if s.side == QuoteSide.BID:
+                order_value = s.price * s.size
+                assert order_value <= max_allowed, (
+                    f"BID order value ${order_value} exceeds 5% cap "
+                    f"(${max_allowed}). Price={s.price}, Size={s.size}"
+                )

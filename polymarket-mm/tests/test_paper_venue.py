@@ -45,6 +45,7 @@ def market_config() -> MarketSimConfig:
         min_order_size=Decimal("5"),
         initial_yes_mid=Decimal("0.50"),
         volatility=Decimal("0.005"),
+        fill_probability=1.0,  # deterministic fills for tests
     )
 
 
@@ -204,22 +205,29 @@ class TestPaperVenueOrders:
     @pytest.mark.asyncio
     async def test_submit_sell_order(self, venue: PaperVenue):
         markets = await venue.get_active_markets()
+        ask = markets[0].yes_ask
         bid = markets[0].yes_bid
+        # First buy to have a position
+        buy_order = _make_buy_order(price=ask, size=Decimal("10"))
+        buy_result = await venue.submit_order(buy_order)
+        assert buy_result.filled_qty > Decimal("0"), "Need a filled buy first"
+
+        # Now sell from the position
         order = _make_sell_order(price=bid, size=Decimal("5"))
         result = await venue.submit_order(order)
         assert result.status in (OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED, OrderStatus.OPEN)
 
     @pytest.mark.asyncio
-    async def test_cancel_order(self, venue: PaperVenue):
-        order = _make_buy_order(price=Decimal("0.01"))  # far from market, stays open
-        result = await venue.submit_order(order)
+    async def test_cancel_order(self, nofill_venue: PaperVenue):
+        order = _make_buy_order(price=Decimal("0.01"))
+        result = await nofill_venue.submit_order(order)
         assert result.status == OrderStatus.OPEN
 
-        cancelled = await venue.cancel_order(result.client_order_id)
+        cancelled = await nofill_venue.cancel_order(result.client_order_id)
         assert cancelled is True
 
         # Second cancel should return False
-        cancelled_again = await venue.cancel_order(result.client_order_id)
+        cancelled_again = await nofill_venue.cancel_order(result.client_order_id)
         assert cancelled_again is False
 
     @pytest.mark.asyncio
@@ -228,12 +236,12 @@ class TestPaperVenueOrders:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_amend_order(self, venue: PaperVenue):
+    async def test_amend_order(self, nofill_venue: PaperVenue):
         order = _make_buy_order(price=Decimal("0.01"))
-        result = await venue.submit_order(order)
+        result = await nofill_venue.submit_order(order)
         assert result.status == OrderStatus.OPEN
 
-        amended = await venue.amend_order(
+        amended = await nofill_venue.amend_order(
             result.client_order_id,
             new_price=Decimal("0.02"),
             new_size=Decimal("20"),
@@ -247,20 +255,20 @@ class TestPaperVenueOrders:
             await venue.amend_order(uuid4(), Decimal("0.50"), Decimal("10"))
 
     @pytest.mark.asyncio
-    async def test_get_open_orders(self, venue: PaperVenue):
+    async def test_get_open_orders(self, nofill_venue: PaperVenue):
         order1 = _make_buy_order(price=Decimal("0.01"))
         order2 = _make_buy_order(price=Decimal("0.02"))
-        await venue.submit_order(order1)
-        await venue.submit_order(order2)
+        await nofill_venue.submit_order(order1)
+        await nofill_venue.submit_order(order2)
 
-        open_orders = await venue.get_open_orders()
+        open_orders = await nofill_venue.get_open_orders()
         assert len(open_orders) >= 2
 
     @pytest.mark.asyncio
-    async def test_idempotent_submit(self, venue: PaperVenue):
+    async def test_idempotent_submit(self, nofill_venue: PaperVenue):
         order = _make_buy_order(price=Decimal("0.01"))
-        r1 = await venue.submit_order(order)
-        r2 = await venue.submit_order(order)
+        r1 = await nofill_venue.submit_order(order)
+        r2 = await nofill_venue.submit_order(order)
         assert r1.client_order_id == r2.client_order_id
         assert r1.status == r2.status
 
@@ -313,11 +321,11 @@ class TestTickSizeValidation:
         assert result.status != OrderStatus.REJECTED
 
     @pytest.mark.asyncio
-    async def test_amend_invalid_tick_raises(self, venue: PaperVenue):
+    async def test_amend_invalid_tick_raises(self, nofill_venue: PaperVenue):
         order = _make_buy_order(price=Decimal("0.01"))
-        result = await venue.submit_order(order)
+        result = await nofill_venue.submit_order(order)
         with pytest.raises(ValueError, match="not a valid tick"):
-            await venue.amend_order(
+            await nofill_venue.amend_order(
                 result.client_order_id,
                 new_price=Decimal("0.015"),
                 new_size=Decimal("10"),
@@ -484,17 +492,17 @@ class TestPaperExecution:
         assert r1.client_order_id == r2.client_order_id
 
     @pytest.mark.asyncio
-    async def test_cancel_order(self, paper_exec: PaperExecution):
+    async def test_cancel_order(self, nofill_paper_exec: PaperExecution):
         order = _make_buy_order(price=Decimal("0.01"))
-        result = await paper_exec.submit_order(order)
-        success = await paper_exec.cancel_order(result.client_order_id)
+        result = await nofill_paper_exec.submit_order(order)
+        success = await nofill_paper_exec.cancel_order(result.client_order_id)
         assert success is True
 
     @pytest.mark.asyncio
-    async def test_get_open_orders(self, paper_exec: PaperExecution):
+    async def test_get_open_orders(self, nofill_paper_exec: PaperExecution):
         order = _make_buy_order(price=Decimal("0.01"))
-        await paper_exec.submit_order(order)
-        open_orders = await paper_exec.get_open_orders()
+        await nofill_paper_exec.submit_order(order)
+        open_orders = await nofill_paper_exec.get_open_orders()
         assert len(open_orders) >= 1
 
     @pytest.mark.asyncio
@@ -640,3 +648,139 @@ class TestPositionTracking:
     @pytest.mark.asyncio
     async def test_position_for_unknown_market(self, venue: PaperVenue):
         assert venue.get_position("nonexistent") is None
+
+
+# ══════════════════════════════════════════════════════════════════════
+# SELL position sync — BUY then SELL flow (bug fix verification)
+# ══════════════════════════════════════════════════════════════════════
+
+
+class TestSellPositionSync:
+    """Verify that SELL YES works after BUY YES fills (position sync fix)."""
+
+    @pytest.mark.asyncio
+    async def test_buy_then_sell_yes_accepted(self, venue: PaperVenue):
+        """After buying YES, selling YES should be accepted by venue."""
+        markets = await venue.get_active_markets()
+        ask = markets[0].yes_ask
+
+        # Step 1: BUY YES — should fill
+        buy = _make_buy_order(price=ask, size=Decimal("10"))
+        buy_result = await venue.submit_order(buy)
+        assert buy_result.filled_qty > Decimal("0"), "BUY should fill"
+
+        # Verify venue position updated
+        pos = venue.get_position("test-mkt-001")
+        assert pos is not None
+        assert pos.qty_yes > Decimal("0"), f"venue qty_yes should be >0, got {pos.qty_yes}"
+
+        # Step 2: SELL YES — should NOT be rejected
+        bid = markets[0].yes_bid
+        sell_size = min(pos.qty_yes, Decimal("5"))
+        sell = _make_sell_order(price=bid, size=sell_size)
+        sell_result = await venue.submit_order(sell)
+        assert sell_result.status != OrderStatus.REJECTED, (
+            f"SELL YES should not be rejected! status={sell_result.status}, "
+            f"held_yes={pos.qty_yes}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_sell_resized_to_held(self, venue: PaperVenue):
+        """SELL larger than held position is resized to held qty."""
+        markets = await venue.get_active_markets()
+        ask = markets[0].yes_ask
+
+        # BUY 5
+        buy = _make_buy_order(price=ask, size=Decimal("5"))
+        buy_result = await venue.submit_order(buy)
+        assert buy_result.filled_qty > Decimal("0")
+
+        pos = venue.get_position("test-mkt-001")
+        held = pos.qty_yes
+
+        # Try to SELL 100 — more than we have
+        bid = markets[0].yes_bid
+        sell = _make_sell_order(price=bid, size=Decimal("100"))
+        sell_result = await venue.submit_order(sell)
+        # Should NOT be rejected — should be resized to held
+        assert sell_result.status != OrderStatus.REJECTED, (
+            f"SELL should be resized, not rejected. held={held}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_sell_with_zero_position_rejected(
+        self, venue: PaperVenue
+    ):
+        """SELL YES with 0 position is rejected in paper trading."""
+        markets = await venue.get_active_markets()
+        bid = markets[0].yes_bid
+
+        # Verify position is 0
+        pos = venue.get_position("test-mkt-001")
+        assert pos.qty_yes == Decimal("0")
+
+        # Try SELL YES at bid price — should be rejected (no complement routing)
+        sell = _make_sell_order(
+            price=bid, size=Decimal("5"), token_id="test-tok-yes-001"
+        )
+        sell_result = await venue.submit_order(sell)
+        assert sell_result.status == OrderStatus.REJECTED, (
+            f"SELL YES with 0 position should be rejected in paper, "
+            f"got {sell_result.status}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_venue_position_matches_after_multiple_fills(
+        self, venue: PaperVenue
+    ):
+        """Multiple BUY fills accumulate in venue position correctly."""
+        markets = await venue.get_active_markets()
+        ask = markets[0].yes_ask
+
+        total_bought = Decimal("0")
+        for _ in range(3):
+            buy = _make_buy_order(price=ask, size=Decimal("5"))
+            result = await venue.submit_order(buy)
+            total_bought += result.filled_qty
+
+        pos = venue.get_position("test-mkt-001")
+        assert pos.qty_yes == total_bought, (
+            f"venue position ({pos.qty_yes}) should match total bought ({total_bought})"
+        )
+
+
+@pytest.fixture
+def nofill_market_config() -> MarketSimConfig:
+    """Market config with fill_probability=0 so orders stay OPEN."""
+    return MarketSimConfig(
+        market_id="test-mkt-001",
+        condition_id="test-cond-001",
+        token_id_yes="test-tok-yes-001",
+        token_id_no="test-tok-no-001",
+        tick_size=Decimal("0.01"),
+        min_order_size=Decimal("5"),
+        initial_yes_mid=Decimal("0.50"),
+        volatility=Decimal("0.005"),
+        fill_probability=0.0,  # orders never fill — stay OPEN
+    )
+
+
+@pytest.fixture
+async def nofill_venue(event_bus: EventBus, nofill_market_config: MarketSimConfig) -> PaperVenue:
+    v = PaperVenue(
+        event_bus=event_bus,
+        configs=[nofill_market_config],
+        fill_latency_ms=1.0,
+        partial_fill_probability=0.0,
+        seed=42,
+    )
+    await v.connect()
+    yield v  # type: ignore[misc]
+    await v.disconnect()
+
+
+@pytest.fixture
+async def nofill_paper_exec(
+    nofill_venue: PaperVenue, event_bus: EventBus
+) -> PaperExecution:
+    return PaperExecution(venue=nofill_venue, event_bus=event_bus, max_orders_per_second=100)

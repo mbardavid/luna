@@ -45,7 +45,7 @@ MC_CLIENT = os.path.join(SCRIPTS_DIR, "mc-client.sh")
 OPENCLAW_BIN = os.environ.get("OPENCLAW_BIN", "openclaw")
 OPENCLAW_CONFIG = os.environ.get("OPENCLAW_CONFIG", "/home/openclaw/.openclaw/openclaw.json")
 GATEWAY_URL = os.environ.get("MC_GATEWAY_URL", "ws://127.0.0.1:18789")
-DISCORD_CHANNEL = os.environ.get("HEARTBEAT_DISCORD_CHANNEL", "1473367119377731800")
+DISCORD_CHANNEL = os.environ.get("HEARTBEAT_DISCORD_CHANNEL", "1476255906894446644")
 NOTIFICATIONS_CHANNEL = os.environ.get("HEARTBEAT_NOTIFICATIONS_CHANNEL", "1476255906894446644")
 STATE_FILE = os.environ.get("HEARTBEAT_STATE_FILE", "/tmp/.heartbeat-check-state.json")
 LOCK_FILE = "/tmp/.heartbeat-check.lock"
@@ -539,7 +539,6 @@ log(f"Agent mapping: {len(agent_mapping)} agents")
 # ============================================================
 notified_failures = state.get("notified_failures", {})
 new_failures = []
-respawn_dispatched = False
 
 for task in tasks:
     status = str(task.get("status", "")).lower()
@@ -583,41 +582,21 @@ for task in tasks:
     log(f"FAILURE: task {task_id[:8]} — {title} — type={failure_type}, retry={retry_count}")
 
     if retry_count < MAX_RETRIES:
-        # Auto-respawn via cron one-shot
-        respawn_msg = build_failure_respawn_message(task, failure_type, retry_count, adjustments)
-
+        # ── NOTIFY ONLY (no auto-respawn) ──────────────────
+        # Auto-respawn via cron one-shot was DISABLED (2026-02-26)
+        # because isolated sessions without a channel cause
+        # "Channel is required" error storms → OOM → gateway death.
+        #
+        # Instead: notify, update MC retry count, and let Luna
+        # handle re-spawn in her main session (which HAS a channel).
         if not DRY_RUN:
-            # Update retry count
             mc_update_task(task_id,
                 fields={"mc_retry_count": str(retry_count + 1)},
-                comment=f"[heartbeat-v2] failure detected ({failure_type}), auto-respawn #{retry_count + 1}")
+                status="review",
+                comment=f"[heartbeat-v2] failure detected ({failure_type}), moved to review for manual respawn")
 
-            at_time = iso_at(10)
-            try:
-                result = run_cmd([
-                    OPENCLAW_BIN, "cron", "add",
-                    "--at", at_time,
-                    "--agent", "main",
-                    "--session", "isolated",
-                    "--name", f"hb-respawn-{task_id[:8]}",
-                    "--delete-after-run",
-                    "--timeout-seconds", str(CRON_TIMEOUT_SECONDS),
-                    "--thinking", "low",
-                    "--no-deliver",
-                    "--message", respawn_msg,
-                    "--json",
-                ], timeout=15)
-                cron_data = json.loads(result) if result else {}
-                log(f"RESPAWN: cron created for {task_id[:8]}, job={cron_data.get('id', '?')[:8]}")
-                respawn_dispatched = True
-            except Exception as e:
-                log(f"ERROR: respawn cron failed for {task_id[:8]}: {e}")
-                record_cb_failure(state)
-        else:
-            log(f"DRY-RUN: would respawn {task_id[:8]} (type={failure_type})")
-
-        # Notify #notifications
-        notif_msg = f"🔄 **Heartbeat** auto-respawn: `{task_id[:8]}` — **{title}**\nErro: {failure_type} | Retry #{retry_count + 1}/{MAX_RETRIES}"
+        notif_msg = f"⚠️ **Heartbeat** task falhou: `{task_id[:8]}` — **{title}**\nErro: {failure_type} | Retry #{retry_count + 1}/{MAX_RETRIES}\nRequer re-spawn manual pela Luna."
+        send_discord(DISCORD_CHANNEL, notif_msg)
         send_discord(NOTIFICATIONS_CHANNEL, notif_msg)
 
     else:
@@ -645,10 +624,6 @@ for task in tasks:
 if new_failures:
     state["notified_failures"] = notified_failures
     save_state(state)
-
-if respawn_dispatched:
-    log("Phase 4: respawn dispatched — stopping this run (let respawn settle)")
-    sys.exit(0)
 
 log(f"Phase 4: {len(new_failures)} failure(s) detected")
 

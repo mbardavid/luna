@@ -1,0 +1,21 @@
+# Run 003 — H1: Lucratividade (com fixes de spread/skew/position)
+# Fix: spread mínimo real, inventory skew com sigma fallback,
+#       position-aware quoting, order sizing dinâmico
+
+run_id: "run-003"
+duration_hours: 4
+hypothesis: "H1"  # Lucratividade (com fixes de spread/skew/position)
+
+initial_balance: 500
+
+params:
+  quote_interval_s: 2.0
+  default_order_size: 25  # Reduzido de 50
+  default_half_spread_bps: 50
+  gamma_risk_aversion: 0.3
+  fill_probability: 0.25
+  markets:
+    - "us-strikes-iran-by-march-31-2026"
+
+parent_run: "run-002"
+changes_from_parent: "Fix spread mínimo, inventory skew com sigma fallback, position-aware quoting, order sizing dinâmico"

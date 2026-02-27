@@ -257,6 +257,32 @@ except Exception:
 # Get memory info
 memory = get_memory_info()
 
+# Check for update result (from gateway-update.sh)
+update_info = None
+UPDATE_RESULT_FILE = "/tmp/.update-result.json"
+PRE_UPDATE_STATE_FILE = "/tmp/.pre-update-state.json"
+try:
+    if os.path.exists(UPDATE_RESULT_FILE):
+        with open(UPDATE_RESULT_FILE) as f:
+            update_info = json.load(f)
+        log(f"Update result found: {update_info.get('from_version')} → {update_info.get('to_version')}")
+        # Clean up after reading
+        os.unlink(UPDATE_RESULT_FILE)
+except Exception as e:
+    log(f"WARN: could not read update result: {e}")
+
+# Check for pre-update saved state (subagents, context)
+pre_update_state = None
+try:
+    if os.path.exists(PRE_UPDATE_STATE_FILE):
+        with open(PRE_UPDATE_STATE_FILE) as f:
+            pre_update_state = json.load(f)
+        log(f"Pre-update state found: {len(pre_update_state.get('subagents', []))} subagents, {len(pre_update_state.get('mc_tasks', []))} MC tasks")
+        # Clean up after reading
+        os.unlink(PRE_UPDATE_STATE_FILE)
+except Exception as e:
+    log(f"WARN: could not read pre-update state: {e}")
+
 # Get uptime from PID start time
 uptime_secs = "?"
 try:
@@ -288,14 +314,48 @@ if last_dispatch:
     mins_ago = (now_ms - last_dispatch_at) // 60000 if last_dispatch_at else "?"
     dispatch_info = f"`{last_dispatch[:8]}` — dispatched {mins_ago}min atrás"
 
-briefing = f"""🔄 **Post-restart wake-up** — Gateway reiniciou.
+# Build update section if applicable
+update_section = ""
+if update_info:
+    update_section = f"""
+## 🆕 Update aplicado
+- **Versão:** {update_info.get('from_version', '?')} → {update_info.get('to_version', '?')}
+- **Timestamp:** {update_info.get('timestamp', '?')}
+- **Status:** {update_info.get('status', '?')}
+- Verificar changelog e testar funcionalidades novas
+"""
 
+# Build pre-update state section
+pre_state_section = ""
+if pre_update_state:
+    # Subagents that were running before update
+    sa_lines = []
+    for sa in pre_update_state.get("subagents", []):
+        sa_lines.append(f"  - `{sa.get('label', '?')}` — session: `{sa.get('sessionKey', '?')[-20:]}`")
+    if sa_lines:
+        pre_state_section += f"\n## ⏸️ Subagents pausados pelo update\n" + chr(10).join(sa_lines) + "\n"
+        pre_state_section += "**Ação:** Verificar se sessões ainda existem. Se mortas, re-spawnar.\n"
+
+    # Context from Luna before update
+    ctx = pre_update_state.get("context", "")
+    if ctx:
+        pre_state_section += f"\n## 📋 Contexto pré-update\n{ctx}\n"
+
+    # Pending notifications
+    pending = pre_update_state.get("pending_notifications", [])
+    if pending:
+        pre_state_section += f"\n## 📬 Notificações pendentes\n"
+        for n in pending:
+            pre_state_section += f"  - {n}\n"
+
+briefing = f"""🔄 **Post-restart wake-up** — Gateway reiniciou.
+{update_section}
 ## Estado detectado pelo sentinel
 - **PID:** `{gateway_pid}` (boot: `{current_boot}`)
 - **Boot anterior:** `{last_boot}`
 - **Uptime:** {uptime_secs}s
 - **Memória:** {memory}
-
+{pre_state_section}
 ## Tasks in_progress no MC (potencialmente órfãs)
 {chr(10).join(task_lines)}
 
@@ -303,7 +363,7 @@ briefing = f"""🔄 **Post-restart wake-up** — Gateway reiniciou.
 {dispatch_info}
 
 ## Ações recomendadas
-1. Verificar sessões ativas via sessions.list — comparar com MC tasks in_progress
+1. Verificar sessões ativas — comparar com MC tasks in_progress
 2. Para cada task órfã (sessão morta): avaliar se re-spawn ou mover pra review
 3. Reportar status no Discord #general-luna
 4. O heartbeat regular vai retomar em até 10min

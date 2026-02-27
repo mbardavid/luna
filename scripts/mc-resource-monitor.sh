@@ -27,7 +27,7 @@ parser.add_argument("--warn-pct", type=float, default=float(os.environ.get("MC_R
 parser.add_argument("--degrade-pct", type=float, default=float(os.environ.get("MC_RESOURCE_DEGRADE_PCT", "90")))
 parser.add_argument("--recover-pct", type=float, default=float(os.environ.get("MC_RESOURCE_RECOVER_PCT", "85")))
 parser.add_argument("--kill-pct", type=float, default=float(os.environ.get("MC_RESOURCE_KILL_PCT", "95")))
-parser.add_argument("--channel", default=os.environ.get("MC_RESOURCE_CHANNEL", "1473367119377731800"))
+parser.add_argument("--channel", default=os.environ.get("MC_RESOURCE_CHANNEL", "1476255906894446644"))
 parser.add_argument("--allowlist", default=os.environ.get("MC_RESOURCE_ALLOWLIST", "node_modules/.bin/*,/tmp/puppeteer*"))
 parser.add_argument("--kill-allowlist", action="store_true")
 parser.add_argument("--dry-run", action="store_true")

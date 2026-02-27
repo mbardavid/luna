@@ -1,0 +1,13 @@
+{
+  "total_pnl": 0.0,
+  "positions": {
+    "us-strikes-iran-by-march-31-2026": {
+      "qty_yes": 150.0,
+      "qty_no": 0.0,
+      "avg_entry_yes": 0.23313333333333333,
+      "avg_entry_no": 0.0,
+      "realized_pnl": 0.0
+    }
+  },
+  "timestamp": "2026-02-26T23:59:58.801188+00:00"
+}

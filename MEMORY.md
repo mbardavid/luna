@@ -85,3 +85,10 @@
 - **Heartbeat V2 operacional:** Substituiu heartbeat AI por bash puro (`heartbeat-v2.sh` + `gateway-wake-sentinel.sh`). Zero tokens, determinístico, 9 fases incluindo circuit breaker e rate limit. Crontab a cada 10min.
 - **PMM pronto para trading:** Wallet com ~228 USDC.e + ~8.38 POL na Polygon, 6 allowances setadas. Próximos passos: P4 (seleção mercados), P5 (paper trading), P6 (produção — requer aprovação Matheus).
 - **Token burn lesson:** Flash como agente executor (crypto-sage) entrou em loop de web_fetch 15x → 38M tokens queimados. Agentes especializados com modelo barato devem ter guardrails de loop/retry.
+
+## 2026-02-27
+
+- **PMM iteração paper trading amadureceu:** Ciclo completo detecta→analisa→spawna fix→re-run emergiu organicamente (run-001 a run-003). 4 bugs fundamentais do quoting engine identificados e fixados pelo Luan (spread calibration, one-sided inventory, weak skew, wallet exhaustion). run-004 aguardando start.
+- **SELL position sync fix consolidado:** PaperVenue agora faz resize + complement routing (SELL YES → BUY NO quando posição=0). Pattern reutilizável para qualquer venue simulado.
+- **Gateway post-crash estável por 10h+:** Após 5 restarts em 26/fev (crash chain + updates), sistema se manteve estável a noite inteira. Heartbeat V2 (bash puro) validado em produção.
+- **Operacional: `active-tasks.md` precisa de cleanup periódico** — ficou 2 semanas desatualizado. Incluir na rotina de manutenção.

@@ -1,0 +1,63 @@
+{
+  "start_time": "2026-02-26T17:47:33.865311+00:00",
+  "end_time": "2026-02-26T18:05:50.932337+00:00",
+  "total_hours": 1,
+  "totals": {
+    "quotes": 1944,
+    "orders": 1944,
+    "fills": 373,
+    "ws_messages": 5069,
+    "book_updates": 4346,
+    "errors": 0
+  },
+  "hourly": [
+    {
+      "hour": 0,
+      "start_time": "2026-02-26T17:47:33.865311+00:00",
+      "end_time": "2026-02-26T18:05:50.932172+00:00",
+      "quotes_generated": 1944,
+      "orders_submitted": 1944,
+      "fills": 373,
+      "fill_rate_pct": 19.19,
+      "total_pnl": 0.0,
+      "avg_spread_captured_bps": 7858.89,
+      "inventory_drift": {
+        "will-axiom-be-accused-of-insider-trading": {
+          "qty_yes": 0.0,
+          "qty_no": 0.0,
+          "net": 0.0,
+          "realized_pnl": 0.0
+        },
+        "us-strikes-iran-by-march-31-2026": {
+          "qty_yes": 300.0,
+          "qty_no": 0.0,
+          "net": 300.0,
+          "realized_pnl": 0.0
+        }
+      },
+      "ws_messages": 5069,
+      "book_updates": 4346,
+      "errors": 0,
+      "per_market": {
+        "will-axiom-be-accused-of-insider-trading": {
+          "quotes": 0,
+          "orders": 0,
+          "fills": 0,
+          "avg_spread_bps": 0.0,
+          "book_updates": 2169,
+          "inventory_yes": 0.0,
+          "inventory_no": 0.0
+        },
+        "us-strikes-iran-by-march-31-2026": {
+          "quotes": 1944,
+          "orders": 1944,
+          "fills": 373,
+          "avg_spread_bps": 7858.89,
+          "book_updates": 2177,
+          "inventory_yes": 300.0,
+          "inventory_no": 0.0
+        }
+      }
+    }
+  ]
+}
