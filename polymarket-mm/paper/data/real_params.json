@@ -1,0 +1,19 @@
+{
+  "extracted_at": "2026-02-28T00:54:14.067549+00:00",
+  "sample_size": 0,
+  "error": "No trades found in input data",
+  "real_fill_rate": 0.0,
+  "real_adverse_selection_bps": 0.0,
+  "real_fee_bps": 0.0,
+  "real_latency_ms": 0.0,
+  "real_rejection_rate": 0.0,
+  "real_spread_bps": 0.0,
+  "real_gas_cost_per_tx_usd": 0.0,
+  "real_max_price_jump_pct": 0.0,
+  "suggested_paper_config": {
+    "fill_probability": 0.1,
+    "adverse_selection_bps": 30,
+    "maker_fee_bps": 30,
+    "fill_distance_decay": true
+  }
+}

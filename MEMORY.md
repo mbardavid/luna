@@ -92,3 +92,9 @@
 - **SELL position sync fix consolidado:** PaperVenue agora faz resize + complement routing (SELL YES → BUY NO quando posição=0). Pattern reutilizável para qualquer venue simulado.
 - **Gateway post-crash estável por 10h+:** Após 5 restarts em 26/fev (crash chain + updates), sistema se manteve estável a noite inteira. Heartbeat V2 (bash puro) validado em produção.
 - **Operacional: `active-tasks.md` precisa de cleanup periódico** — ficou 2 semanas desatualizado. Incluir na rotina de manutenção.
+
+## 2026-02-28
+
+- **PMM paper trading: adversarial validation confirma edge real mas fino.** Run-007 (adversarial fills) reduziu PnL em 89% vs vanilla (de $168/hr para $18.86/hr). Estratégia é lucrativa mesmo sob condições adversariais, mas margem estreita. Inventário não-controlado (+103 net) é o próximo gargalo — run-008 (H2, gamma 0.5) é o teste decisivo antes de produção.
+- **SIGUSR1 não é hot-reload — causa full restart.** Descoberto empiricamente em 27/fev: `kill -USR1` ao gateway causa supervisor restart completo (PID muda). TOOLS.md dizia "brief disconnect but does NOT kill the process" — informação incorreta que precisa ser corrigida.
+- **Itens de taxonomia operacional acumulando:** 6 itens pendentes de documentação permanente (PMM workflow, HB V2 scripts, MC scripts, post-mortem, active-tasks cleanup, SIGUSR1 doc). Nenhum é urgente individualmente, mas o acúmulo indica necessidade de um sprint de documentação.

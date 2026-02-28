@@ -26,6 +26,7 @@ O paper runner já existe e funciona: conecta ao WebSocket real do Polymarket, p
 - **Teste:** PnL líquido > 0 após simular fees (2% maker rebate no Polymarket)
 - **Métrica:** PnL/hora > $0 consistentemente (>60% das horas)
 - **Dados existentes:** 1h de teste mostrou +$57.22 (promissor, mas precisa validar se o PaperVenue não está sendo otimista demais com fills)
+- **Adversarial Venue (run-007+):** Agora usa PaperVenue com adverse selection (10bps), maker fee rebate (-20bps), e distance-based fill probability decay. Parâmetros configuráveis via `MarketSimConfig.adverse_selection_bps`, `FeeConfig.maker_fee_bps`, e `MarketSimConfig.fill_distance_decay`.
 
 ### H2 — Inventory Skew Controla Posição
 - **Teste:** Net inventory (|YES - NO|) não ultrapassa MAX_POSITION_SIZE
@@ -565,3 +566,65 @@ Para aprovar ida pra produção, TODOS devem ser verdade:
 | D (Primeiro run) | 4h de paper trading | Luna (automático) |
 | E (Loop: H7→H1→H2→H3→H5→H6) | ~3-5 dias de testes contínuos | Luna + Orchestrator |
 | P6 Gate | Quando Matheus aprovar | Matheus |
+
+---
+
+## 10. Production Micro Test ($25)
+
+### Objetivo
+Validar parâmetros reais do Polymarket CLOB com capital mínimo ($25) antes de
+escalar. Extrair métricas de fill rate, adverse selection, latência e fees
+reais para calibrar o PaperVenue.
+
+### Componentes
+- `paper/production_runner.py` — Runner que envia ordens reais ao CLOB
+- `paper/extract_real_params.py` — Extrai parâmetros reais de `trades_production.jsonl`
+- `paper/dashboard/` — Dashboard dual (DEMO vs PROD lado a lado)
+
+### Configuração
+```yaml
+# paper/runs/prod-001.yaml
+run_id: "prod-001"
+mode: "production"
+duration_hours: 24
+initial_balance: 25
+params:
+  quote_interval_s: 5.0
+  default_order_size: 5
+  kill_switch_max_drawdown_pct: 20.0
+```
+
+### Pré-requisitos
+1. Wallet fundada com POL (gas) e USDC.e (trading)
+2. Env vars configuradas: `POLYMARKET_API_KEY`, `POLYMARKET_API_SECRET`,
+   `POLYMARKET_PASSPHRASE`, `POLYGON_PRIVATE_KEY`
+3. Allowances setadas no CTF Exchange
+
+### Métricas a Extrair
+| Métrica | Esperado Paper | Real (TBD) |
+|---------|---------------|------------|
+| Fill rate | 25% | ? |
+| Adverse selection | 10 bps | ? |
+| Fee efetiva | 30 bps | ? |
+| Latência | 50ms (sim) | ? |
+| Rejection rate | 0% (sim) | ? |
+| Spread real | 50 bps | ? |
+| Gas/tx | $0 (sim) | ? |
+
+### Execução
+```bash
+# NÃO executar sem wallet fundada!
+python3 -m paper.production_runner --config paper/runs/prod-001.yaml
+
+# Após 8+ horas de dados:
+python3 -m paper.extract_real_params
+
+# Dashboard (já serve ambos):
+python3 -m paper.dashboard.server
+```
+
+### Kill Switch
+- **Halt:** $5 loss (20% de $25)
+- **Alert:** $2.50 loss (10%)
+- Cancel automático de todas as ordens ao halt
+

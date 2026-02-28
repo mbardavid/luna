@@ -1,0 +1,31 @@
+# Run 007 — H1-adversarial: Adversarial PaperVenue test
+# Based on run-006 results (unrealistically high PnL)
+# Testing: Is the PMM profitable under realistic adverse selection + fees?
+
+run_id: "run-007"
+duration_hours: 8
+hypothesis: "H1-adversarial"
+
+initial_balance: 500
+
+params:
+  quote_interval_s: 2.0
+  default_order_size: 25
+  default_half_spread_bps: 50
+  gamma_risk_aversion: 0.3
+  fill_probability: 0.25
+  adverse_selection_bps: 10
+  maker_fee_bps: -20
+  fill_distance_decay: true
+  kill_switch_max_drawdown_pct: 25.0
+  kill_switch_alert_pct: 15.0
+  markets:
+    - "us-strikes-iran-by-march-31-2026"
+
+parent_run: "run-006"
+changes_from_parent: "Adversarial fills (adverse selection 10bps, maker fee -20bps, distance-based fill prob)"
+
+success_criteria:
+  pnl_positive: true
+  pnl_per_hour_positive_pct: 60.0  # >60% of hours must be profitable
+  max_drawdown_pct: 15.0

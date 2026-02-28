@@ -1,0 +1,23 @@
+# Production Micro Test — prod-001
+# Real CLOB orders with $25 capital and minimum order sizes.
+# ⚠️  DO NOT START without funded wallet (POL + USDC.e)
+
+run_id: "prod-001"
+mode: "production"
+duration_hours: 24
+hypothesis: "production-micro-test"
+initial_balance: 25
+
+params:
+  quote_interval_s: 5.0      # slower than paper (rate limit friendly)
+  default_order_size: 5       # minimum Polymarket order size
+  default_half_spread_bps: 50
+  gamma_risk_aversion: 0.3
+  kill_switch_max_drawdown_pct: 20.0   # $5 loss = halt
+  kill_switch_alert_pct: 10.0          # $2.50 loss = alert
+  markets: []                          # auto-select via REST API
+
+success_criteria:
+  pnl_positive: false          # not expected to be profitable yet
+  max_drawdown_pct: 20.0
+  data_collection_hours: 8     # minimum hours needed for valid param extraction

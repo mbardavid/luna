@@ -83,6 +83,20 @@ class _PendingOrder:
 
 
 @dataclass
+class FeeConfig:
+    """Fee configuration for the paper venue.
+
+    Polymarket:
+      - Maker rebate: -20 bps (maker RECEIVES 0.2%)
+      - Taker fee:     20 bps (pays 0.2%)
+    Negative values mean the trader receives a rebate.
+    """
+
+    maker_fee_bps: int = 0
+    taker_fee_bps: int = 0
+
+
+@dataclass
 class MarketSimConfig:
     """Configuration for a single simulated market."""
 
@@ -97,6 +111,8 @@ class MarketSimConfig:
     initial_yes_mid: Decimal = Decimal("0.50")
     volatility: Decimal = Decimal("0.005")  # per-step random walk σ
     fill_probability: float = 0.5  # probability that a submitted order fills
+    adverse_selection_bps: int = 0  # mid moves against fill direction (0 = off)
+    fill_distance_decay: bool = False  # fill prob decreases with distance from mid
 
 
 # ── PaperVenue ───────────────────────────────────────────────────────
@@ -136,12 +152,14 @@ class PaperVenue(MarketDataProvider):
         heartbeat_interval_s: float = 5.0,
         seed: int | None = None,
         initial_balance: Decimal = Decimal("500"),
+        fee_config: FeeConfig | None = None,
     ) -> None:
         self._event_bus = event_bus
         self._fill_latency_ms = fill_latency_ms
         self._partial_fill_prob = partial_fill_probability
         self._heartbeat_interval = heartbeat_interval_s
         self._rng = random.Random(seed)
+        self._fee_config = fee_config or FeeConfig()
 
         # Build market configs
         if configs:
@@ -164,6 +182,7 @@ class PaperVenue(MarketDataProvider):
         self._open_orders: dict[UUID, _PendingOrder] = {}
         self._positions: dict[str, Position] = {}
         self._total_pnl: Decimal = Decimal("0")
+        self._total_fees: Decimal = Decimal("0")
 
         self._connected = False
         self._heartbeat_task: asyncio.Task | None = None  # type: ignore[type-arg]
@@ -406,6 +425,19 @@ class PaperVenue(MarketDataProvider):
 
         # Fill probability gate: randomly reject fills to simulate realistic fill rates
         fill_prob = market_cfg.fill_probability
+
+        # Distance decay: orders further from mid have lower fill probability
+        if market_cfg.fill_distance_decay:
+            mid = self._mid_prices.get(order.market_id, Decimal("0.50"))
+            distance = abs(order.price - mid)
+            half_spread_est = market_cfg.tick_size * 3  # ~3 ticks default half spread
+            if half_spread_est > Decimal("0"):
+                decay = float(max(
+                    Decimal("0.05"),
+                    Decimal("1") - distance / (2 * half_spread_est),
+                ))
+                fill_prob = fill_prob * decay
+
         if self._rng.random() >= fill_prob:
             # Order stays open but doesn't match (simulates queue position / no counterparty)
             return order
@@ -427,7 +459,12 @@ class PaperVenue(MarketDataProvider):
 
         fill_price = order.price
 
-        # Publish fill event
+        # ── Fee calculation ──────────────────────────────────────
+        fill_notional = fill_price * fill_qty
+        fee = fill_notional * Decimal(str(self._fee_config.maker_fee_bps)) / Decimal("10000")
+        self._total_fees += fee
+
+        # Publish fill event (includes fee)
         await self._event_bus.publish(
             "fill",
             {
@@ -437,11 +474,29 @@ class PaperVenue(MarketDataProvider):
                 "side": order.side.value,
                 "fill_price": str(fill_price),
                 "fill_qty": str(fill_qty),
+                "fee": str(fee),
             },
         )
 
         # Update position and wallet
-        self._update_position(order, fill_price, fill_qty)
+        self._update_position(order, fill_price, fill_qty, fee=fee)
+
+        # ── Adverse selection: move mid AGAINST the fill ─────────
+        if market_cfg.adverse_selection_bps > 0:
+            adverse_move = fill_notional * Decimal(str(market_cfg.adverse_selection_bps)) / Decimal("10000")
+            mid = self._mid_prices.get(order.market_id, Decimal("0.50"))
+            tick = self._tick_sizes.get(order.market_id, market_cfg.tick_size)
+            if order.side == Side.BUY:
+                new_mid = mid - adverse_move  # BUY fill → mid drops
+            else:
+                new_mid = mid + adverse_move  # SELL fill → mid rises
+            # Clamp
+            new_mid = max(tick, min(Decimal("1") - tick, new_mid))
+            new_mid = _quantize(new_mid, tick)
+            if new_mid <= Decimal("0"):
+                new_mid = tick
+            self._mid_prices[order.market_id] = new_mid
+            self._rebuild_book(market_cfg)
 
         if fill_qty >= order.size:
             new_status = OrderStatus.FILLED
@@ -524,6 +579,15 @@ class PaperVenue(MarketDataProvider):
     @property
     def total_pnl(self) -> Decimal:
         return self._total_pnl
+
+    @property
+    def total_fees(self) -> Decimal:
+        """Total fees paid (negative = net rebate received)."""
+        return self._total_fees
+
+    @property
+    def fee_config(self) -> FeeConfig:
+        return self._fee_config
 
     # ── Chaos hooks (used by ChaosInjector) ──────────────────────
 
@@ -752,7 +816,8 @@ class PaperVenue(MarketDataProvider):
         })
 
     def _update_position(
-        self, order: Order, fill_price: Decimal, fill_qty: Decimal
+        self, order: Order, fill_price: Decimal, fill_qty: Decimal,
+        fee: Decimal = Decimal("0"),
     ) -> None:
         pos = self._positions.get(order.market_id)
         if pos is None:
@@ -780,6 +845,10 @@ class PaperVenue(MarketDataProvider):
                 self._locked_balance -= unlock_amount
                 # Update remaining locked cost for this order
                 self._order_locked_cost[order.client_order_id] = orig_locked - unlock_amount
+
+            # Apply fee/rebate on BUY fill (negative fee = rebate = credit)
+            self._available_balance -= fee
+            self._total_pnl -= fee  # fee reduces PnL, rebate increases it
 
             if is_yes:
                 new_qty = pos.qty_yes + fill_qty
@@ -809,6 +878,12 @@ class PaperVenue(MarketDataProvider):
             # On SELL fill: credit proceeds to available balance
             proceeds = fill_price * fill_qty
             self._available_balance += proceeds
+
+            # Apply fee/rebate to wallet (negative fee = rebate = credit)
+            # fee is already negative for maker rebate, so subtracting
+            # a negative number adds to balance
+            self._available_balance -= fee
+            self._total_pnl -= fee  # fee reduces PnL, rebate increases it
 
             if is_yes:
                 sell_qty = min(fill_qty, pos.qty_yes)

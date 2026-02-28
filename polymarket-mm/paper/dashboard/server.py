@@ -1,12 +1,14 @@
-"""Dashboard HTTP server for PMM Paper Trading.
+"""Dashboard HTTP server for PMM Paper Trading + Production.
 
 Lightweight server using Python stdlib http.server.
 Serves static files + API endpoints on port 8501.
 
 Endpoints:
     GET /              → serves index.html
-    GET /api/state     → returns live_state.json
+    GET /api/state     → returns live_state.json (paper/demo)
+    GET /api/state/prod → returns live_state_production.json
     GET /api/trades    → last N trades from trades.jsonl (?limit=50&market=<id>)
+    GET /api/trades/prod → last N trades from trades_production.jsonl
     GET /api/runs      → returns history.json
     GET /api/report/<run_id> → report markdown (placeholder)
 """
@@ -30,9 +32,10 @@ DASHBOARD_DIR = SCRIPT_DIR
 PORT = int(os.environ.get("DASHBOARD_PORT", "8501"))
 
 
-def load_trades(limit: int = 50, market: str | None = None) -> list[dict]:
+def load_trades(limit: int = 50, market: str | None = None, production: bool = False) -> list[dict]:
     """Load last N trades from JSONL, optionally filtered by market."""
-    trades_path = DATA_DIR / "trades.jsonl"
+    filename = "trades_production.jsonl" if production else "trades.jsonl"
+    trades_path = DATA_DIR / filename
     if not trades_path.exists():
         return []
 
@@ -83,10 +86,19 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if path == "/api/state":
             self._serve_json_file(DATA_DIR / "live_state.json")
 
+        elif path == "/api/state/prod":
+            self._serve_json_file(DATA_DIR / "live_state_production.json")
+
         elif path == "/api/trades":
             limit = int(params.get("limit", ["50"])[0])
             market = params.get("market", [None])[0]
-            trades = load_trades(limit=limit, market=market)
+            trades = load_trades(limit=limit, market=market, production=False)
+            self._serve_json(trades)
+
+        elif path == "/api/trades/prod":
+            limit = int(params.get("limit", ["50"])[0])
+            market = params.get("market", [None])[0]
+            trades = load_trades(limit=limit, market=market, production=True)
             self._serve_json(trades)
 
         elif path == "/api/runs":

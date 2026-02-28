@@ -1,0 +1,32 @@
+# Run 008 — H2: Inventory Skew Control Under Adversarial Conditions
+# Based on run-007 results (profitable but inventory drift unchecked)
+# Testing: Does increased gamma_risk_aversion control inventory drift?
+
+run_id: "run-008"
+duration_hours: 8
+hypothesis: "H2"
+
+initial_balance: 500
+
+params:
+  quote_interval_s: 2.0
+  default_order_size: 25
+  default_half_spread_bps: 50
+  gamma_risk_aversion: 0.5  # Increased from 0.3 to test tighter inventory control
+  fill_probability: 0.25
+  adverse_selection_bps: 10
+  maker_fee_bps: -20
+  fill_distance_decay: true
+  kill_switch_max_drawdown_pct: 25.0
+  kill_switch_alert_pct: 15.0
+  markets:
+    - "us-strikes-iran-by-march-31-2026"
+
+parent_run: "run-007"
+changes_from_parent: "Increased gamma_risk_aversion 0.3→0.5 for inventory control test (H2)"
+
+success_criteria:
+  max_net_inventory: 200         # Net inventory must stay < 200
+  inventory_mean_reverts: true   # Observable reversion toward 0
+  pnl_positive: true             # Must still be profitable
+  pnl_per_hour_positive_pct: 50.0  # >50% of hours profitable (relaxed due to tighter skew)

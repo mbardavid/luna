@@ -39,7 +39,7 @@ from data.ws_client import CLOBWebSocketClient
 from models.market_state import MarketState, MarketType
 from models.order import Order, Side
 from models.position import Position
-from paper.paper_venue import PaperVenue, MarketSimConfig
+from paper.paper_venue import PaperVenue, MarketSimConfig, FeeConfig
 from strategy.feature_engine import FeatureEngine, FeatureEngineConfig
 from strategy.inventory_skew import InventorySkew, InventorySkewConfig
 from strategy.quote_engine import QuoteEngine, QuoteEngineConfig
@@ -823,6 +823,9 @@ class PaperTradingPipeline:
         initial_balance: Decimal = Decimal("500"),
         kill_switch_max_drawdown_pct: float = 25.0,
         kill_switch_alert_pct: float = 15.0,
+        adverse_selection_bps: int = 0,
+        maker_fee_bps: int = 0,
+        fill_distance_decay: bool = False,
     ):
         self.market_configs = market_configs
         self.duration_hours = duration_hours
@@ -871,15 +874,22 @@ class PaperTradingPipeline:
                 initial_yes_mid=Decimal("0.50"),
                 volatility=Decimal("0.005"),
                 fill_probability=fill_probability,
+                adverse_selection_bps=adverse_selection_bps,
+                fill_distance_decay=fill_distance_decay,
             )
             for m in market_configs
         ]
+
+        # Fee config
+        fee_config = FeeConfig(maker_fee_bps=maker_fee_bps)
+
         self.venue = PaperVenue(
             event_bus=self.event_bus,
             configs=venue_configs,
             fill_latency_ms=50.0,
             partial_fill_probability=0.5,
             initial_balance=initial_balance,
+            fee_config=fee_config,
         )
 
         # Kill switch
@@ -1065,6 +1075,7 @@ class PaperTradingPipeline:
                 token_id = payload.get("token_id", "")
                 fill_price = Decimal(str(payload.get("fill_price", "0")))
                 fill_qty = Decimal(str(payload.get("fill_qty", "0")))
+                fill_fee = Decimal(str(payload.get("fee", "0")))
                 side = payload.get("side", "")
 
                 logger.info(
@@ -1136,6 +1147,8 @@ class PaperTradingPipeline:
                         "available": float(self.venue.available_balance),
                         "locked": float(self.venue.locked_balance),
                         "equity": float(self.venue.total_equity()),
+                        "fee": float(fill_fee),
+                        "total_fees": float(self.venue.total_fees),
                     },
                 )
         except asyncio.CancelledError:
@@ -1695,6 +1708,9 @@ async def async_main(args):
             hypothesis=run_config.hypothesis,
             fill_probability=fill_probability,
             duration_hours=args.duration_hours,
+            adverse_selection_bps=params.get("adverse_selection_bps", 0),
+            maker_fee_bps=params.get("maker_fee_bps", 0),
+            fill_distance_decay=params.get("fill_distance_decay", False),
         )
 
     config_path = PROJECT_ROOT / "config" / "markets.yaml"
@@ -1748,6 +1764,17 @@ async def async_main(args):
             run_config.params.get("kill_switch_alert_pct", 15.0)
         ) if run_config else 15.0
 
+        # Extract adversarial params from run config
+        adv_sel_bps = int(
+            run_config.params.get("adverse_selection_bps", 0)
+        ) if run_config else 0
+        maker_fee = int(
+            run_config.params.get("maker_fee_bps", 0)
+        ) if run_config else 0
+        fill_decay = bool(
+            run_config.params.get("fill_distance_decay", False)
+        ) if run_config else False
+
         pipeline = PaperTradingPipeline(
             market_configs=markets,
             duration_hours=args.duration_hours,
@@ -1761,6 +1788,9 @@ async def async_main(args):
             initial_balance=run_config.initial_balance if run_config else Decimal("500"),
             kill_switch_max_drawdown_pct=ks_max_dd,
             kill_switch_alert_pct=ks_alert,
+            adverse_selection_bps=adv_sel_bps,
+            maker_fee_bps=maker_fee,
+            fill_distance_decay=fill_decay,
         )
 
         # Handle signals

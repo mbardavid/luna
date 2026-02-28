@@ -73,7 +73,9 @@ Baseado nos bugs acima, antes de ir pra produção real:
 - [ ] **PnL single source of truth** — via reconciler, não cálculo interno
 - [ ] **Quote engine position-aware** — não gerar ASK sem posição
 - [ ] **Fill rate validation** — confirmar que paper trading com fill_prob=0.20 é realista
+- [x] **Fee model implementado** — `FeeConfig` com maker_fee_bps=-20 (rebate). Aplicado ao PnL de cada fill. Run-007 valida lucratividade com fees reais
 - [ ] **Order rejection handling** — como o bot reage quando CLOB rejeita ordem?
 - [ ] **Complete set strategy** — definir quando usar merge/split vs direct buy/sell
 - [ ] **Wallet balance sync** — reconciliar saldo on-chain vs saldo interno
 - [ ] **Gas management** — POL pra gas em cada tx na Polygon
+- [x] **Adversarial venue testing** — PaperVenue com adverse selection (10bps), distance decay, e fee model. Run-007 testa lucratividade sob condições adversas realistas

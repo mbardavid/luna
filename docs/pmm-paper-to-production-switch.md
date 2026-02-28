@@ -81,6 +81,15 @@ The **QuoteEngine** and **strategy layer** are shared. The venue/execution layer
 - **Prod action:** REPLACE with real balance from Polygon RPC (`balanceOf(wallet, USDC.e)`)
 - **Introduced:** Run-002
 
+### 2.9 Adversarial Venue — Adverse Selection, Fees, Distance Decay
+- **Files:** `paper/paper_venue.py` (`FeeConfig`, `MarketSimConfig.adverse_selection_bps`, `MarketSimConfig.fill_distance_decay`)
+- **What:**
+  - **Adverse Selection (10bps):** After each fill, mid moves CONTRA fill direction. BUY fill → mid drops, SELL fill → mid rises. Simulates informed flow adverse selection.
+  - **Fee Model (-20bps maker rebate):** Each fill incurs a fee/rebate. Polymarket gives makers -20bps (0.2% rebate). Tracked in `total_fees` and logged per-fill.
+  - **Fill Distance Decay:** Orders further from mid have lower fill probability. `adjusted_prob = base_prob * max(0.05, 1 - distance / (2 * half_spread))`.
+- **Prod action:** REMOVE adverse selection + distance decay (real CLOB handles these naturally). KEEP fee awareness — the -20bps maker rebate is real on Polymarket and should be factored into PnL.
+- **Introduced:** Run-007
+
 ## 3. Configuration Differences
 
 | Parameter | Paper (run-004) | Production Target | Notes |
@@ -94,6 +103,9 @@ The **QuoteEngine** and **strategy layer** are shared. The venue/execution layer
 | `max_position_size` | 500 | 200 | Limit exposure |
 | `kill_switch_drawdown` | 25% | 15-20% | Alert at 15%, kill at threshold |
 | `markets` | 1-2 | 3-5 | Diversify |
+| `adverse_selection_bps` | 10 | N/A (real fills) | Paper-only: mid moves against fills |
+| `maker_fee_bps` | -20 | -20 (real rebate) | Keep: Polymarket maker rebate is real |
+| `fill_distance_decay` | true | N/A (real fills) | Remove entirely |
 
 ## 4. Environment Variables (Production)
 
@@ -135,3 +147,62 @@ See also: `docs/pmm-bugs-production-checklist.md`
 | 005 | _(pending)_ Disable complement in paper, raise kill switch | Paper | N/A |
 | 005 | Disable complement routing in paper | Paper | Re-enable for prod (CLOB native) |
 | 005 | Kill switch 10%→25% | Shared | Keep tunable, alert at 15% |
+| 007 | Adversarial PaperVenue: adverse selection (10bps), maker fee rebate (-20bps), fill distance decay | Paper | Remove adverse selection + distance decay (real fills). Keep fee awareness for PnL accounting |
+
+## 7. Dual-Mode: Paper + Production Simultaneously
+
+### Architecture
+```
+┌─────────────────────────────────┐    ┌─────────────────────────────────┐
+│  PaperRunner (run-007)          │    │  ProductionRunner (prod-001)    │
+│  └─ PaperVenue (simulated)      │    │  └─ LiveExecution (real CLOB)   │
+│  └─ QuoteEngine (shared)        │    │  └─ QuoteEngine (shared)        │
+│  └─ FeatureEngine (shared)      │    │  └─ FeatureEngine (shared)      │
+│  └─ WS Client (shared protocol) │    │  └─ WS Client (shared protocol) │
+│  └─ trades.jsonl                │    │  └─ trades_production.jsonl     │
+│  └─ live_state.json             │    │  └─ live_state_production.json  │
+└─────────────────────────────────┘    └─────────────────────────────────┘
+                     │                                    │
+                     └────────────┬───────────────────────┘
+                                  │
+                     ┌────────────▼──────────────┐
+                     │  Dual Dashboard (8501)     │
+                     │  /api/state (demo)         │
+                     │  /api/state/prod           │
+                     │  /api/trades (demo)        │
+                     │  /api/trades/prod           │
+                     │  Comparison Panel           │
+                     └────────────────────────────┘
+```
+
+### Key Differences
+| Aspect | Paper (DEMO) | Production (PROD) |
+|--------|-------------|-------------------|
+| Capital | $500 simulated | $25 real USDC.e |
+| Order size | 25 shares | 5 shares (minimum) |
+| Fill mechanism | PaperVenue (random walk) | Real CLOB matching |
+| Kill switch | 25% drawdown | 20% drawdown ($5) |
+| Quote interval | 2s | 5s (rate limit safe) |
+| Venue | PaperVenue | py_clob_client |
+| Logs | trades.jsonl | trades_production.jsonl |
+| State | live_state.json | live_state_production.json |
+
+### Parameter Extraction
+After 8+ hours of production data:
+```bash
+python3 -m paper.extract_real_params
+```
+Outputs `paper/data/real_params.json` with real fill rate, adverse selection,
+fees, latency, and suggested PaperVenue calibration config.
+
+### Running Both
+```bash
+# Paper (already running as systemd service or manual):
+python3 -m paper.paper_runner --config paper/runs/run-007.yaml
+
+# Production (separate process):
+python3 -m paper.production_runner --config paper/runs/prod-001.yaml
+
+# Dashboard (serves both):
+python3 -m paper.dashboard.server
+```

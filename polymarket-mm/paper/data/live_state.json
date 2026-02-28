@@ -1,53 +1,53 @@
 {
-  "timestamp": "2026-02-27T08:31:22.009779+00:00",
-  "run_id": "run-006",
-  "status": "RUNNING",
-  "uptime_seconds": 20544.1,
+  "timestamp": "2026-02-28T04:11:43.502608+00:00",
+  "run_id": "run-007",
+  "status": "FINISHED",
+  "uptime_seconds": 28810.0,
   "duration_target_hours": 8.0,
-  "progress_pct": 71.3,
+  "progress_pct": 100.0,
   "pnl": {
-    "cumulative": 798.3056,
-    "realized": 798.3056,
-    "unrealized": 2.3644,
-    "per_hour_avg": 139.8891,
-    "max_drawdown": -0.7971,
-    "sharpe_estimate": 0.68
+    "cumulative": 150.9078,
+    "realized": 139.7752,
+    "unrealized": 4.5298,
+    "per_hour_avg": 18.8569,
+    "max_drawdown": -2.2871,
+    "sharpe_estimate": 0.14
   },
   "markets": {
     "us-strikes-iran-by-march-31-2026": {
       "description": "US strikes Iran by March 31, 2026?",
-      "mid_price": 0.545,
-      "spread_bps": 183,
+      "mid_price": 0.685,
+      "spread_bps": 145,
       "our_bid": 0,
       "our_ask": 0,
-      "position_net": -92.0,
-      "pnl": 798.3055907742441,
-      "fills_count": 1077,
+      "position_net": 103.0,
+      "pnl": 139.77518099609964,
+      "fills_count": 0,
       "last_fill_ago_s": 0,
       "kill_switch": "RUNNING",
-      "data_gap_s": 6.1
+      "data_gap_s": 1.0
     }
   },
   "totals": {
-    "quotes_generated": 34751,
-    "orders_submitted": 34751,
-    "fills": 8542,
-    "fill_rate_pct": 24.58,
-    "ws_messages": 51809,
+    "quotes_generated": 48373,
+    "orders_submitted": 48373,
+    "fills": 600,
+    "fill_rate_pct": 1.24,
+    "ws_messages": 104524,
     "errors": 0
   },
   "system": {
-    "memory_mb": 50.3,
+    "memory_mb": 52.9,
     "ws_connected": true
   },
-  "hypothesis_under_test": "H1",
-  "run_config_path": "/home/openclaw/.openclaw/workspace/polymarket-mm/paper/runs/run-006.yaml",
+  "hypothesis_under_test": "H1-adversarial",
+  "run_config_path": "/home/openclaw/.openclaw/workspace/polymarket-mm/paper/runs/run-007.yaml",
   "wallet": {
     "initial_balance": 500.0,
-    "available_balance": 1191.91,
-    "locked_balance": 17.9,
-    "total_equity": 1349.89,
-    "pnl_pct": 169.98,
-    "exposure_pct": 11.7
+    "available_balance": 521.38258,
+    "locked_balance": 24.5,
+    "total_equity": 585.91258,
+    "pnl_pct": 17.18,
+    "exposure_pct": 11.0
   }
 }

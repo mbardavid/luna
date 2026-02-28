@@ -48,5 +48,36 @@
     "fill_rate": 18.18,
     "max_drawdown": 0.0,
     "timestamp": "2026-02-26T23:59:58.802999+00:00"
+  },
+  {
+    "run_id": "run-006",
+    "hypothesis": "H1",
+    "result": "PASS",
+    "pnl_per_hour": 168.809,
+    "duration_h": 8.0,
+    "fill_rate": 24.59,
+    "max_drawdown": -0.8052,
+    "timestamp": "2026-02-27T10:49:07.884086+00:00",
+    "notes": "First profitable run. H1 validated. 8h overnight, $1351 PnL, 0 errors."
+  },
+  {
+    "run_id": "run-007",
+    "hypothesis": "H1-adversarial",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 9.3858,
+    "duration_h": 0.5,
+    "fill_rate": 1.32,
+    "max_drawdown": 0.0,
+    "timestamp": "2026-02-27T18:58:15.990835+00:00"
+  },
+  {
+    "run_id": "run-007",
+    "hypothesis": "H1-adversarial",
+    "result": "PASS",
+    "pnl_per_hour": 18.8569,
+    "duration_h": 8.0,
+    "fill_rate": 1.24,
+    "max_drawdown": 0.0,
+    "timestamp": "2026-02-28T04:11:43.503629+00:00"
   }
 ]

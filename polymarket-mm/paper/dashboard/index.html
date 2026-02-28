@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PMM Paper Trading Dashboard</title>
+<title>PMM Dashboard — DEMO | PRODUCTION</title>
 <style>
 :root {
   --bg: #1a1a2e;
@@ -16,6 +16,8 @@
   --yellow: #ffa502;
   --blue: #1e90ff;
   --border: #2a3a5e;
+  --prod-accent: #e84393;
+  --demo-accent: #f0ad4e;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -35,9 +37,9 @@ a { color: var(--blue); text-decoration: none; }
   padding: 10px 20px;
   display: flex; flex-wrap: wrap; align-items: center; gap: 20px;
 }
-.header-item {
-  display: flex; align-items: center; gap: 6px;
-  white-space: nowrap;
+.header h1 {
+  font-size: 16px; font-weight: bold;
+  display: flex; align-items: center; gap: 8px;
 }
 .badge {
   display: inline-block; padding: 2px 8px; border-radius: 4px;
@@ -45,28 +47,16 @@ a { color: var(--blue); text-decoration: none; }
 }
 .badge-running { background: var(--green); color: #000; }
 .badge-stopped { background: var(--red); color: #fff; }
-.badge-error { background: var(--red); color: #fff; }
 .badge-finished { background: var(--blue); color: #fff; }
-.badge-demo {
-  background: #f0ad4e; color: #000; font-weight: bold;
-  padding: 2px 10px; border-radius: 4px; font-size: 11px;
-  letter-spacing: 1px;
-}
+.badge-demo { background: var(--demo-accent); color: #000; }
+.badge-prod { background: var(--prod-accent); color: #fff; }
 .pnl-positive { color: var(--green); font-weight: bold; }
 .pnl-negative { color: var(--red); font-weight: bold; }
 
-.progress-bar {
-  width: 120px; height: 8px; background: var(--border);
-  border-radius: 4px; overflow: hidden; display: inline-block;
-  vertical-align: middle;
-}
-.progress-fill {
-  height: 100%; background: var(--blue); transition: width 0.5s ease;
-}
-
-/* ── Main Layout ────────────────────────────────────────── */
-.container { padding: 15px; max-width: 1600px; margin: 0 auto; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+/* ── Dual Panel Layout ──────────────────────────────────── */
+.container { padding: 15px; max-width: 1800px; margin: 0 auto; }
+.dual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.full-width { grid-column: 1 / -1; }
 .panel {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -74,24 +64,61 @@ a { color: var(--blue); text-decoration: none; }
   padding: 15px;
   margin-bottom: 15px;
 }
+.panel-demo { border-left: 3px solid var(--demo-accent); }
+.panel-prod { border-left: 3px solid var(--prod-accent); }
+.panel-compare { border-left: 3px solid var(--blue); }
+.panel-alert { border-color: var(--red) !important; box-shadow: 0 0 10px rgba(255,71,87,0.3); }
 .panel-title {
   font-size: 14px; font-weight: bold;
   margin-bottom: 10px; color: var(--text);
   display: flex; align-items: center; gap: 8px;
-  cursor: pointer; user-select: none;
-}
-.panel-title .toggle { font-size: 12px; color: var(--text-dim); }
-
-/* ── PnL Chart ──────────────────────────────────────────── */
-#pnl-chart {
-  width: 100%; height: 200px; background: var(--bg);
-  border-radius: 4px; border: 1px solid var(--border);
 }
 
-/* ── Tables ─────────────────────────────────────────────── */
+/* ── Stats Grid ─────────────────────────────────────────── */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.stat-card {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.stat-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
+.stat-value { font-size: 18px; font-weight: bold; margin-top: 2px; }
+.stat-value.small { font-size: 14px; }
+
+/* ── Comparison Table ───────────────────────────────────── */
+.compare-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.compare-table th {
+  text-align: left; padding: 6px 10px;
+  background: var(--bg); color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+.compare-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(42, 58, 94, 0.5);
+}
+.compare-table .divergent { color: var(--red); font-weight: bold; }
+
+/* ── Trade Log ──────────────────────────────────────────── */
+.tab-bar {
+  display: flex; gap: 0; margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  padding: 6px 16px; cursor: pointer;
+  color: var(--text-dim); border-bottom: 2px solid transparent;
+  font-size: 12px; font-weight: bold;
+}
+.tab.active { color: var(--text); border-bottom-color: var(--blue); }
+.tab:hover { color: var(--text); }
+
 table {
-  width: 100%; border-collapse: collapse;
-  font-size: 12px;
+  width: 100%; border-collapse: collapse; font-size: 12px;
 }
 th {
   text-align: left; padding: 6px 8px;
@@ -104,10 +131,17 @@ td {
   border-bottom: 1px solid rgba(42, 58, 94, 0.5);
 }
 tr:hover { background: rgba(30, 144, 255, 0.05); }
+.trade-prod { background: rgba(232, 67, 147, 0.05); }
+
+/* ── PnL Chart ──────────────────────────────────────────── */
+#pnl-chart {
+  width: 100%; height: 200px; background: var(--bg);
+  border-radius: 4px; border: 1px solid var(--border);
+}
 
 /* ── Market Cards ───────────────────────────────────────── */
 .market-cards {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 12px;
 }
 .market-card {
@@ -117,12 +151,10 @@ tr:hover { background: rgba(30, 144, 255, 0.05); }
   padding: 12px;
 }
 .market-card-title {
-  font-size: 13px; font-weight: bold;
-  margin-bottom: 8px; color: var(--text);
+  font-size: 13px; font-weight: bold; margin-bottom: 8px;
 }
 .market-card-row {
-  display: flex; justify-content: space-between;
-  margin-bottom: 4px;
+  display: flex; justify-content: space-between; margin-bottom: 4px;
 }
 .market-card-label { color: var(--text-dim); font-size: 11px; }
 .market-card-value { font-weight: bold; font-size: 12px; }
@@ -151,65 +183,25 @@ tr:hover { background: rgba(30, 144, 255, 0.05); }
 .gap-yellow { background: var(--yellow); }
 .gap-red { background: var(--red); }
 
-/* ── Strategy Internals (collapsible) ───────────────────── */
-.strategy-section { display: none; margin-top: 10px; }
-.strategy-section.open { display: block; }
-.gauge-row { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 8px; }
-.gauge {
-  flex: 1; min-width: 80px;
-  background: var(--bg); border-radius: 4px; padding: 6px 8px;
-  text-align: center;
-}
-.gauge-label { font-size: 10px; color: var(--text-dim); }
-.gauge-value { font-size: 14px; font-weight: bold; }
-
-/* ── Rationale Expand ───────────────────────────────────── */
-.rationale-trigger {
-  cursor: pointer; color: var(--blue);
-  max-width: 200px; overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap;
-}
-.rationale-detail {
-  display: none; padding: 8px;
-  background: var(--bg); border-radius: 4px;
-  font-size: 11px; margin-top: 4px;
-}
-.rationale-detail.open { display: block; }
-
 /* ── Run History ────────────────────────────────────────── */
 .result-pass { color: var(--green); }
 .result-fail { color: var(--red); }
 .result-inconclusive { color: var(--yellow); }
 
-/* ── Filter ─────────────────────────────────────────────── */
-select {
-  background: var(--bg); color: var(--text);
-  border: 1px solid var(--border); border-radius: 4px;
-  padding: 4px 8px; font-size: 12px;
-  font-family: inherit;
-}
-
-/* ── Responsive ─────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .header { padding: 8px 12px; gap: 10px; }
-  .grid-2 { grid-template-columns: 1fr; }
-  .market-cards { grid-template-columns: 1fr; }
-  .container { padding: 10px; }
-}
-
-/* ── Wallet Bar ─────────────────────────────────────────── */
+/* ── Wallet Bars ────────────────────────────────────────── */
 .wallet-bar {
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
-  padding: 8px 20px;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 20px;
-  font-size: 12px;
+  padding: 6px 20px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 15px;
+  font-size: 11px;
 }
 .wallet-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 .wallet-value { font-weight: bold; }
+
 .exposure-bar-container {
-  flex: 1; min-width: 100px; max-width: 200px;
-  height: 10px; background: var(--bg);
+  flex: 0; min-width: 80px; max-width: 140px;
+  height: 8px; background: var(--bg);
   border-radius: 5px; overflow: hidden;
 }
 .exposure-bar-fill {
@@ -219,65 +211,162 @@ select {
 .exposure-bar-fill.high-exposure {
   background: linear-gradient(90deg, var(--yellow), var(--red));
 }
-.allocation-pct { font-size: 10px; color: var(--text-dim); }
-.high-allocation { color: var(--yellow) !important; font-weight: bold; }
 
-.loading { color: var(--text-dim); text-align: center; padding: 30px; }
+.progress-bar {
+  width: 100px; height: 6px; background: var(--border);
+  border-radius: 4px; overflow: hidden; display: inline-block;
+  vertical-align: middle;
+}
+.progress-fill {
+  height: 100%; background: var(--blue); transition: width 0.5s ease;
+}
+
+select {
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 3px 6px; font-size: 11px;
+  font-family: inherit;
+}
+
+.loading { color: var(--text-dim); text-align: center; padding: 20px; }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .dual-grid { grid-template-columns: 1fr; }
+  .header { padding: 8px 12px; gap: 10px; }
+  .container { padding: 10px; }
+}
 </style>
 </head>
 <body>
 
 <!-- Header Bar -->
-<div class="header" id="header">
-  <div class="header-item">
+<div class="header">
+  <h1>🏦 PMM Dashboard</h1>
+  <div style="display:flex;align-items:center;gap:8px">
     <span class="badge badge-demo">DEMO</span>
-    <span id="status-badge" class="badge badge-stopped">⏹ OFFLINE</span>
+    <span id="demo-status" class="badge badge-stopped">⏹ OFFLINE</span>
   </div>
-  <div class="header-item">
-    💰 <span id="pnl-total" class="pnl-positive">$0.00</span>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="badge badge-prod">PROD</span>
+    <span id="prod-status" class="badge badge-stopped">⏹ OFFLINE</span>
   </div>
-  <div class="header-item">
-    ⏱️ <span id="uptime">0h 0m</span>
-    <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
-    <span id="progress-pct">0%</span>
-  </div>
-  <div class="header-item">
-    📊 Fill: <span id="fill-rate">0%</span>
-  </div>
-  <div class="header-item">
-    🛡️ <span id="kill-switch">N/A</span>
-  </div>
-  <div class="header-item">
-    🧪 <span id="hypothesis">—</span>
-  </div>
-</div>
-
-<!-- Wallet Bar -->
-<div class="wallet-bar" id="wallet-bar">
-  <div class="wallet-item">
-    💰 Available: <span class="wallet-value" id="wallet-available">$0.00</span>
-  </div>
-  <div class="wallet-item">
-    🔒 Locked: <span class="wallet-value" id="wallet-locked">$0.00</span>
-  </div>
-  <div class="wallet-item">
-    📊 Equity: <span class="wallet-value" id="wallet-equity">$0.00</span>
-    <span id="wallet-pnl-pct" style="font-size:11px"></span>
-  </div>
-  <div class="wallet-item">
-    Exposure:
-    <div class="exposure-bar-container">
-      <div class="exposure-bar-fill" id="exposure-fill" style="width:0%"></div>
-    </div>
-    <span id="exposure-pct" style="font-size:11px">0%</span>
+  <div style="display:flex;align-items:center;gap:8px">
+    💰 Demo: <span id="demo-pnl" class="pnl-positive">$0.00</span>
+    | Prod: <span id="prod-pnl" class="pnl-positive">$0.00</span>
   </div>
 </div>
 
 <div class="container">
 
-  <!-- PnL Chart -->
+  <!-- ─── Side-by-Side Stats ─────────────────────────────────── -->
+  <div class="dual-grid">
+    <!-- DEMO Panel -->
+    <div class="panel panel-demo" id="demo-panel">
+      <div class="panel-title">📊 DEMO (paper)</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">PnL</div>
+          <div class="stat-value" id="demo-pnl-big">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Equity</div>
+          <div class="stat-value small" id="demo-equity">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Fills</div>
+          <div class="stat-value small" id="demo-fills">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Fill Rate</div>
+          <div class="stat-value small" id="demo-fill-rate">0%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">PnL/hr</div>
+          <div class="stat-value small" id="demo-pnl-hr">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Uptime</div>
+          <div class="stat-value small" id="demo-uptime">0h 0m</div>
+        </div>
+      </div>
+      <!-- Wallet -->
+      <div class="wallet-bar" style="margin-top:10px;padding:6px 0;border:none">
+        <div class="wallet-item">Avail: <span class="wallet-value" id="demo-avail">$0</span></div>
+        <div class="wallet-item">Locked: <span class="wallet-value" id="demo-locked">$0</span></div>
+        <div class="wallet-item">
+          Exposure:
+          <div class="exposure-bar-container">
+            <div class="exposure-bar-fill" id="demo-exp-fill" style="width:0%"></div>
+          </div>
+          <span id="demo-exp-pct" style="font-size:10px">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCTION Panel -->
+    <div class="panel panel-prod" id="prod-panel">
+      <div class="panel-title">📊 PROD ($25 real)</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">PnL</div>
+          <div class="stat-value" id="prod-pnl-big">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Equity</div>
+          <div class="stat-value small" id="prod-equity">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Fills</div>
+          <div class="stat-value small" id="prod-fills">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Fill Rate</div>
+          <div class="stat-value small" id="prod-fill-rate">0%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">PnL/hr</div>
+          <div class="stat-value small" id="prod-pnl-hr">$0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Uptime</div>
+          <div class="stat-value small" id="prod-uptime">0h 0m</div>
+        </div>
+      </div>
+      <div class="wallet-bar" style="margin-top:10px;padding:6px 0;border:none">
+        <div class="wallet-item">Avail: <span class="wallet-value" id="prod-avail">$0</span></div>
+        <div class="wallet-item">Locked: <span class="wallet-value" id="prod-locked">$0</span></div>
+        <div class="wallet-item">
+          Gas: <span class="wallet-value" id="prod-gas">$0</span>
+        </div>
+        <div class="wallet-item">
+          Fees: <span class="wallet-value" id="prod-fees">$0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Comparison Panel ───────────────────────────────────── -->
+  <div class="panel panel-compare" id="compare-panel">
+    <div class="panel-title">📈 Comparison Panel</div>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>DEMO</th>
+          <th>PROD</th>
+          <th>Ratio</th>
+        </tr>
+      </thead>
+      <tbody id="compare-body">
+        <tr><td colspan="4" class="loading">Waiting for data from both sources...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── PnL Chart ──────────────────────────────────────────── -->
   <div class="panel">
-    <div class="panel-title">📈 PnL Cumulativo</div>
+    <div class="panel-title">📈 PnL Cumulativo (Demo trades)</div>
     <canvas id="pnl-chart"></canvas>
     <div style="display:flex;gap:20px;margin-top:8px;font-size:11px;color:var(--text-dim)">
       <span>Max DD: <strong id="max-dd" style="color:var(--red)">$0.00</strong></span>
@@ -286,38 +375,41 @@ select {
     </div>
   </div>
 
-  <div class="grid-2">
-    <!-- Trade Log -->
+  <div class="dual-grid">
+    <!-- ─── Trade Log ──────────────────────────────────────────── -->
     <div class="panel" style="max-height:500px;overflow-y:auto">
-      <div class="panel-title">
-        📋 Trade Log
-        <select id="market-filter" onchange="filterTrades()">
+      <div class="panel-title">📋 Trade Log</div>
+      <div class="tab-bar">
+        <div class="tab active" data-tab="demo" onclick="switchTradeTab('demo')">Demo</div>
+        <div class="tab" data-tab="prod" onclick="switchTradeTab('prod')">Prod</div>
+        <div class="tab" data-tab="both" onclick="switchTradeTab('both')">Both</div>
+        <select id="market-filter" onchange="filterTrades()" style="margin-left:auto">
           <option value="">All Markets</option>
         </select>
       </div>
       <table>
         <thead>
           <tr>
-            <th>Time</th><th>Market</th><th>Side</th><th>Token</th>
-            <th>Price</th><th>Size</th><th>PnL</th><th>Rationale</th>
+            <th>Src</th><th>Time</th><th>Market</th><th>Side</th>
+            <th>Price</th><th>Size</th><th>PnL</th><th>Lat(ms)</th>
           </tr>
         </thead>
         <tbody id="trades-body">
-          <tr><td colspan="8" class="loading">Aguardando trades...</td></tr>
+          <tr><td colspan="8" class="loading">Waiting for trades...</td></tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Market Cards -->
+    <!-- ─── Market Cards ───────────────────────────────────────── -->
     <div class="panel">
-      <div class="panel-title">🏪 Markets</div>
+      <div class="panel-title">🏪 Markets (Demo)</div>
       <div class="market-cards" id="market-cards">
-        <div class="loading">Aguardando dados...</div>
+        <div class="loading">Waiting for data...</div>
       </div>
     </div>
   </div>
 
-  <!-- Run History -->
+  <!-- ─── Run History ──────────────────────────────────────────── -->
   <div class="panel">
     <div class="panel-title">📜 Run History</div>
     <table>
@@ -328,7 +420,7 @@ select {
         </tr>
       </thead>
       <tbody id="runs-body">
-        <tr><td colspan="6" class="loading">Aguardando histórico...</td></tr>
+        <tr><td colspan="6" class="loading">Loading...</td></tr>
       </tbody>
     </table>
   </div>
@@ -337,126 +429,186 @@ select {
 
 <script>
 // ── State ───────────────────────────────────────────────────────────
-let currentState = null;
-let allTrades = [];
-let pnlHistory = [];
+let demoState = null;
+let prodState = null;
+let demoTrades = [];
+let prodTrades = [];
+let currentTradeTab = 'demo';
 let marketFilter = '';
 
-// ── API Fetch ───────────────────────────────────────────────────────
-const BASE = '';  // Same origin
+const BASE = '';
 
-async function fetchState() {
+// ── API Fetch ───────────────────────────────────────────────────────
+async function fetchJSON(url) {
   try {
-    const r = await fetch(BASE + '/api/state');
+    const r = await fetch(url);
     if (!r.ok) return null;
-    return await r.json();
+    const data = await r.json();
+    return data;
   } catch { return null; }
 }
 
-async function fetchTrades(limit = 50) {
-  try {
-    const url = BASE + '/api/trades?limit=' + limit + (marketFilter ? '&market=' + encodeURIComponent(marketFilter) : '');
-    const r = await fetch(url);
-    if (!r.ok) return [];
-    return await r.json();
-  } catch { return []; }
+async function fetchState(prod = false) {
+  return fetchJSON(BASE + (prod ? '/api/state/prod' : '/api/state'));
+}
+
+async function fetchTrades(prod = false, limit = 50) {
+  const base = prod ? '/api/trades/prod' : '/api/trades';
+  const url = BASE + base + '?limit=' + limit + (marketFilter ? '&market=' + encodeURIComponent(marketFilter) : '');
+  const data = await fetchJSON(url);
+  return Array.isArray(data) ? data : [];
 }
 
 async function fetchRuns() {
-  try {
-    const r = await fetch(BASE + '/api/runs');
-    if (!r.ok) return [];
-    const data = await r.json();
-    return Array.isArray(data) ? data : [];
-  } catch { return []; }
+  const data = await fetchJSON(BASE + '/api/runs');
+  return Array.isArray(data) ? data : [];
 }
 
-// ── Header Update ───────────────────────────────────────────────────
-function updateHeader(s) {
-  if (!s || !s.status) {
-    document.getElementById('status-badge').className = 'badge badge-stopped';
-    document.getElementById('status-badge').textContent = '⏹ OFFLINE';
+// ── Status Badge ────────────────────────────────────────────────────
+function updateStatusBadge(el, status) {
+  if (!status) {
+    el.className = 'badge badge-stopped';
+    el.textContent = '⏹ OFFLINE';
     return;
   }
-
-  const badge = document.getElementById('status-badge');
-  const status = s.status.toUpperCase();
-  if (status === 'RUNNING') {
-    badge.className = 'badge badge-running';
-    badge.textContent = '🟢 RUNNING';
-  } else if (status === 'FINISHED') {
-    badge.className = 'badge badge-finished';
-    badge.textContent = '🏁 FINISHED';
+  const s = status.toUpperCase();
+  if (s === 'RUNNING') {
+    el.className = 'badge badge-running';
+    el.textContent = '🟢 RUNNING';
+  } else if (s === 'FINISHED') {
+    el.className = 'badge badge-finished';
+    el.textContent = '🏁 FINISHED';
   } else {
-    badge.className = 'badge badge-error';
-    badge.textContent = '🔴 ' + status;
+    el.className = 'badge badge-stopped';
+    el.textContent = '🔴 ' + s;
   }
+}
 
-  // PnL
+// ── Side Panel Update ───────────────────────────────────────────────
+function updateSidePanel(prefix, state) {
+  if (!state || !state.status) {
+    document.getElementById(prefix + '-pnl-big').textContent = '$0.00';
+    return;
+  }
+  const s = state;
   const pnl = s.pnl?.cumulative || 0;
-  const pnlEl = document.getElementById('pnl-total');
+  const pnlEl = document.getElementById(prefix + '-pnl-big');
   pnlEl.textContent = '$' + pnl.toFixed(2);
-  pnlEl.className = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+  pnlEl.className = 'stat-value' + (pnl >= 0 ? '' : '');
+  pnlEl.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
 
-  // Uptime
+  const headerPnl = document.getElementById(prefix + '-pnl');
+  headerPnl.textContent = '$' + pnl.toFixed(2);
+  headerPnl.className = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+
+  const equity = s.wallet?.total_equity || s.pnl?.cumulative || 0;
+  document.getElementById(prefix + '-equity').textContent = '$' + equity.toFixed(2);
+
+  const fills = s.totals?.fills || 0;
+  const fillRate = s.totals?.fill_rate_pct || 0;
+  document.getElementById(prefix + '-fills').textContent = fills + ' (' + fillRate.toFixed(1) + '%)';
+  document.getElementById(prefix + '-fill-rate').textContent = fillRate.toFixed(1) + '%';
+
+  const pnlHr = s.pnl?.per_hour_avg || 0;
+  const pnlHrEl = document.getElementById(prefix + '-pnl-hr');
+  pnlHrEl.textContent = '$' + pnlHr.toFixed(2);
+  pnlHrEl.style.color = pnlHr >= 0 ? 'var(--green)' : 'var(--red)';
+
   const upSec = s.uptime_seconds || 0;
   const h = Math.floor(upSec / 3600);
   const m = Math.floor((upSec % 3600) / 60);
-  document.getElementById('uptime').textContent = h + 'h ' + m + 'm';
+  document.getElementById(prefix + '-uptime').textContent = h + 'h ' + m + 'm';
 
-  // Progress
-  const pct = s.progress_pct || 0;
-  document.getElementById('progress').style.width = pct + '%';
-  document.getElementById('progress-pct').textContent = pct.toFixed(1) + '%';
+  // Wallet
+  const w = s.wallet || {};
+  document.getElementById(prefix + '-avail').textContent = '$' + (w.available_balance || 0).toFixed(2);
+  document.getElementById(prefix + '-locked').textContent = '$' + (w.locked_balance || 0).toFixed(2);
 
-  // Fill Rate
-  document.getElementById('fill-rate').textContent =
-    (s.totals?.fill_rate_pct || 0).toFixed(1) + '%';
-
-  // Kill Switch — check per-market
-  const ksStates = new Set();
-  if (s.markets) {
-    Object.values(s.markets).forEach(m => {
-      if (m.kill_switch) ksStates.add(m.kill_switch);
-    });
+  if (prefix === 'demo') {
+    const expPct = w.exposure_pct || 0;
+    document.getElementById('demo-exp-pct').textContent = expPct.toFixed(0) + '%';
+    const expFill = document.getElementById('demo-exp-fill');
+    expFill.style.width = Math.min(expPct, 100) + '%';
+    expFill.className = expPct > 50 ? 'exposure-bar-fill high-exposure' : 'exposure-bar-fill';
   }
-  document.getElementById('kill-switch').textContent =
-    ksStates.size > 0 ? [...ksStates].join(', ') : 'N/A';
 
-  // Hypothesis
-  document.getElementById('hypothesis').textContent =
-    s.hypothesis_under_test || '—';
+  if (prefix === 'prod') {
+    const gasEl = document.getElementById('prod-gas');
+    const feesEl = document.getElementById('prod-fees');
+    if (gasEl) gasEl.textContent = '$' + (w.total_gas || 0).toFixed(4);
+    if (feesEl) feesEl.textContent = '$' + (w.total_fees || 0).toFixed(4);
+  }
 
-  // PnL stats
-  document.getElementById('max-dd').textContent =
-    '$' + (s.pnl?.max_drawdown || 0).toFixed(2);
-  document.getElementById('sharpe').textContent =
-    (s.pnl?.sharpe_estimate || 0).toFixed(2);
-  document.getElementById('pnl-per-hour').textContent =
-    '$' + (s.pnl?.per_hour_avg || 0).toFixed(2);
-
-  // ── Wallet Bar ────────────────────────────────────────────────
-  updateWallet(s.wallet);
+  // Status
+  updateStatusBadge(document.getElementById(prefix + '-status'), s.status);
 }
 
-function updateWallet(w) {
-  if (!w) return;
-  document.getElementById('wallet-available').textContent = '$' + (w.available_balance || 0).toFixed(2);
-  document.getElementById('wallet-locked').textContent = '$' + (w.locked_balance || 0).toFixed(2);
+// ── Comparison Panel ────────────────────────────────────────────────
+function updateComparison(demo, prod) {
+  const tbody = document.getElementById('compare-body');
 
-  const equity = w.total_equity || 0;
-  document.getElementById('wallet-equity').textContent = '$' + equity.toFixed(2);
+  if (!demo && !prod) {
+    tbody.innerHTML = '<tr><td colspan="4" class="loading">No data available</td></tr>';
+    return;
+  }
 
-  const pnlPct = w.pnl_pct || 0;
-  const pnlPctEl = document.getElementById('wallet-pnl-pct');
-  pnlPctEl.textContent = '(' + (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%)';
-  pnlPctEl.style.color = pnlPct >= 0 ? 'var(--green)' : 'var(--red)';
+  function getVal(state, path) {
+    if (!state) return null;
+    const parts = path.split('.');
+    let v = state;
+    for (const p of parts) { v = v?.[p]; if (v === undefined) return null; }
+    return v;
+  }
 
-  const exposurePct = w.exposure_pct || 0;
-  document.getElementById('exposure-pct').textContent = exposurePct.toFixed(1) + '%';
-  const exposureFill = document.getElementById('exposure-fill');
-  exposureFill.style.width = Math.min(exposurePct, 100) + '%';
-  exposureFill.className = exposurePct > 50 ? 'exposure-bar-fill high-exposure' : 'exposure-bar-fill';
+  function fmt(v, suffix = '') {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'number') return v.toFixed(2) + suffix;
+    return String(v);
+  }
+
+  const metrics = [
+    { label: 'Fill Rate', dPath: 'totals.fill_rate_pct', pPath: 'totals.fill_rate_pct', suffix: '%' },
+    { label: 'PnL/hr', dPath: 'pnl.per_hour_avg', pPath: 'pnl.per_hour_avg', suffix: '', prefix: '$' },
+    { label: 'Max Drawdown', dPath: 'pnl.max_drawdown', pPath: 'pnl.max_drawdown', suffix: '', prefix: '$' },
+    { label: 'Sharpe', dPath: 'pnl.sharpe_estimate', pPath: 'pnl.sharpe_estimate', suffix: '' },
+    { label: 'Total Fills', dPath: 'totals.fills', pPath: 'totals.fills', suffix: '' },
+    { label: 'Total Orders', dPath: 'totals.orders_submitted', pPath: 'totals.orders_submitted', suffix: '' },
+    { label: 'WS Messages', dPath: 'totals.ws_messages', pPath: 'totals.ws_messages', suffix: '' },
+    { label: 'Errors', dPath: 'totals.errors', pPath: 'totals.errors', suffix: '' },
+  ];
+
+  let html = '';
+  for (const m of metrics) {
+    const dv = getVal(demo, m.dPath);
+    const pv = getVal(prod, m.pPath);
+
+    let ratio = '—';
+    let ratioClass = '';
+    if (dv !== null && pv !== null && dv !== 0 && pv !== 0) {
+      const r = Math.abs(dv / pv);
+      ratio = r.toFixed(2) + 'x';
+      if (r > 2 || r < 0.5) ratioClass = 'divergent';
+    }
+
+    const pfx = m.prefix || '';
+    html += `<tr>
+      <td>${m.label}</td>
+      <td>${pfx}${fmt(dv, m.suffix)}</td>
+      <td>${pfx}${fmt(pv, m.suffix)}</td>
+      <td class="${ratioClass}">${ratio}</td>
+    </tr>`;
+  }
+
+  tbody.innerHTML = html;
+
+  // Alert if metrics diverge >2x
+  const panel = document.getElementById('compare-panel');
+  const hasDivergent = panel.querySelector('.divergent');
+  if (hasDivergent && demo?.status === 'RUNNING' && prod?.status === 'RUNNING') {
+    panel.classList.add('panel-alert');
+  } else {
+    panel.classList.remove('panel-alert');
+  }
 }
 
 // ── PnL Chart ───────────────────────────────────────────────────────
@@ -476,18 +628,16 @@ function drawPnlChart(trades) {
     ctx.fillStyle = '#8892b0';
     ctx.font = '12px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('Aguardando dados para plotar...', w / 2, h / 2);
+    ctx.fillText('Waiting for trade data...', w / 2, h / 2);
     return;
   }
 
-  // Build PnL series from cumulative values
   const series = trades.map(t => parseFloat(t.pnl_cumulative || 0)).reverse();
   const minP = Math.min(0, ...series);
   const maxP = Math.max(0.01, ...series);
   const range = maxP - minP || 1;
   const pad = 20;
 
-  // Find max drawdown point
   let peak = series[0], maxDD = 0, ddIdx = 0;
   series.forEach((v, i) => {
     if (v > peak) peak = v;
@@ -501,55 +651,45 @@ function drawPnlChart(trades) {
   const toY = v => h - pad - (v - minP) * yScale;
 
   // Zero line
-  const y0 = toY(0);
   ctx.strokeStyle = '#2a3a5e';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(pad, y0);
-  ctx.lineTo(w - pad, y0);
+  ctx.moveTo(pad, toY(0));
+  ctx.lineTo(w - pad, toY(0));
   ctx.stroke();
 
   // Fill area
   ctx.beginPath();
-  ctx.moveTo(toX(0), y0);
-  for (let i = 0; i < series.length; i++) {
-    ctx.lineTo(toX(i), toY(series[i]));
-  }
-  ctx.lineTo(toX(series.length - 1), y0);
+  ctx.moveTo(toX(0), toY(0));
+  for (let i = 0; i < series.length; i++) ctx.lineTo(toX(i), toY(series[i]));
+  ctx.lineTo(toX(series.length - 1), toY(0));
   ctx.closePath();
 
-  // Gradient
   const lastVal = series[series.length - 1];
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
   if (lastVal >= 0) {
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, 'rgba(0, 210, 106, 0.3)');
     grad.addColorStop(1, 'rgba(0, 210, 106, 0.02)');
-    ctx.fillStyle = grad;
   } else {
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, 'rgba(255, 71, 87, 0.02)');
     grad.addColorStop(1, 'rgba(255, 71, 87, 0.3)');
-    ctx.fillStyle = grad;
   }
+  ctx.fillStyle = grad;
   ctx.fill();
 
   // Line
   ctx.beginPath();
   ctx.moveTo(toX(0), toY(series[0]));
-  for (let i = 1; i < series.length; i++) {
-    ctx.lineTo(toX(i), toY(series[i]));
-  }
+  for (let i = 1; i < series.length; i++) ctx.lineTo(toX(i), toY(series[i]));
   ctx.strokeStyle = lastVal >= 0 ? '#00d26a' : '#ff4757';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Max drawdown marker
   if (maxDD > 0) {
     ctx.beginPath();
     ctx.arc(toX(ddIdx), toY(series[ddIdx]), 4, 0, Math.PI * 2);
     ctx.fillStyle = '#ff4757';
     ctx.fill();
-    ctx.fillStyle = '#ff4757';
     ctx.font = '10px monospace';
     ctx.textAlign = 'center';
     ctx.fillText('DD -$' + maxDD.toFixed(2), toX(ddIdx), toY(series[ddIdx]) - 8);
@@ -557,59 +697,11 @@ function drawPnlChart(trades) {
 }
 
 // ── Trade Log ───────────────────────────────────────────────────────
-function renderTrades(trades) {
-  const tbody = document.getElementById('trades-body');
-  if (!trades || trades.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="loading">Nenhuma trade encontrada</td></tr>';
-    return;
-  }
-
-  // Update market filter dropdown
-  const markets = [...new Set(trades.map(t => t.market_id).filter(Boolean))];
-  const sel = document.getElementById('market-filter');
-  const current = sel.value;
-  const opts = '<option value="">All Markets</option>' +
-    markets.map(m => `<option value="${m}"${m === current ? ' selected' : ''}>${m.substring(0, 35)}</option>`).join('');
-  sel.innerHTML = opts;
-
-  tbody.innerHTML = trades.map((t, i) => {
-    const pnl = parseFloat(t.pnl_this_trade || 0);
-    const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
-    const ts = t.timestamp ? new Date(t.timestamp).toLocaleTimeString() : '?';
-    const rationale = t.entry_rationale || {};
-    const trigger = (rationale.trigger || 'N/A').substring(0, 50);
-    const detailId = 'rat-' + i;
-
-    let detail = '';
-    if (rationale.spread_model) {
-      detail += '<div><b>Spread Model:</b> ' + JSON.stringify(rationale.spread_model) + '</div>';
-    }
-    if (rationale.inventory_skew) {
-      detail += '<div><b>Inventory Skew:</b> ' + JSON.stringify(rationale.inventory_skew) + '</div>';
-    }
-    if (rationale.toxic_flow) {
-      detail += '<div><b>Toxic Flow:</b> ' + JSON.stringify(rationale.toxic_flow) + '</div>';
-    }
-
-    return `<tr>
-      <td>${ts}</td>
-      <td title="${t.market_id || ''}">${(t.market_id || '?').substring(0, 25)}</td>
-      <td>${t.side || '?'}</td>
-      <td>${t.token || '?'}</td>
-      <td>${t.fill_price || '?'}</td>
-      <td>${t.fill_qty || '?'}</td>
-      <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)}</td>
-      <td>
-        <div class="rationale-trigger" onclick="toggleRationale('${detailId}')">${trigger}</div>
-        <div id="${detailId}" class="rationale-detail">${detail || 'No details'}</div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function toggleRationale(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
+function switchTradeTab(tab) {
+  currentTradeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+  renderTrades();
 }
 
 function filterTrades() {
@@ -617,42 +709,80 @@ function filterTrades() {
   refresh();
 }
 
+function renderTrades() {
+  let trades;
+  if (currentTradeTab === 'demo') trades = demoTrades;
+  else if (currentTradeTab === 'prod') trades = prodTrades;
+  else {
+    // Merge both, sort by timestamp desc
+    trades = [...demoTrades.map(t => ({...t, _src: 'D'})),
+              ...prodTrades.map(t => ({...t, _src: 'P'}))];
+    trades.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+    trades = trades.slice(0, 100);
+  }
+
+  const tbody = document.getElementById('trades-body');
+  if (!trades || trades.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="loading">No trades found</td></tr>';
+    return;
+  }
+
+  // Update market filter
+  const allTrades = [...demoTrades, ...prodTrades];
+  const markets = [...new Set(allTrades.map(t => t.market_id).filter(Boolean))];
+  const sel = document.getElementById('market-filter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All Markets</option>' +
+    markets.map(m => `<option value="${m}"${m === current ? ' selected' : ''}>${m.substring(0, 30)}</option>`).join('');
+
+  tbody.innerHTML = trades.map(t => {
+    const pnl = parseFloat(t.pnl_this_trade || 0);
+    const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+    const ts = t.timestamp ? new Date(t.timestamp).toLocaleTimeString() : '?';
+    const src = t._src || (t.is_production ? 'P' : 'D');
+    const srcBadge = src === 'P'
+      ? '<span class="badge badge-prod" style="font-size:9px;padding:1px 4px">P</span>'
+      : '<span class="badge badge-demo" style="font-size:9px;padding:1px 4px">D</span>';
+    const lat = t.latency_ms ? t.latency_ms.toFixed(0) : '—';
+    const rowClass = src === 'P' ? 'trade-prod' : '';
+
+    return `<tr class="${rowClass}">
+      <td>${srcBadge}</td>
+      <td>${ts}</td>
+      <td title="${t.market_id || ''}">${(t.market_id || '?').substring(0, 20)}</td>
+      <td>${t.side || '?'}</td>
+      <td>${t.fill_price || '?'}</td>
+      <td>${t.fill_qty || '?'}</td>
+      <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)}</td>
+      <td>${lat}</td>
+    </tr>`;
+  }).join('');
+}
+
 // ── Market Cards ────────────────────────────────────────────────────
 function renderMarkets(state) {
   const container = document.getElementById('market-cards');
   if (!state || !state.markets || Object.keys(state.markets).length === 0) {
-    container.innerHTML = '<div class="loading">Nenhum mercado ativo</div>';
+    container.innerHTML = '<div class="loading">No active markets</div>';
     return;
   }
-
-  const totalEquity = state.wallet?.total_equity || 500;
 
   container.innerHTML = Object.entries(state.markets).map(([mid, m]) => {
     const pnl = m.pnl || 0;
     const pnlClass = pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
     const net = m.position_net || 0;
-    const maxPos = 500;
-    const pct = Math.min(Math.abs(net) / maxPos * 50, 50);
+    const pct = Math.min(Math.abs(net) / 500 * 50, 50);
     const isPos = net >= 0;
 
-    // Data gap indicator
     let gapClass = 'gap-green';
     const gap = m.data_gap_s || 0;
     if (gap > 10) gapClass = 'gap-red';
     else if (gap > 5) gapClass = 'gap-yellow';
 
-    // Fills per hour
     const upH = (state.uptime_seconds || 1) / 3600;
     const fph = ((m.fills_count || 0) / upH).toFixed(1);
 
-    // Allocation percentage: position_value / total_equity
-    const midPrice = m.mid_price || 0;
-    const positionValue = Math.abs(net) * midPrice;
-    const allocationPct = totalEquity > 0 ? (positionValue / totalEquity * 100) : 0;
-    const maxAllocation = 30; // 30% max allocation per market
-    const allocationClass = allocationPct > maxAllocation ? 'high-allocation' : 'allocation-pct';
-
-    return `<div class="market-card" ${allocationPct > maxAllocation ? 'style="border-color: var(--yellow)"' : ''}>
+    return `<div class="market-card">
       <div class="market-card-title">${(m.description || mid).substring(0, 45)}</div>
       <div class="market-card-row">
         <span class="market-card-label">Mid</span>
@@ -670,16 +800,11 @@ function renderMarkets(state) {
         <span class="market-card-label">Net Position</span>
         <span class="market-card-value">${net.toFixed(0)}</span>
       </div>
-      <div class="market-card-row">
-        <span class="market-card-label">Allocation</span>
-        <span class="market-card-value ${allocationClass}">${allocationPct.toFixed(1)}%</span>
-      </div>
       <div class="inventory-bar">
         <div class="center"></div>
         ${isPos ?
           `<div class="fill fill-pos" style="left:50%;width:${pct}%"></div>` :
-          `<div class="fill fill-neg" style="right:50%;width:${pct}%"></div>`
-        }
+          `<div class="fill fill-neg" style="right:50%;width:${pct}%"></div>`}
       </div>
       <div class="market-card-row">
         <span class="market-card-label">Fills/h</span>
@@ -689,35 +814,15 @@ function renderMarkets(state) {
         <span class="market-card-label">Data Gap</span>
         <span><span class="data-gap-dot ${gapClass}"></span> ${gap.toFixed(1)}s</span>
       </div>
-      <div class="panel-title" onclick="toggleStrategy('strat-${mid}')" style="margin-top:8px;font-size:11px">
-        ⚙️ Strategy Internals <span class="toggle">▶</span>
-      </div>
-      <div id="strat-${mid}" class="strategy-section">
-        <div class="gauge-row">
-          <div class="gauge">
-            <div class="gauge-label">Kills</div>
-            <div class="gauge-value">${m.kill_switch || 'N/A'}</div>
-          </div>
-          <div class="gauge">
-            <div class="gauge-label">Fills</div>
-            <div class="gauge-value">${m.fills_count || 0}</div>
-          </div>
-        </div>
-      </div>
     </div>`;
   }).join('');
-}
-
-function toggleStrategy(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
 }
 
 // ── Run History ─────────────────────────────────────────────────────
 function renderRuns(runs) {
   const tbody = document.getElementById('runs-body');
   if (!runs || runs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="loading">Nenhum run registrado</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="loading">No runs recorded</td></tr>';
     return;
   }
 
@@ -738,22 +843,37 @@ function renderRuns(runs) {
   }).join('');
 }
 
+// ── PnL stats ───────────────────────────────────────────────────────
+function updatePnlStats(state) {
+  if (!state || !state.pnl) return;
+  document.getElementById('max-dd').textContent = '$' + (state.pnl.max_drawdown || 0).toFixed(2);
+  document.getElementById('sharpe').textContent = (state.pnl.sharpe_estimate || 0).toFixed(2);
+  document.getElementById('pnl-per-hour').textContent = '$' + (state.pnl.per_hour_avg || 0).toFixed(2);
+}
+
 // ── Main Refresh ────────────────────────────────────────────────────
 async function refresh() {
-  const [state, trades, runs] = await Promise.all([
-    fetchState(),
-    fetchTrades(50),
+  const [demo, prod, demT, prdT, runs] = await Promise.all([
+    fetchState(false),
+    fetchState(true),
+    fetchTrades(false, 50),
+    fetchTrades(true, 50),
     fetchRuns(),
   ]);
 
-  currentState = state;
-  allTrades = trades;
+  demoState = demo;
+  prodState = prod;
+  demoTrades = demT || [];
+  prodTrades = prdT || [];
 
-  updateHeader(state);
-  renderTrades(trades);
-  renderMarkets(state);
+  updateSidePanel('demo', demo);
+  updateSidePanel('prod', prod);
+  updateComparison(demo, prod);
+  renderTrades();
+  renderMarkets(demo);
   renderRuns(runs);
-  drawPnlChart(trades);
+  drawPnlChart(demoTrades);
+  updatePnlStats(demo);
 }
 
 // Initial load + auto-refresh every 5s
@@ -761,7 +881,7 @@ refresh();
 setInterval(refresh, 5000);
 
 // Resize handler for chart
-window.addEventListener('resize', () => drawPnlChart(allTrades));
+window.addEventListener('resize', () => drawPnlChart(demoTrades));
 </script>
 </body>
 </html>
