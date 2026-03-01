@@ -1,0 +1,442 @@
+{
+  "keys": {
+    "50c177595236b8bfa267af86d01117d1635e2f63c812cc49e2c5142f3d28e215": {
+      "status": "failure",
+      "runId": "run_1771355708635_05855ee6",
+      "error": {
+        "code": "HL_ACCOUNT_MISSING",
+        "message": "HYPERLIQUID_ACCOUNT_ADDRESS não configurado (endereço master/subaccount).",
+        "details": {}
+      },
+      "updatedAt": "2026-02-17T19:15:08.839Z"
+    },
+    "4e6b7b8bc519d3c81fc1a9c622dc2cc0ffddce656a17596c6cd8ced4ee506c09": {
+      "status": "failure",
+      "runId": "run_1771449555185_7596331d",
+      "error": {
+        "code": "KEY_SEGREGATION_KEYS_MISSING",
+        "message": "Segregação obrigatória: configure chaves dedicadas para Base, Solana e Hyperliquid.",
+        "details": {
+          "missing": [
+            "BASE_PRIVATE_KEY",
+            "SOLANA_PRIVATE_KEY_B58|SOLANA_PRIVATE_KEY_JSON",
+            "HYPERLIQUID_API_WALLET_PRIVATE_KEY"
+          ]
+        }
+      },
+      "updatedAt": "2026-02-18T21:19:15.187Z"
+    },
+    "b1451dcf981a2fb13a68d60840c8d4aff538411ffb0e38b7969a6dee9032dd0c": {
+      "status": "success",
+      "runId": "run_1771461904067_00686918",
+      "result": {
+        "connector": "jupiter",
+        "execution": {
+          "chain": "solana",
+          "connector": "jupiter",
+          "action": "swap_jupiter",
+          "idempotencyKey": "b1451dcf981a2fb13a68d60840c8d4aff538411ffb0e38b7969a6dee9032dd0c",
+          "preflight": {
+            "chain": "solana",
+            "action": "jupiter.swap",
+            "walletReady": true,
+            "txType": "versioned",
+            "signerNeeded": true,
+            "simulation": {
+              "err": null,
+              "logs": [
+                "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+                "Program ComputeBudget111111111111111111111111111111 success",
+                "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+                "Program ComputeBudget111111111111111111111111111111 success",
+                "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+                "Program log: CreateIdempotent",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+                "Program log: Instruction: GetAccountDataSize",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 1569 of 182397 compute units",
+                "Program return: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA pQAAAAAAAAA=",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                "Program 11111111111111111111111111111111 invoke [2]",
+                "Program 11111111111111111111111111111111 success",
+                "Program log: Initialize the associated token account",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+                "Program log: Instruction: InitializeImmutableOwner",
+                "Program log: Please upgrade to SPL Token 2022 for immutable owner support",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 1405 of 175810 compute units",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+                "Program log: Instruction: InitializeAccount3",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 3158 of 171928 compute units",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 20815 of 189302 compute units",
+                "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+                "Program 11111111111111111111111111111111 invoke [1]",
+                "Program 11111111111111111111111111111111 success",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]",
+                "Program log: Instruction: SyncNative",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 3045 of 168337 compute units",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+                "Program log: CreateIdempotent",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+                "Program log: Instruction: GetAccountDataSize",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 1622 of 159887 compute units",
+                "Program return: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA pQAAAAAAAAA=",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                "Program 11111111111111111111111111111111 invoke [2]",
+                "Program 11111111111111111111111111111111 success",
+                "Program log: Initialize the associated token account",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+                "Program log: Instruction: InitializeImmutableOwner",
+                "Program log: Please upgrade to SPL Token 2022 for immutable owner support",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 1405 of 153247 compute units",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+                "Program log: Instruction: InitializeAccount3",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4241 of 149365 compute units",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 20451 of 165292 compute units",
+                "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+                "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 invoke [1]",
+                "Program log: Instruction: Route",
+                "Program SV2EYYJyRz2YhfXwXnhNAevDEui5Q6yrfyo13WtupPF invoke [2]",
+                "Program data: S3VCwUhV8CXSyrcV3EtPUNCsQJvXpBqCGUobEJZVRnljdlkBAAAAAHTY6RcAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [3]",
+                "Program log: Instruction: Transfer",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4736 of 55809 compute units",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [3]",
+                "Program log: Instruction: Transfer",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4645 of 49652 compute units",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                "Program SV2EYYJyRz2YhfXwXnhNAevDEui5Q6yrfyo13WtupPF consumed 92814 of 136040 compute units",
+                "Program SV2EYYJyRz2YhfXwXnhNAevDEui5Q6yrfyo13WtupPF success",
+                "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 invoke [2]",
+                "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 consumed 187 of 41604 compute units",
+                "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 success",
+                "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 consumed 104978 of 144841 compute units",
+                "Program return: JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 HAjdBAAAAAA=",
+                "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 success",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]",
+                "Program log: Instruction: CloseAccount",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 2915 of 39863 compute units",
+                "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success"
+              ],
+              "unitsConsumed": 152654,
+              "returnData": null
+            }
+          },
+          "quote": {
+            "mode": "ExactIn",
+            "inAsset": "SOL",
+            "outAsset": "USDC",
+            "inMint": "So11111111111111111111111111111111111111112",
+            "outMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            "requestedAmount": "1",
+            "requestedAmountAtomic": "1000000000",
+            "quotedInAmountAtomic": "1000000000",
+            "quotedOutAmountAtomic": "81626936",
+            "slippageBps": 100,
+            "priceImpactPct": "0.000198359706085599999999999",
+            "routePlanSize": 1
+          },
+          "buildMeta": {
+            "lastValidBlockHeight": 379314388,
+            "prioritizationFeeLamports": 33214,
+            "computeUnitLimit": 189602
+          },
+          "recipient": "BYzZUKToZbkfe1snHFHSsTKMTb1SNmyCf8tGYTUgnbr",
+          "execution": {
+            "chain": "solana",
+            "action": "jupiter.swap",
+            "txType": "versioned",
+            "txHash": "59cTdFusQzHAdzRNFp44CiSDGmr9WpES3DufpkePRXURXPsVmz4J87Hd2T9vy5Y33DaCMb7p5mwTqq8D7xDdSocv",
+            "explorer": "https://solscan.io/tx/59cTdFusQzHAdzRNFp44CiSDGmr9WpES3DufpkePRXURXPsVmz4J87Hd2T9vy5Y33DaCMb7p5mwTqq8D7xDdSocv",
+            "confirmation": {
+              "context": {
+                "slot": 401201272
+              },
+              "value": {
+                "err": null
+              }
+            }
+          }
+        }
+      },
+      "updatedAt": "2026-02-19T00:45:05.279Z"
+    },
+    "f50b4b19d16b6b92c171b6b5da8fb023983ef985930cff12326faf4c1a6c700c": {
+      "status": "success",
+      "runId": "run_1771463524347_553294c9",
+      "result": {
+        "connector": "debridge",
+        "execution": {
+          "chain": "debridge",
+          "connector": "debridge",
+          "action": "bridge",
+          "idempotencyKey": "f50b4b19d16b6b92c171b6b5da8fb023983ef985930cff12326faf4c1a6c700c",
+          "preflight": {
+            "chain": "debridge",
+            "connector": "debridge",
+            "route": "solana->base",
+            "fromChain": "solana",
+            "toChain": "base",
+            "asset": "USDC",
+            "srcTokenAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            "dstTokenAddress": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "amount": "1",
+            "amountAtomic": "1000000",
+            "estimation": {
+              "srcChainTokenIn": {
+                "name": "USD Coin",
+                "symbol": "USDC",
+                "chainId": 7565164,
+                "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                "decimals": 6,
+                "amount": "1905778",
+                "approximateOperatingExpense": "905778",
+                "mutatedWithOperatingExpense": true,
+                "approximateUsdValue": 1.905778,
+                "originApproximateUsdValue": 1
+              },
+              "dstChainTokenOut": {
+                "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                "chainId": 8453,
+                "decimals": 6,
+                "name": "USD Coin",
+                "symbol": "USDC",
+                "amount": "999200",
+                "recommendedAmount": "999200",
+                "maxTheoreticalAmount": "999200",
+                "approximateUsdValue": 0.9992,
+                "recommendedApproximateUsdValue": 0.9992,
+                "maxTheoreticalApproximateUsdValue": 0.9992
+              },
+              "costsDetails": [
+                {
+                  "chain": "7565164",
+                  "tokenIn": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                  "tokenOut": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                  "amountIn": "1905778",
+                  "amountOut": "1905016",
+                  "type": "DlnProtocolFee",
+                  "payload": {
+                    "feeAmount": "762",
+                    "feeBps": "4",
+                    "feeApproximateUsdValue": "0.000762"
+                  }
+                },
+                {
+                  "chain": "8453",
+                  "tokenIn": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                  "tokenOut": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                  "amountIn": "1905016",
+                  "amountOut": "1904254",
+                  "type": "TakerMargin",
+                  "payload": {
+                    "feeAmount": "762",
+                    "feeBps": "4"
+                  }
+                },
+                {
+                  "chain": "8453",
+                  "tokenIn": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                  "tokenOut": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                  "amountIn": "1904254",
+                  "amountOut": "999200",
+                  "type": "EstimatedOperatingExpenses",
+                  "payload": {
+                    "feeAmount": "905054"
+                  }
+                }
+              ],
+              "recommendedSlippage": 0
+            },
+            "hasTxPayload": true,
+            "orderId": "0xb014317d814a1f2561108d8313852fd3ad0eb4398dbf8f39d3af0a921c398036",
+            "response": {
+              "estimation": {
+                "srcChainTokenIn": {
+                  "name": "USD Coin",
+                  "symbol": "USDC",
+                  "chainId": 7565164,
+                  "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                  "decimals": 6,
+                  "amount": "1905778",
+                  "approximateOperatingExpense": "905778",
+                  "mutatedWithOperatingExpense": true,
+                  "approximateUsdValue": 1.905778,
+                  "originApproximateUsdValue": 1
+                },
+                "dstChainTokenOut": {
+                  "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                  "chainId": 8453,
+                  "decimals": 6,
+                  "name": "USD Coin",
+                  "symbol": "USDC",
+                  "amount": "999200",
+                  "recommendedAmount": "999200",
+                  "maxTheoreticalAmount": "999200",
+                  "approximateUsdValue": 0.9992,
+                  "recommendedApproximateUsdValue": 0.9992,
+                  "maxTheoreticalApproximateUsdValue": 0.9992
+                },
+                "costsDetails": [
+                  {
+                    "chain": "7565164",
+                    "tokenIn": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                    "tokenOut": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                    "amountIn": "1905778",
+                    "amountOut": "1905016",
+                    "type": "DlnProtocolFee",
+                    "payload": {
+                      "feeAmount": "762",
+                      "feeBps": "4",
+                      "feeApproximateUsdValue": "0.000762"
+                    }
+                  },
+                  {
+                    "chain": "8453",
+                    "tokenIn": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                    "tokenOut": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                    "amountIn": "1905016",
+                    "amountOut": "1904254",
+                    "type": "TakerMargin",
+                    "payload": {
+                      "feeAmount": "762",
+                      "feeBps": "4"
+                    }
+                  },
+                  {
+                    "chain": "8453",
+                    "tokenIn": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                    "tokenOut": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                    "amountIn": "1904254",
+                    "amountOut": "999200",
+                    "type": "EstimatedOperatingExpenses",
+                    "payload": {
+                      "feeAmount": "905054"
+                    }
+                  }
+                ],
+                "recommendedSlippage": 0
+              },
+              "tx": {
+                "data": "0x0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800100080e02b3fb6603091562b2f6a92a0398626e08c92cace264632e7bb65737de73fe81026dc722923ab896018f9b7ca2ec984fbed26a7300cf416b1b484b81e1028327efe0a5eac44cf4baeb6cb2611c83dfe97755fb6fcd4f4e5a2717dc6d25563fe26129130a32c0bb28c7cc87d06d7ed8cee3d04410bc0a4d67a0544f7ea28f979c4067577756568c8185b867c08dfc28f209830ba300fa06cf80a7e1486a693442856165d6824951d09bcf97d408f3f47de68f585f40de7dcd86a6a2b94c4c4af90306466fe5211732ffecadba72c39be7bc8ce5bbc5f7126b2c439b3a400000000d0720fe448de59d8811e24d6df917dc8d0d98b392ddf4dd2b622a747a60fdedf2250182dbb654414c597aa68671aedf4c362cea471a83827874f7e5fc5cc231c6fa7af3bedbad3a3d65f36aabc97431b1bbe4c2d2f6e0e47ca60203452f5d61c165414e7b742e96029e5ddca31e73cbb805cc924540276e96ee5f10ea9b0011000000000000000000000000000000000000000000000000000000000000000006ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a98c97258f4e2489f1bb3d1029148e0d830b5a1399daff1084048e7bd8dbe9f85900000000000000000000000000000000000000000000000000000000000000000306000502400d03000600090350c3000000000000070c000809010a020304050b0c0da702828362be28ce443272141d0000000000000000000000000000000000000000000000000000000000000000000000210514000000833589fcd6edb6e08f4c7c32d4f71b54bda0291300000000000000000000000000000000000000000000000000000000000f3f20140000001113b4e00397997ebdaac95ceb90cf97bd4d51dd0002b3fb6603091562b2f6a92a0398626e08c92cace264632e7bb65737de73fe8100140000001113b4e00397997ebdaac95ceb90cf97bd4d51dd0114000000555ce236c0220695b68341bc48c68d52210cc35b0001000000007e4274739c01000042000000010100000032d20d0000000000000000000000000000000000203f0f000000000000000000000000000000000000000000000000000000000000000000000000000000"
+              },
+              "prependedOperatingExpenseCost": "905778",
+              "order": {
+                "approximateFulfillmentDelay": 11,
+                "salt": 1771463524990,
+                "metadata": "0x010100000032d20d0000000000000000000000000000000000203f0f0000000000000000000000000000000000000000000000000000000000000000000000000000"
+              },
+              "orderId": "0xb014317d814a1f2561108d8313852fd3ad0eb4398dbf8f39d3af0a921c398036",
+              "fixFee": "15000000",
+              "protocolFee": "762",
+              "userPoints": 122.48,
+              "integratorPoints": 30.62,
+              "estimatedTransactionFee": {
+                "total": "24162360",
+                "details": {
+                  "giveOrderState": "17115840",
+                  "giveOrderWallet": "2039280",
+                  "nonceMaster": "1002240",
+                  "txFee": "5000",
+                  "priorityFee": "4000000"
+                }
+              },
+              "protocolFeeApproximateUsdValue": 0.000762,
+              "usdPriceImpact": -0.08000000000000229
+            }
+          },
+          "execution": {
+            "chain": "solana",
+            "preflight": {
+              "chain": "solana",
+              "action": "debridge.bridge",
+              "walletReady": true,
+              "txType": "versioned",
+              "signerNeeded": true,
+              "simulation": {
+                "err": null,
+                "logs": [
+                  "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+                  "Program ComputeBudget111111111111111111111111111111 success",
+                  "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+                  "Program ComputeBudget111111111111111111111111111111 success",
+                  "Program src5qyZHqTqecJV4aY6Cb6zDZLMDzrDKKezs22MPHr4 invoke [1]",
+                  "Program log: Instruction: CreateOrderWithNonce",
+                  "Program 11111111111111111111111111111111 invoke [2]",
+                  "Program 11111111111111111111111111111111 success",
+                  "Program 11111111111111111111111111111111 invoke [2]",
+                  "Program 11111111111111111111111111111111 success",
+                  "Program data: aldK5iB4R9J+QnRznAEAACAAAAACs/tmAwkVYrL2qSoDmGJuCMksrOJkYy57tlc33nP+gQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc29sIAAAAMb6evO+2606PWXzaqvJdDGxu+TC0vbg5HymAgNFL11hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdEXgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAhBRQAAACDNYn81u224I9MfDLU9xtUvaApEwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADz8gFAAAABETtOADl5l+varJXOuQz5e9TVHdIAAAAAKz+2YDCRVisvapKgOYYm4IySys4mRjLnu2Vzfec/6BFAAAABETtOADl5l+varJXOuQz5e9TVHdARQAAABVXOI2wCIGlbaDQbxIxo1SIQzDWwAAwOHkAAAAAAD6AgAAAAAAAA==",
+                  "Program data: uykbSQw/DVSwFDF9gUofJWEQjYMThS/TrQ60OY2/jznTrwqSHDmANg==",
+                  "Program 11111111111111111111111111111111 invoke [2]",
+                  "Program 11111111111111111111111111111111 success",
+                  "Program 11111111111111111111111111111111 invoke [2]",
+                  "Program 11111111111111111111111111111111 success",
+                  "Program 11111111111111111111111111111111 invoke [2]",
+                  "Program 11111111111111111111111111111111 success",
+                  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+                  "Program log: Instruction: InitializeAccount3",
+                  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4241 of 113004 compute units",
+                  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+                  "Program log: Instruction: TransferChecked",
+                  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 6200 of 105289 compute units",
+                  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+                  "Program src5qyZHqTqecJV4aY6Cb6zDZLMDzrDKKezs22MPHr4 consumed 101378 of 199700 compute units",
+                  "Program src5qyZHqTqecJV4aY6Cb6zDZLMDzrDKKezs22MPHr4 success"
+                ],
+                "unitsConsumed": 101678,
+                "returnData": null
+              }
+            },
+            "sent": {
+              "chain": "solana",
+              "action": "debridge.bridge",
+              "txType": "versioned",
+              "txHash": "3J8S8zGwkhd4zkkRRY7Xds7Xc8xr2Y878DfCRea9Srggv8vw8W63TGJ7oumNqYbEBhWg2awT8B7a57BQksT9tVW",
+              "explorer": "https://solscan.io/tx/3J8S8zGwkhd4zkkRRY7Xds7Xc8xr2Y878DfCRea9Srggv8vw8W63TGJ7oumNqYbEBhWg2awT8B7a57BQksT9tVW",
+              "confirmation": {
+                "context": {
+                  "slot": 401205424
+                },
+                "value": {
+                  "err": null
+                }
+              }
+            },
+            "sourceTxHash": "3J8S8zGwkhd4zkkRRY7Xds7Xc8xr2Y878DfCRea9Srggv8vw8W63TGJ7oumNqYbEBhWg2awT8B7a57BQksT9tVW"
+          },
+          "tracking": {
+            "available": true,
+            "sourceTxHash": "3J8S8zGwkhd4zkkRRY7Xds7Xc8xr2Y878DfCRea9Srggv8vw8W63TGJ7oumNqYbEBhWg2awT8B7a57BQksT9tVW",
+            "orderId": "0xb014317d814a1f2561108d8313852fd3ad0eb4398dbf8f39d3af0a921c398036",
+            "completed": false,
+            "latest": {
+              "at": "2026-02-19T01:12:06.260Z",
+              "status": "created",
+              "response": {
+                "status": "Created",
+                "orderId": "0xb014317d814a1f2561108d8313852fd3ad0eb4398dbf8f39d3af0a921c398036"
+              }
+            },
+            "snapshots": [
+              {
+                "at": "2026-02-19T01:12:06.260Z",
+                "status": "created",
+                "response": {
+                  "status": "Created",
+                  "orderId": "0xb014317d814a1f2561108d8313852fd3ad0eb4398dbf8f39d3af0a921c398036"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "updatedAt": "2026-02-19T01:12:06.260Z"
+    }
+  }
+}

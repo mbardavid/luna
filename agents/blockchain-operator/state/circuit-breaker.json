@@ -1,0 +1,9 @@
+{
+  "failures": [],
+  "openUntil": 1771463433969,
+  "lastError": {
+    "code": "CIRCUIT_BREAKER_OPEN",
+    "message": "Circuit breaker está aberto"
+  },
+  "updatedAt": "2026-02-19T01:12:06.261Z"
+}

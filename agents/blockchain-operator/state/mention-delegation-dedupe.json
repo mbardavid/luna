@@ -1,0 +1,16 @@
+{
+  "entries": {
+    "blockchain-operator:1473395000000000777": {
+      "dedupeKey": "blockchain-operator:1473395000000000777",
+      "messageId": "1473395000000000777",
+      "channel": "discord:channel:1473392629055098942",
+      "originBotId": "decision-router",
+      "targetBotId": "blockchain-operator",
+      "observedAt": "2099-02-18T19:36:58.000Z",
+      "ttlSeconds": 300,
+      "firstSeenAt": "2026-02-18T21:19:14.102Z",
+      "expiresAt": "2099-02-18T19:41:58.000Z",
+      "expiresAtMs": 4075126918000
+    }
+  }
+}

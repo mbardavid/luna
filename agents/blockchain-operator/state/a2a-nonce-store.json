@@ -1,0 +1,11 @@
+{
+  "entries": {
+    "bot-alpha:nonce-security-test-001": {
+      "keyId": "bot-alpha",
+      "nonce": "nonce-security-test-001",
+      "tsMs": 1771449552517,
+      "firstSeenAt": "2026-02-18T21:19:12.519Z",
+      "seenAtMs": 1771449552519
+    }
+  }
+}
