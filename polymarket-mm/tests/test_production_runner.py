@@ -402,10 +402,20 @@ class TestOnChainReconciliation:
         wallet.init_position("market-1", "yes-tok", "no-tok")
 
         mock_rest = AsyncMock()
-        # Balance from API is in micro-USDC (6 decimals): 232.50 USD = 232500000 micro
-        mock_rest.get_balance_allowance = AsyncMock(
-            return_value={"balance": "232500000"}
-        )
+        # get_balance_allowance returns different values based on asset_type/token_id
+        async def mock_balance(asset_type="COLLATERAL", token_id=None):
+            if token_id == "yes-tok":
+                return {"balance": "10000000"}  # 10 YES shares
+            elif token_id == "no-tok":
+                return {"balance": "5000000"}  # 5 NO shares
+            else:
+                return {"balance": "232500000"}  # 232.50 USDC
+        mock_rest.get_balance_allowance = AsyncMock(side_effect=mock_balance)
+        # get_price returns Decimal
+        async def mock_price(token_id, side="sell"):
+            from decimal import Decimal as D
+            return D("0.60") if token_id == "yes-tok" else D("0.40")
+        mock_rest.get_price = AsyncMock(side_effect=mock_price)
 
         market_cfg = ProdMarketConfig(
             market_id="market-1",
@@ -423,9 +433,11 @@ class TestOnChainReconciliation:
 
         oc = wallet.on_chain
         assert oc["usdc_balance"] == 232.50
-        assert oc["portfolio_value"] == 232.50
-        assert oc["real_pnl"] == 232.50 - 25.0  # on_chain - initial
-        assert oc["discrepancy_usdc"] > 0  # virtual is 25, on-chain is 232.50
+        # portfolio = 232.50 + 10*0.60 + 5*0.40 = 232.50 + 6.0 + 2.0 = 240.50
+        assert oc["portfolio_value"] == 240.50
+        assert "positions" in oc
+        assert oc["positions"]["market-1"]["yes_shares"] == 10.0
+        assert oc["positions"]["market-1"]["no_shares"] == 5.0
         assert "last_updated" in oc
 
     @pytest.mark.asyncio

@@ -105,5 +105,13 @@
 - **SIGUSR1 confirmado como full restart** (não hot-reload) — PID muda.
 
 - **PMM paper trading: adversarial validation confirma edge real mas fino.** Run-007 (adversarial fills) reduziu PnL em 89% vs vanilla (de $168/hr para $18.86/hr). Estratégia é lucrativa mesmo sob condições adversariais, mas margem estreita. Inventário não-controlado (+103 net) é o próximo gargalo — run-008 (H2, gamma 0.5) é o teste decisivo antes de produção.
-- **SIGUSR1 não é hot-reload — causa full restart.** Descoberto empiricamente em 27/fev: `kill -USR1` ao gateway causa supervisor restart completo (PID muda). TOOLS.md dizia "brief disconnect but does NOT kill the process" — informação incorreta que precisa ser corrigida.
-- **Itens de taxonomia operacional acumulando:** 6 itens pendentes de documentação permanente (PMM workflow, HB V2 scripts, MC scripts, post-mortem, active-tasks cleanup, SIGUSR1 doc). Nenhum é urgente individualmente, mas o acúmulo indica necessidade de um sprint de documentação.
+- **SIGUSR1 não é hot-reload — causa full restart.** Descoberto empiricamente em 27/fev: `kill -USR1` ao gateway causa supervisor restart completo (PID muda). **TOOLS.md corrigido em 01/mar.**
+- **Itens de taxonomia operacional acumulando:** 8 itens pendentes de documentação permanente (PMM workflow, HB V2 scripts, MC scripts, post-mortem, active-tasks cleanup, SIGUSR1 ✅ corrigido, Tor proxy doc, sentinel scripts doc). Sprint de documentação cada vez mais necessário.
+
+## 2026-03-01
+
+- **Operação estável sob automação pura:** 48h+ sem interação humana direta. Todos os crons rodando (healthcheck, MC watchdog, MC delivery, MC resource-monitor, session-archive, git-sync). Gateway estável desde restart de 28/fev ~21:50 UTC.
+- **prod-001 vivo mas sem fills:** Bot Polymarket postando BUY orders há ~36h. Conectividade validada, Tor funcional, mas mercado selecionado (mid=0.13, extremo) pode não gerar fills. Validação de infra ok, validação de estratégia pendente.
+- **Portfolio crypto consolidado em $409.74:** SOL 43%, USDC.e 36%, Polymarket 20%. PnL Polymarket +$21.78 total.
+- **MC inbox com 5 tasks acumuladas:** Heartbeat detectou mas sem autorização/capacidade para drenar. Padrão: tasks se acumulam sem drain quando não há interação humana.
+- **Debt de documentação operacional crescendo:** 8 itens de taxonomia carryover (3-4 dias). SIGUSR1 corrigido em TOOLS.md. Restam 7 itens pendentes — necessário sprint dedicado.

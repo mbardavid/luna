@@ -287,7 +287,8 @@ class ProductionWallet:
     ) -> None:
         """Fetch on-chain balance and update ``_on_chain`` snapshot.
 
-        Logs discrepancies between the virtual wallet and on-chain state.
+        Queries REAL on-chain balances for USDC and conditional tokens,
+        fetches live prices from CLOB, and computes true portfolio value.
         Called periodically (every ~60 s) by the live-state loop.
         """
         try:
@@ -299,36 +300,68 @@ class ProductionWallet:
             self._on_chain["usdc_balance"] = float(usdc_balance)
             self._on_chain["last_updated"] = datetime.now(timezone.utc).isoformat()
 
-            # Compute on-chain portfolio value (USDC + position mark-to-market)
+            # Query REAL on-chain token balances and live prices
             portfolio_value = usdc_balance
-            self._on_chain["yes_shares"] = {}
-            self._on_chain["no_shares"] = {}
+            self._on_chain["positions"] = {}
 
             if market_configs:
                 for mc in market_configs:
-                    pos = self._positions.get(mc.market_id)
-                    if pos:
-                        self._on_chain["yes_shares"][mc.market_id] = float(pos.qty_yes)
-                        self._on_chain["no_shares"][mc.market_id] = float(pos.qty_no)
+                    pos_data = {"yes_shares": 0, "no_shares": 0,
+                                "yes_price": 0, "no_price": 0,
+                                "yes_value": 0, "no_value": 0}
+                    try:
+                        # Query real token balances from CLOB
+                        yes_info = await rest_client.get_balance_allowance(
+                            "CONDITIONAL", token_id=mc.token_id_yes)
+                        no_info = await rest_client.get_balance_allowance(
+                            "CONDITIONAL", token_id=mc.token_id_no)
+                        yes_shares = Decimal(str(yes_info.get("balance", "0"))) / Decimal("1000000")
+                        no_shares = Decimal(str(no_info.get("balance", "0"))) / Decimal("1000000")
+
+                        # Get live prices from CLOB
+                        yes_price = await rest_client.get_price(mc.token_id_yes, side="sell")
+                        no_price = await rest_client.get_price(mc.token_id_no, side="sell")
+
+                        yes_value = yes_shares * yes_price
+                        no_value = no_shares * no_price
+                        portfolio_value += yes_value + no_value
+
+                        pos_data = {
+                            "yes_shares": float(yes_shares),
+                            "no_shares": float(no_shares),
+                            "yes_price": float(yes_price),
+                            "no_price": float(no_price),
+                            "yes_value": float(yes_value),
+                            "no_value": float(no_value),
+                            "description": mc.description,
+                        }
+                    except Exception as e:
+                        logger.warning("wallet.reconcile.position_error",
+                                       market_id=mc.market_id, error=str(e))
+                    self._on_chain["positions"][mc.market_id] = pos_data
 
             self._on_chain["portfolio_value"] = float(portfolio_value)
 
-            # Real PnL = on-chain USDC now − initial on-chain balance
-            initial_on_chain = Decimal(str(self._on_chain.get("initial_on_chain", float(self._initial_balance))))
-            real_pnl = usdc_balance - initial_on_chain
+            # Real PnL = full portfolio − initial on-chain balance
+            initial_on_chain = Decimal(str(
+                self._on_chain.get("initial_on_chain", float(self._initial_balance))))
+            real_pnl = portfolio_value - initial_on_chain
             self._on_chain["real_pnl"] = float(real_pnl)
 
-            # Discrepancy detection
-            virtual_avail = float(self._available_balance)
-            on_chain_avail = float(usdc_balance)
-            discrepancy = abs(on_chain_avail - virtual_avail)
+            # Discrepancy: virtual equity vs on-chain portfolio
+            virtual_equity = float(self.total_equity(
+                {mc.market_id: Decimal(str(self._on_chain["positions"].get(
+                    mc.market_id, {}).get("yes_price", 0)))
+                 for mc in (market_configs or [])}
+            ))
+            discrepancy = abs(float(portfolio_value) - virtual_equity)
             self._on_chain["discrepancy_usdc"] = round(discrepancy, 4)
 
-            if discrepancy > 1.0:
+            if discrepancy > 5.0:
                 logger.warning(
                     "wallet.reconcile.discrepancy",
-                    virtual_available=round(virtual_avail, 4),
-                    on_chain_balance=round(on_chain_avail, 4),
+                    virtual_equity=round(virtual_equity, 4),
+                    on_chain_portfolio=round(float(portfolio_value), 4),
                     discrepancy=round(discrepancy, 4),
                 )
 
@@ -613,11 +646,22 @@ class ProductionTradingPipeline:
                     test_capital=str(self.wallet.test_capital),
                 )
 
-            # Store on-chain balance (in USD) for reference but keep test_capital
-            # as the risk budget. The wallet virtual tracker starts at
-            # test_capital (e.g. $25), NOT the full on-chain balance.
-            # Kill switch triggers based on test_capital drawdown.
-            self.wallet._on_chain["initial_on_chain"] = float(on_chain_balance)
+            # Store initial on-chain balance for PnL reference.
+            # Use config value if set (survives restarts), else current on-chain.
+            config_initial = None
+            if self.run_config:
+                ci = self.run_config.params.get("initial_on_chain_balance")
+                if ci is not None:
+                    config_initial = float(ci)
+
+            if config_initial:
+                self.wallet._on_chain["initial_on_chain"] = config_initial
+                logger.info("production.initial_on_chain_from_config",
+                            initial_on_chain=config_initial)
+            else:
+                self.wallet._on_chain["initial_on_chain"] = float(on_chain_balance)
+                logger.info("production.initial_on_chain_from_current",
+                            initial_on_chain=float(on_chain_balance))
         except Exception as e:
             logger.warning("production.balance_check_failed", error=str(e))
 

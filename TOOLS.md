@@ -79,9 +79,11 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 - `pgrep -af openclaw-gateway` — PID
 - `ss -tlnp | grep 18789` — porta
 
-**Config reload (seguro, non-disruptive):**
-- `kill -USR1 $(pgrep -f openclaw-gateway)` — hot reload da config
-- ⚠️ Pode causar brief disconnect mas NÃO mata o processo
+**Config reload (⚠️ causa full restart):**
+- `kill -USR1 $(pgrep -f openclaw-gateway)` — **NÃO é hot-reload**; causa supervisor restart completo (PID muda)
+- Descoberto empiricamente em 27/fev e confirmado em 28/fev: SIGUSR1 mata o processo e o systemd reinicia
+- Equivalente a restart do ponto de vista do gateway — usar com mesma cautela
+- Alertar Matheus antes quando possível
 
 ---
 

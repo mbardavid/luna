@@ -15,6 +15,7 @@ params:
   gamma_risk_aversion: 0.3
   kill_switch_max_drawdown_pct: 20.0   # $5 loss = halt
   kill_switch_alert_pct: 10.0          # $2.50 loss = alert
+  initial_on_chain_balance: 232.106    # USDC.e when trading started (2026-02-28)
   markets:
     - "0x561cd8d035bac38ed04e23d7882a126da38d7ead9d6679f722ad62c0c9d54ad2"
 

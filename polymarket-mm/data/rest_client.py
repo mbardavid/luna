@@ -313,7 +313,7 @@ class CLOBRestClient:
     # ── Public API: Balances ─────────────────────────────────────
 
     async def get_balance_allowance(
-        self, asset_type: str = "COLLATERAL"
+        self, asset_type: str = "COLLATERAL", token_id: str | None = None,
     ) -> dict[str, Any]:
         """Fetch balance and allowance for the wallet.
 
@@ -321,13 +321,20 @@ class CLOBRestClient:
         ----------
         asset_type:
             "COLLATERAL" for USDC or "CONDITIONAL" for CT tokens.
+        token_id:
+            Required when asset_type is "CONDITIONAL".
 
         Returns dict with ``balance`` and ``allowances``.
         """
         assert self._client is not None, "Call connect() first"
 
         await self._rate_limiter.acquire()
-        params = BalanceAllowanceParams(asset_type=asset_type)
+        if token_id:
+            from py_clob_client.clob_types import AssetType as _AT
+            at = _AT.CONDITIONAL if asset_type == "CONDITIONAL" else _AT.COLLATERAL
+            params = BalanceAllowanceParams(asset_type=at, token_id=token_id)
+        else:
+            params = BalanceAllowanceParams(asset_type=asset_type)
         result = await self._run_sync(self._client.get_balance_allowance, params)
 
         logger.info(
@@ -336,6 +343,22 @@ class CLOBRestClient:
             balance=result.get("balance", "0"),
         )
         return result
+
+    async def get_price(
+        self, token_id: str, side: str = "sell",
+    ) -> Decimal:
+        """Fetch live price for a token from CLOB.
+
+        Returns the price as Decimal, or 0 if unavailable.
+        """
+        assert self._client is not None, "Call connect() first"
+        await self._rate_limiter.acquire()
+        try:
+            result = await self._run_sync(
+                self._client.get_last_trade_price, token_id)
+            return Decimal(str(result.get("price", "0")))
+        except Exception:
+            return Decimal("0")
 
     # ── Public API: Orders ───────────────────────────────────────
 
