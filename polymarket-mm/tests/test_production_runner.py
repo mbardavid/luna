@@ -19,6 +19,7 @@ import pytest
 from models.order import Order, OrderStatus, OrderType, Side
 from models.position import Position
 from paper.production_runner import (
+    DATA_DIR,
     ProdMarketConfig,
     ProductionLiveStateWriter,
     ProductionTradeLogger,
@@ -281,3 +282,290 @@ class TestProductionPipeline:
         assert isinstance(mids, dict)
         # No market data yet, so should be empty
         assert len(mids) == 0
+
+
+# ── BUG-1 FIX Tests: Trade Dedup Persistence ────────────────────────
+
+class TestTradeDedupPersistence:
+    """Tests for persistent trade deduplication across restarts."""
+
+    def test_save_and_load_trade_dedup(self, prod_market_config, tmp_path):
+        """Processed trade IDs should persist to disk and reload on init."""
+        dedup_path = tmp_path / "processed_trade_ids.json"
+
+        mock_rest = MagicMock()
+        pipeline = ProductionTradingPipeline(
+            market_configs=[prod_market_config],
+            rest_client=mock_rest,
+            duration_hours=0.01,
+        )
+        # Override path to tmp and clear any pre-loaded state from real file
+        pipeline._trade_dedup_path = dedup_path
+        pipeline._processed_trades = set()
+        pipeline._last_processed_trade_ts = ""
+
+        # Simulate processing some trades
+        pipeline._processed_trades.add("trade-001")
+        pipeline._processed_trades.add("trade-002")
+        pipeline._processed_trades.add("trade-001:order-abc")
+        pipeline._last_processed_trade_ts = "2026-02-28T20:00:00Z"
+        pipeline._save_trade_dedup()
+
+        # Verify file exists with correct content
+        assert dedup_path.exists()
+        with open(dedup_path) as f:
+            data = json.load(f)
+        assert set(data["trade_ids"]) == {"trade-001", "trade-002", "trade-001:order-abc"}
+        assert data["last_trade_ts"] == "2026-02-28T20:00:00Z"
+        assert data["count"] == 3
+
+        # Create a new pipeline and load dedup state
+        pipeline2 = ProductionTradingPipeline(
+            market_configs=[prod_market_config],
+            rest_client=mock_rest,
+            duration_hours=0.01,
+        )
+        pipeline2._trade_dedup_path = dedup_path
+        pipeline2._load_trade_dedup()
+
+        assert "trade-001" in pipeline2._processed_trades
+        assert "trade-002" in pipeline2._processed_trades
+        assert "trade-001:order-abc" in pipeline2._processed_trades
+        assert pipeline2._last_processed_trade_ts == "2026-02-28T20:00:00Z"
+
+    def test_dedup_empty_file(self, prod_market_config, tmp_path):
+        """Loading from nonexistent file should start clean."""
+        mock_rest = MagicMock()
+        pipeline = ProductionTradingPipeline(
+            market_configs=[prod_market_config],
+            rest_client=mock_rest,
+            duration_hours=0.01,
+        )
+        # Point to nonexistent file and reload — should start clean
+        pipeline._trade_dedup_path = tmp_path / "nonexistent.json"
+        pipeline._processed_trades = set()
+        pipeline._last_processed_trade_ts = ""
+        pipeline._load_trade_dedup()
+
+        assert len(pipeline._processed_trades) == 0
+        assert pipeline._last_processed_trade_ts == ""
+
+    @pytest.mark.asyncio
+    async def test_process_trade_skips_duplicate(self, prod_market_config):
+        """Already-processed trade IDs should be skipped."""
+        mock_rest = MagicMock()
+        mock_rest.clob_client = MagicMock()
+        mock_rest.clob_client.get_address.return_value = "0xOurWallet"
+
+        pipeline = ProductionTradingPipeline(
+            market_configs=[prod_market_config],
+            rest_client=mock_rest,
+            duration_hours=0.01,
+        )
+
+        # Pre-populate dedup set
+        pipeline._processed_trades.add("trade-existing")
+
+        trade = {
+            "id": "trade-existing",
+            "maker_orders": [{
+                "maker_address": "0xOurWallet",
+                "order_id": "ord-1",
+                "side": "BUY",
+                "asset_id": prod_market_config.token_id_yes,
+                "price": "0.50",
+                "matched_amount": "5",
+                "fee_rate_bps": "0",
+            }],
+        }
+
+        # Should not change PnL since it's a duplicate
+        old_pnl = pipeline.total_pnl
+        await pipeline._process_trade(trade, prod_market_config)
+        assert pipeline.total_pnl == old_pnl
+
+
+# ── BUG-2 FIX Tests: On-Chain Wallet Reconciliation ─────────────────
+
+class TestOnChainReconciliation:
+    """Tests for wallet on-chain reconciliation."""
+
+    def test_wallet_has_on_chain_dict(self):
+        """Wallet should initialize with empty on_chain snapshot."""
+        wallet = ProductionWallet(initial_balance=Decimal("25"))
+        assert wallet.on_chain == {}
+
+    @pytest.mark.asyncio
+    async def test_reconcile_on_chain_updates_snapshot(self):
+        """reconcile_on_chain should populate _on_chain with real data."""
+        wallet = ProductionWallet(initial_balance=Decimal("25"))
+        wallet.init_position("market-1", "yes-tok", "no-tok")
+
+        mock_rest = AsyncMock()
+        # Balance from API is in micro-USDC (6 decimals): 232.50 USD = 232500000 micro
+        mock_rest.get_balance_allowance = AsyncMock(
+            return_value={"balance": "232500000"}
+        )
+
+        market_cfg = ProdMarketConfig(
+            market_id="market-1",
+            condition_id="cond-1",
+            token_id_yes="yes-tok",
+            token_id_no="no-tok",
+            description="Test",
+            market_type=MarketType.OTHER,
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            neg_risk=False,
+        )
+
+        await wallet.reconcile_on_chain(mock_rest, market_configs=[market_cfg])
+
+        oc = wallet.on_chain
+        assert oc["usdc_balance"] == 232.50
+        assert oc["portfolio_value"] == 232.50
+        assert oc["real_pnl"] == 232.50 - 25.0  # on_chain - initial
+        assert oc["discrepancy_usdc"] > 0  # virtual is 25, on-chain is 232.50
+        assert "last_updated" in oc
+
+    @pytest.mark.asyncio
+    async def test_reconcile_logs_discrepancy(self):
+        """Large discrepancy should be logged (not crash)."""
+        wallet = ProductionWallet(initial_balance=Decimal("25"))
+
+        mock_rest = AsyncMock()
+        # 500.00 USD = 500000000 micro-USDC
+        mock_rest.get_balance_allowance = AsyncMock(
+            return_value={"balance": "500000000"}
+        )
+
+        await wallet.reconcile_on_chain(mock_rest)
+
+        oc = wallet.on_chain
+        # Discrepancy = |500 - 25| = 475
+        assert oc["discrepancy_usdc"] == 475.0
+
+    @pytest.mark.asyncio
+    async def test_reconcile_handles_error_gracefully(self):
+        """Network errors during reconciliation should not crash."""
+        wallet = ProductionWallet(initial_balance=Decimal("25"))
+
+        mock_rest = AsyncMock()
+        mock_rest.get_balance_allowance = AsyncMock(
+            side_effect=Exception("Network timeout")
+        )
+
+        # Should not raise
+        await wallet.reconcile_on_chain(mock_rest)
+        # on_chain stays empty
+        assert wallet.on_chain == {}
+
+    def test_pipeline_start_syncs_wallet_to_on_chain(self, prod_market_config):
+        """Pipeline init should prepare for on-chain sync at start."""
+        mock_rest = MagicMock()
+        mock_rest.get_balance_allowance = AsyncMock(
+            return_value={"balance": "232.50"}
+        )
+
+        pipeline = ProductionTradingPipeline(
+            market_configs=[prod_market_config],
+            rest_client=mock_rest,
+            duration_hours=0.01,
+            initial_balance=Decimal("25"),
+        )
+
+        # Initial balance is 25 (before start is called)
+        assert pipeline.wallet.initial_balance == Decimal("25")
+
+
+# ── BUG-3 FIX Tests: Live State On-Chain Section ────────────────────
+
+class TestLiveStateOnChain:
+    """Tests for on_chain section in live_state_production.json."""
+
+    def test_live_state_writer_accepts_on_chain(self, tmp_path):
+        """LiveStateWriter.write() should accept and include on_chain data."""
+        from paper.paper_runner import LiveStateWriter, MetricsCollector, LiveBookTracker
+
+        writer = LiveStateWriter(
+            path=tmp_path / "test_live_state.json",
+            run_id="test",
+        )
+
+        mock_metrics = MagicMock(spec=MetricsCollector)
+        mock_metrics.total_quotes = 0
+        mock_metrics.total_orders = 0
+        mock_metrics.total_fills = 0
+        mock_metrics.total_ws_messages = 0
+        mock_metrics.total_errors = 0
+        mock_metrics.per_market = {}
+
+        mock_book = MagicMock(spec=LiveBookTracker)
+        mock_kill = MagicMock()
+        mock_kill.state.value = "RUNNING"
+
+        on_chain_data = {
+            "usdc_balance": 232.50,
+            "portfolio_value": 232.50,
+            "real_pnl": 207.50,
+            "discrepancy_usdc": 0.0,
+            "last_updated": "2026-02-28T20:00:00Z",
+        }
+
+        writer.write(
+            status="RUNNING",
+            total_pnl=Decimal("0"),
+            realized_pnl=Decimal("0"),
+            unrealized_pnl=Decimal("0"),
+            positions={},
+            metrics=mock_metrics,
+            market_configs=[],
+            book_tracker=mock_book,
+            kill_switch=mock_kill,
+            on_chain=on_chain_data,
+        )
+
+        with open(tmp_path / "test_live_state.json") as f:
+            state = json.load(f)
+
+        assert "on_chain" in state
+        assert state["on_chain"]["usdc_balance"] == 232.50
+        assert state["on_chain"]["real_pnl"] == 207.50
+
+    def test_live_state_writer_no_on_chain_is_fine(self, tmp_path):
+        """When on_chain is None, state should not have on_chain key."""
+        from paper.paper_runner import LiveStateWriter, MetricsCollector, LiveBookTracker
+
+        writer = LiveStateWriter(
+            path=tmp_path / "test_live_state2.json",
+            run_id="test",
+        )
+
+        mock_metrics = MagicMock(spec=MetricsCollector)
+        mock_metrics.total_quotes = 0
+        mock_metrics.total_orders = 0
+        mock_metrics.total_fills = 0
+        mock_metrics.total_ws_messages = 0
+        mock_metrics.total_errors = 0
+        mock_metrics.per_market = {}
+
+        mock_book = MagicMock(spec=LiveBookTracker)
+        mock_kill = MagicMock()
+        mock_kill.state.value = "RUNNING"
+
+        writer.write(
+            status="RUNNING",
+            total_pnl=Decimal("0"),
+            realized_pnl=Decimal("0"),
+            unrealized_pnl=Decimal("0"),
+            positions={},
+            metrics=mock_metrics,
+            market_configs=[],
+            book_tracker=mock_book,
+            kill_switch=mock_kill,
+        )
+
+        with open(tmp_path / "test_live_state2.json") as f:
+            state = json.load(f)
+
+        assert "on_chain" not in state

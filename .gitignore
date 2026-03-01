@@ -42,3 +42,12 @@ artifacts/backups/**/openclaw.json
 __pycache__/
 .hypothesis/
 *.pyc
+
+# Sensitive credentials
+.supabase-pw
+
+# Polymarket runtime data (not code)
+polymarket-mm/paper/data/*.json
+polymarket-mm/paper/data/*.jsonl
+polymarket-mm/paper/data/*.pid
+polymarket-mm/paper/data/*.log

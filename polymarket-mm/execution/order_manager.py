@@ -9,6 +9,7 @@ Wraps an ``ExecutionProvider`` with:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -18,6 +19,9 @@ from execution.execution_provider import ExecutionProvider
 from models.order import Order, OrderStatus
 
 logger = structlog.get_logger("execution.order_manager")
+
+# Time-to-live for terminal orders before they are purged from tracking.
+_TERMINAL_TTL_SECONDS = 300  # 5 minutes
 
 # Terminal statuses — orders in these states are no longer "active".
 _TERMINAL_STATUSES = frozenset(
@@ -37,6 +41,8 @@ class OrderManager:
     def __init__(self, provider: ExecutionProvider) -> None:
         self._provider = provider
         self._orders: dict[UUID, Order] = {}
+        # Track when orders entered terminal state for TTL-based cleanup.
+        self._terminal_timestamps: dict[UUID, datetime] = {}
 
     # ── Public API ───────────────────────────────────────────────
 
@@ -68,6 +74,8 @@ class OrderManager:
 
         result = await self._provider.submit_order(order)
         self._orders[result.client_order_id] = result
+        if result.status in _TERMINAL_STATUSES:
+            self._terminal_timestamps[result.client_order_id] = datetime.now(timezone.utc)
 
         logger.info(
             "order_manager.submitted",
@@ -144,6 +152,7 @@ class OrderManager:
             self._orders[client_order_id] = existing.model_copy(
                 update={"status": OrderStatus.CANCELLED}
             )
+            self._terminal_timestamps[client_order_id] = datetime.now(timezone.utc)
         return success
 
     async def cancel_all(self) -> int:
@@ -167,7 +176,12 @@ class OrderManager:
         return cancelled
 
     def get_active_orders(self) -> list[Order]:
-        """Return all orders that are not in a terminal state."""
+        """Return all orders that are not in a terminal state.
+
+        Also purges terminal orders older than ``_TERMINAL_TTL_SECONDS``
+        to prevent unbounded memory growth.
+        """
+        self._purge_stale_terminal_orders()
         return [
             order
             for order in self._orders.values()
@@ -182,3 +196,31 @@ class OrderManager:
     def tracked_count(self) -> int:
         """Total number of tracked orders (active + terminal)."""
         return len(self._orders)
+
+    # ── Internal helpers ─────────────────────────────────────────
+
+    def _purge_stale_terminal_orders(self) -> None:
+        """Remove terminal orders older than ``_TERMINAL_TTL_SECONDS``.
+
+        Called automatically from ``get_active_orders()`` to prevent the
+        ``_orders`` dict from growing unboundedly during continuous
+        operation.
+        """
+        now = datetime.now(timezone.utc)
+        stale_ids: list[UUID] = []
+
+        for oid, ts in self._terminal_timestamps.items():
+            age = (now - ts).total_seconds()
+            if age > _TERMINAL_TTL_SECONDS:
+                stale_ids.append(oid)
+
+        for oid in stale_ids:
+            self._orders.pop(oid, None)
+            self._terminal_timestamps.pop(oid, None)
+
+        if stale_ids:
+            logger.debug(
+                "order_manager.purged_terminal",
+                purged=len(stale_ids),
+                remaining=len(self._orders),
+            )

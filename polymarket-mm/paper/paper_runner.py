@@ -482,6 +482,7 @@ class LiveStateWriter:
         kill_switch: Any,
         ws_connected: bool = True,
         wallet: dict | None = None,
+        on_chain: dict | None = None,
     ) -> None:
         uptime_s = time.monotonic() - self._start_time
         target_s = self._duration_target_h * 3600
@@ -587,6 +588,10 @@ class LiveStateWriter:
         # Add wallet data if available
         if wallet:
             state["wallet"] = wallet
+
+        # Add on-chain data if available (production only)
+        if on_chain:
+            state["on_chain"] = on_chain
 
         try:
             tmp_path = self._path.with_suffix(".tmp")

@@ -346,6 +346,43 @@ select {
     </div>
   </div>
 
+  <!-- ─── On-Chain Truth Panel ─────────────────────────────────── -->
+  <div class="panel panel-prod full-width" id="onchain-panel" style="border-left:3px solid #00cec9">
+    <div class="panel-title">⛓️ On-Chain Truth (real balance)</div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">USDC Balance</div>
+        <div class="stat-value" id="onchain-usdc" style="color:#00cec9">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Portfolio Value</div>
+        <div class="stat-value small" id="onchain-portfolio">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Real PnL</div>
+        <div class="stat-value small" id="onchain-pnl">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Discrepancy</div>
+        <div class="stat-value small" id="onchain-discrepancy">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Last Updated</div>
+        <div class="stat-value small" id="onchain-updated" style="font-size:11px">—</div>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-dim)">
+      <table class="compare-table" style="font-size:12px">
+        <thead>
+          <tr><th>Metric</th><th>Virtual Tracker</th><th>On-Chain</th><th>Δ</th></tr>
+        </thead>
+        <tbody id="onchain-compare-body">
+          <tr><td colspan="4" class="loading">Waiting for reconciliation data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- ─── Comparison Panel ───────────────────────────────────── -->
   <div class="panel panel-compare" id="compare-panel">
     <div class="panel-title">📈 Comparison Panel</div>
@@ -843,6 +880,72 @@ function renderRuns(runs) {
   }).join('');
 }
 
+// ── On-Chain Truth Panel ────────────────────────────────────────────
+function updateOnChainPanel(prod) {
+  const panel = document.getElementById('onchain-panel');
+  const oc = prod?.on_chain;
+  const w = prod?.wallet;
+
+  if (!oc || !oc.usdc_balance) {
+    document.getElementById('onchain-usdc').textContent = '—';
+    document.getElementById('onchain-portfolio').textContent = '—';
+    document.getElementById('onchain-pnl').textContent = '—';
+    document.getElementById('onchain-discrepancy').textContent = '—';
+    document.getElementById('onchain-updated').textContent = 'No data';
+    document.getElementById('onchain-compare-body').innerHTML =
+      '<tr><td colspan="4" class="loading">Waiting for reconciliation data...</td></tr>';
+    return;
+  }
+
+  const usdc = oc.usdc_balance || 0;
+  document.getElementById('onchain-usdc').textContent = '$' + usdc.toFixed(2);
+
+  const portfolio = oc.portfolio_value || 0;
+  document.getElementById('onchain-portfolio').textContent = '$' + portfolio.toFixed(2);
+
+  const realPnl = oc.real_pnl || 0;
+  const pnlEl = document.getElementById('onchain-pnl');
+  pnlEl.textContent = (realPnl >= 0 ? '+' : '') + '$' + realPnl.toFixed(4);
+  pnlEl.style.color = realPnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  const disc = oc.discrepancy_usdc || 0;
+  const discEl = document.getElementById('onchain-discrepancy');
+  discEl.textContent = '$' + disc.toFixed(4);
+  discEl.style.color = disc > 1 ? 'var(--red)' : disc > 0.1 ? 'var(--yellow)' : 'var(--green)';
+
+  const updated = oc.last_updated ? new Date(oc.last_updated).toLocaleTimeString() : '—';
+  document.getElementById('onchain-updated').textContent = updated;
+
+  // Highlight panel if big discrepancy
+  if (disc > 1) {
+    panel.classList.add('panel-alert');
+  } else {
+    panel.classList.remove('panel-alert');
+  }
+
+  // Comparison table
+  const tbody = document.getElementById('onchain-compare-body');
+  const virtualAvail = w?.available_balance || 0;
+  const virtualEquity = w?.total_equity || 0;
+  const virtualPnl = prod?.pnl?.cumulative || 0;
+
+  function row(label, vVal, ocVal) {
+    const delta = ocVal - vVal;
+    const deltaClass = Math.abs(delta) > 1 ? 'divergent' : '';
+    return `<tr>
+      <td>${label}</td>
+      <td>$${vVal.toFixed(2)}</td>
+      <td>$${ocVal.toFixed(2)}</td>
+      <td class="${deltaClass}">${delta >= 0 ? '+' : ''}$${delta.toFixed(2)}</td>
+    </tr>`;
+  }
+
+  tbody.innerHTML =
+    row('Available USDC', virtualAvail, usdc) +
+    row('Total Equity', virtualEquity, portfolio) +
+    row('PnL', virtualPnl, realPnl);
+}
+
 // ── PnL stats ───────────────────────────────────────────────────────
 function updatePnlStats(state) {
   if (!state || !state.pnl) return;
@@ -868,6 +971,7 @@ async function refresh() {
 
   updateSidePanel('demo', demo);
   updateSidePanel('prod', prod);
+  updateOnChainPanel(prod);
   updateComparison(demo, prod);
   renderTrades();
   renderMarkets(demo);

@@ -335,35 +335,24 @@ class TestToxicFlowDetector:
 
     @pytest.mark.asyncio
     async def test_normal_not_toxic(self):
-        """Normal imbalance should not be toxic."""
+        """Low toxic_flow_score should not be toxic."""
         detector = ToxicFlowDetector()
-        # Build baseline of normal observations
-        for _ in range(10):
-            fv = self._make_fv(imbalance=0.0)
-            detector.update(fv)
-
-        fv = self._make_fv(imbalance=0.1)
+        fv = self._make_fv(imbalance=0.1, toxic_score=0.5)
         assert detector.is_toxic(fv) is False
 
     @pytest.mark.asyncio
     async def test_extreme_is_toxic(self):
-        """Extreme imbalance spike should be detected as toxic."""
-        config = ToxicFlowConfig(toxic_zscore_threshold=2.0, min_observations=5)
+        """High toxic_flow_score should be detected as toxic."""
+        config = ToxicFlowConfig(toxic_zscore_threshold=2.0)
         detector = ToxicFlowDetector(config=config)
 
-        # Build baseline of near-zero imbalance
-        for _ in range(20):
-            fv = self._make_fv(imbalance=0.05)
-            detector.update(fv)
-
-        # Extreme spike
         fv_spike = self._make_fv(imbalance=0.95, toxic_score=3.0)
         assert detector.is_toxic(fv_spike) is True
 
     @pytest.mark.asyncio
     async def test_should_halt_extreme(self):
         """Very extreme z-score should trigger halt."""
-        config = ToxicFlowConfig(halt_zscore_threshold=3.5, min_observations=5)
+        config = ToxicFlowConfig(halt_zscore_threshold=3.5)
         detector = ToxicFlowDetector(config=config)
 
         # Use direct toxic_flow_score > halt threshold
@@ -376,7 +365,6 @@ class TestToxicFlowDetector:
         config = ToxicFlowConfig(
             combined_zscore_threshold=2.5,
             imbalance_halt_threshold=0.7,
-            min_observations=5,
         )
         detector = ToxicFlowDetector(config=config)
 
@@ -386,7 +374,7 @@ class TestToxicFlowDetector:
     @pytest.mark.asyncio
     async def test_should_not_halt_moderate(self):
         """Moderate signals should NOT halt."""
-        config = ToxicFlowConfig(halt_zscore_threshold=3.5, min_observations=5)
+        config = ToxicFlowConfig(halt_zscore_threshold=3.5)
         detector = ToxicFlowDetector(config=config)
 
         fv = self._make_fv(imbalance=0.3, toxic_score=1.5)
@@ -396,7 +384,7 @@ class TestToxicFlowDetector:
     async def test_publishes_toxic_flow_event(self):
         """evaluate_and_publish() should publish to EventBus when toxic."""
         bus = EventBus()
-        config = ToxicFlowConfig(toxic_zscore_threshold=1.0, min_observations=3)
+        config = ToxicFlowConfig(toxic_zscore_threshold=1.0)
         detector = ToxicFlowDetector(event_bus=bus, config=config)
 
         received: list[Any] = []
@@ -409,11 +397,7 @@ class TestToxicFlowDetector:
         listener = asyncio.create_task(_listen())
         await asyncio.sleep(0.01)
 
-        # Build baseline
-        for _ in range(5):
-            detector.update(self._make_fv(imbalance=0.0))
-
-        # Trigger toxic
+        # Trigger toxic via toxic_flow_score
         fv = self._make_fv(imbalance=0.95, toxic_score=3.0)
         result = await detector.evaluate_and_publish(fv)
 
@@ -428,13 +412,11 @@ class TestToxicFlowDetector:
     @pytest.mark.asyncio
     async def test_reset_clears_state(self):
         """reset() should clear detector state."""
+        from datetime import datetime, timezone
         detector = ToxicFlowDetector()
-        for _ in range(10):
-            detector.update(self._make_fv(imbalance=0.1))
-
-        assert len(detector._imbalances.get("test-mkt", [])) > 0
+        detector._last_toxic_event["test-mkt"] = datetime.now(timezone.utc)
         detector.reset("test-mkt")
-        assert "test-mkt" not in detector._imbalances
+        assert "test-mkt" not in detector._last_toxic_event
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -735,8 +717,7 @@ class TestIntegrationPipeline:
             fv = await engine.compute(ms, ob, oracle_price=0.50)
 
             # Normal conditions should not be toxic
-            detector.update(fv)
-            # With only 1 observation, detector should not flag toxic
+            # With low toxic_flow_score, detector should not flag toxic
             assert detector.is_toxic(fv) is False
         finally:
             await venue.disconnect()

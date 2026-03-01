@@ -95,6 +95,15 @@
 
 ## 2026-02-28
 
+- **PMM Production LIVE:** Primeiro bot real no Polymarket. Ordens BUY aceitas no CLOB. $25 capital, kill switch $5 loss, 24h duration. Métricas reais sendo coletadas para calibrar simulação.
+- **Geoblock resolvido via Tor:** Servidor US bloqueado pelo Polymarket. Tor SOCKS5 com ExitNodes em JP/BR/KR resolve. IP final Curaçao. Latência ~900ms. Dependência: `tor` systemd service deve estar ativo.
+- **Fee real do Polymarket: 30bps** (não 20 como tínhamos). Descoberto via API docs.
+- **8 adversidades reais de MM documentadas** que não simulávamos: stale quotes, queue priority, informed flow, event risk, fee real, gas costs, rejection rate, spread competition.
+- **Crypto-sage reporta balances incompletos:** Disse "USDC insuficiente" sem verificar USDC.e que já existia (~228). Lição: sempre verificar TODOS os tokens relevantes antes de delegar.
+- **Gemini CLI configurada** para agent playground (#playground), modelo `google-gemini-cli/gemini-3.1-pro-preview`. Google retornando 429 (capacity exhausted) — temporário.
+- **Heartbeat V3 implementado** em `heartbeat-v3/` (57 tests), morto até go-ahead de Matheus.
+- **SIGUSR1 confirmado como full restart** (não hot-reload) — PID muda.
+
 - **PMM paper trading: adversarial validation confirma edge real mas fino.** Run-007 (adversarial fills) reduziu PnL em 89% vs vanilla (de $168/hr para $18.86/hr). Estratégia é lucrativa mesmo sob condições adversariais, mas margem estreita. Inventário não-controlado (+103 net) é o próximo gargalo — run-008 (H2, gamma 0.5) é o teste decisivo antes de produção.
 - **SIGUSR1 não é hot-reload — causa full restart.** Descoberto empiricamente em 27/fev: `kill -USR1` ao gateway causa supervisor restart completo (PID muda). TOOLS.md dizia "brief disconnect but does NOT kill the process" — informação incorreta que precisa ser corrigida.
 - **Itens de taxonomia operacional acumulando:** 6 itens pendentes de documentação permanente (PMM workflow, HB V2 scripts, MC scripts, post-mortem, active-tasks cleanup, SIGUSR1 doc). Nenhum é urgente individualmente, mas o acúmulo indica necessidade de um sprint de documentação.

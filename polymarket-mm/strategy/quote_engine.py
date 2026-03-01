@@ -223,7 +223,6 @@ class QuoteEngine:
             return plan
 
         # ── Gate 2: Toxic flow halt check ────────────────────────
-        self._toxic.update(features)
         if self._toxic.should_halt(features):
             logger.warning(
                 "quote_engine.toxic_halt",
