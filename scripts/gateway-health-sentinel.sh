@@ -9,6 +9,11 @@ STATE_FILE="/tmp/.gateway-sentinel-state.json"
 COOLDOWN_SECONDS=300
 LOG_TAG="[gateway-sentinel]"
 
+# Token lido de arquivo de configuracao local (fora do git, nao versionado)
+# Para configurar: echo 'DISCORD_BOT_TOKEN=seu_token' > /home/openclaw/.openclaw/sentinel.env
+SENTINEL_ENV_FILE="${SENTINEL_ENV_FILE:-/home/openclaw/.openclaw/sentinel.env}"
+[ -f "$SENTINEL_ENV_FILE" ] && source "$SENTINEL_ENV_FILE"
+
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $LOG_TAG $*"; }
 
 in_cooldown() {
@@ -42,13 +47,44 @@ with open(f, 'w') as fh:
 " 2>/dev/null
 }
 
+# Token do bot Discord lido do sentinel.env (ver cabecalho para configurar)
+# DISCORD_BOT_TOKEN deve estar definido em /home/openclaw/.openclaw/sentinel.env
+
+send_via_discord_api() {
+    local msg="$1"
+    local json_msg
+    json_msg=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$msg" 2>/dev/null)
+    curl -sf --max-time 8 \
+        -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"content\": $json_msg}" \
+        "https://discord.com/api/v10/channels/$DISCORD_CHANNEL/messages" \
+        -o /dev/null -w "%{http_code}" 2>/dev/null
+}
+
 send_alert() {
     local msg="$1"
     local key="$2"
     [ "$(in_cooldown "$key")" = "yes" ] && { log "cooldown: $key"; return; }
-    "$OPENCLAW_BIN" --config "$OPENCLAW_CONFIG" message send \
-        --channel discord --target "$DISCORD_CHANNEL" --text "$msg" 2>/dev/null \
-        && set_alert "$key" && log "Alerta enviado: $key"
+
+    # Tenta primeiro via gateway (caminho normal)
+    if "$OPENCLAW_BIN" --config "$OPENCLAW_CONFIG" message send \
+        --channel discord --target "$DISCORD_CHANNEL" --text "$msg" 2>/dev/null; then
+        set_alert "$key"
+        log "Alerta enviado via gateway: $key"
+        return
+    fi
+
+    # Fallback: Discord REST API direta — funciona mesmo com gateway OOM ou zumbi
+    log "Gateway indisponivel — usando Discord API direta: $key"
+    local http_code
+    http_code=$(send_via_discord_api "$msg")
+    if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
+        set_alert "$key"
+        log "Alerta enviado via Discord API direta: $key (HTTP $http_code)"
+    else
+        log "FALHA ao enviar alerta $key (gateway + API falhou): HTTP $http_code"
+    fi
 }
 
 # CHECK 1: Processo orfao real (porta com PID que NAO e filho do MainPID)
