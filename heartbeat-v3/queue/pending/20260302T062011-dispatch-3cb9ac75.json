@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "3cb9ac75-afc2-4fe5-ba5e-f8c2baf97191",
+  "filename": "20260302T062011-dispatch-3cb9ac75.json",
+  "created_at": "2026-03-02T06:20:11.867394+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "A2A Review Loop: Implement Two-Phase Spawn Protocol",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "Fix Luna\u2194Luan A2A protocol. Currently fire-and-forget; needs plan\u2192review\u2192implement\u2192validate loop.",
+    "original_agent": "luan",
+    "session_key": null,
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "3cb9ac75-afc2-4fe5-ba5e-f8c2baf97191",
+    "title": "A2A Review Loop: Implement Two-Phase Spawn Protocol",
+    "description": "Fix Luna\u2194Luan A2A protocol. Currently fire-and-forget; needs plan\u2192review\u2192implement\u2192validate loop.",
+    "priority": "high"
+  }
+}

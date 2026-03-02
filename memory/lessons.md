@@ -252,3 +252,109 @@
 **Domain:** Backtesting / NautilusTrader
 **Pattern:** Importing full MM codebase into NautilusTrader brings heavy deps (pydantic, structlog) that conflict. Use lightweight inline model stand-ins instead.
 **Action:** For backtesting bridges, create self-contained `__slots__`-based classes. Keep backtest runnable independently of production code.
+
+## Lesson 1: Binary Market Complement Consistency (cross-pollinated 2026-03-02)
+**Domain:** Polymarket / Trading
+**Pattern:** In binary markets (YES/NO), prices must satisfy `price_yes + price_no = 1.0`. When quoting one side, always verify the complement is consistent. Off-by-one-cent errors in complement routing caused phantom PnL and incorrect order placement.
+**Action:** Always assert complement consistency in tests. Add explicit checks: `assert abs(price_yes + price_no - 1.0) < 1e-9`.
+
+
+## Lesson 2: Sync Fill State vs Async Events (cross-pollinated 2026-03-02)
+**Domain:** Trading / Order Management
+**Pattern:** Order fill events can arrive out of order or be delayed. Position state built from fill events must handle: (a) duplicate fills (same fill_id), (b) fills arriving after cancel confirmation, (c) partial fills that sum to more than order quantity due to race conditions.
+**Action:** Always deduplicate fills by fill_id. Use idempotent position updates. Test with out-of-order event sequences.
+
+
+## Lesson 3: USDC Micro-Units (cross-pollinated 2026-03-02)
+**Domain:** DeFi / API Integration
+**Pattern:** USDC balance from Polymarket API is returned in micro-units (1e6). Failing to divide causes positions to appear 1,000,000x larger than reality, which cascades into incorrect risk calculations and order sizing.
+**Action:** Always normalize token amounts at the API boundary. Add unit tests that verify normalization: `assert normalize_usdc(1_000_000) == Decimal("1.0")`.
+
+
+## Lesson 4: DNS Resolution Failures in External APIs (cross-pollinated 2026-03-02)
+**Domain:** Infrastructure / Network
+**Pattern:** `quote-api.jup.ag` intermittently fails DNS resolution (`ENOTFOUND`) in this environment. Single-provider dependencies cause hard failures in swap execution.
+**Action:** Implement fallback chains with retry/backoff: primary → lite endpoint → alternative provider (`swap_jupiter → swap_raydium`). Never depend on a single external endpoint without a fallback path.
+
+
+## Lesson 5: Gateway Restart Cascading Failures (cross-pollinated 2026-03-02)
+**Domain:** Infrastructure / OpenClaw
+**Pattern:** Running `openclaw gateway stop/restart` via `exec` kills ALL active sessions, including the one executing the command. This creates an unrecoverable state where the agent that initiated the restart is also terminated.
+**Action:** Gateway operations must go through `systemctl` or external process management, never through the agent's own exec. Add this as a hard rule in operational procedures.
+
+
+## Lesson 6: Solana Simulation sigVerify Error (cross-pollinated 2026-03-02)
+**Domain:** Blockchain / Solana
+**Pattern:** Solana transaction simulation fails with `sigVerify + replaceRecentBlockhash` error. This is a simulation-mode issue, not a real transaction problem.
+**Action:** Retry simulation with `sigVerify: false`. Don't treat simulation failures as transaction failures.
+
+
+## Lesson 7: Free-Text Command Parsing (PT/EN) (cross-pollinated 2026-03-02)
+**Domain:** NLP / Command Routing
+**Pattern:** User commands arrive in both Portuguese and English (`troque 1 SOL por USDC`, `swap 1 SOL to USDC`). The parser must handle both languages. Commands without explicit routing prefix (no `/` or mention) need fallback to `parseInstruction` in the executor.
+**Action:** Test parser with both PT and EN variants. Ensure routing handles both prefixed and unprefixed commands.
+
+
+## Lesson 8: web_fetch Fails on Auth-Required Platforms (cross-pollinated 2026-03-02)
+**Domain:** Tools / Scraping
+**Pattern:** `web_fetch` cannot access X/Twitter, Instagram, and other platforms that require authentication or have aggressive bot detection. This causes silent failures or empty content returns.
+**Action:** Use `browser` tool with authenticated session for auth-required platforms. Document platform limitations in TOOLS.md. Don't assume `web_fetch` works for all URLs.
+
+
+## Lesson 9: Credential Isolation Between Agent Sessions (cross-pollinated 2026-03-02)
+**Domain:** Security / Multi-Agent
+**Pattern:** Authentication state (cookies, tokens, OAuth) does NOT propagate between agents or sessions. Logging into Gmail in Luna's session does not make it available in Luan's session.
+**Action:** Each agent must handle its own authentication needs. Don't assume credentials from other agents' sessions are available.
+
+
+## Lesson 10: NautilusTrader Strategy Porting — Keep It Self-Contained (cross-pollinated 2026-03-02)
+**Domain:** Backtesting / NautilusTrader
+**Pattern:** When porting Polymarket MM QuoteEngine to NautilusTrader, importing the full MM codebase brings in heavy dependencies (pydantic, structlog) that conflict with NautilusTrader's environment. Use lightweight inline model stand-ins instead.
+**Action:** For backtesting bridges, create self-contained lightweight models (`__slots__`-based classes) that mirror the original API without importing the original dependencies. Keep the backtest runnable independently.
+
+---
+
+*Add new lessons as you encounter non-obvious patterns. Keep entries actionable — not "this is hard" but "do X to avoid Y".*
+*Last updated: 2026-03-02*
+
+
+## Lesson 11: Balance Exhaustion in Market Making Bots (cross-pollinated 2026-03-02)
+**Domain:** Trading / Market Making
+**Pattern:** prod-002 did 2 fills then 7390 rejections because $25 capital was exhausted. Complement routing (BUY YES + BUY NO) doubles capital usage. The bot kept quoting BIDs it couldn't fill, wasting API calls.
+**Action:** Implement balance-aware quoting: check `available_balance < min_balance_to_quote` BEFORE generating BID quotes. Keep ASK quotes alive for existing positions. Add position recycling to auto-sell profitable positions and reclaim capital. Both features must be backward-compatible (disabled by default).
+
+
+## Lesson 12: Gateway Restart via exec = Self-Kill (cross-pollinated 2026-03-02)
+**Domain:** Infrastructure / OpenClaw
+**Pattern:** Running `sudo systemctl stop/restart openclaw-gateway` via `exec` kills the gateway process — which kills the agent session that executed the command. The agent dies mid-execution with SIGTERM.
+**Action:** NEVER operate gateway via exec. If gateway is unstable, report to Matheus. Use `scripts/gateway-safe-restart.sh` (external process) if restart is needed. Diagnosis is safe: `sudo systemctl status openclaw-gateway` and `journalctl -u openclaw-gateway`.
+
+
+## Lesson 13: Spawning Agents — Use Tool, Not RPC (cross-pollinated 2026-03-02)
+**Domain:** Infrastructure / A2A
+**Pattern:** `sessions_spawn` is a tool call. `openclaw gateway call sessions.spawn` does NOT work (returns `unknown method`). Only the orchestrator (Luna) can spawn via the tool.
+**Action:** If you need work delegated to another agent, report in completion report with structured request. Never try to spawn directly.
+
+
+## Lesson 14: MC Card is Atomic with Spawn (cross-pollinated 2026-03-02)
+**Domain:** Operations / Mission Control
+**Pattern:** Spawning a subagent without creating an MC card first makes the work invisible. Matheus has flagged this multiple times. The MC card, spawn, and session linking must happen in the same turn.
+**Action:** When receiving a task, verify it has an MC task ID. If not, flag it in the completion report. Every task should be traceable.
+
+
+## Lesson 15: Crypto-Sage is Executor, Not Researcher (cross-pollinated 2026-03-02)
+**Domain:** A2A / Agent Roles
+**Pattern:** Crypto-sage (Gemini Flash) enters degenerative loops when given research/investigation tasks. It should only receive pre-built payloads for execution. 38M tokens were burned on a single mis-delegated task.
+**Action:** If task requires research before execution, do the research yourself (or escalate to Luna). Never delegate research to Flash-based agents.
+
+
+## Lesson 16: Config Changes to openclaw.json Are Dangerous (cross-pollinated 2026-03-02)
+**Domain:** Infrastructure / Configuration
+**Pattern:** Adding unsupported fields to `openclaw.json` crashes the gateway on startup with `Config invalid: Unrecognized key`. The gateway enters crash loop. Fields like `session.routers`, `agents.list[].spawnAllowlist` do NOT exist.
+**Action:** Never suggest or attempt manual edits to `openclaw.json`. Use `openclaw configure` or `openclaw onboard` for changes. If a config change is needed, document it and let Matheus apply it.
+
+
+## Lesson 17: USDC Balance from Polymarket API is Micro-Units (cross-pollinated 2026-03-02)
+**Domain:** DeFi / API Integration
+**Pattern:** Already documented as Lesson 3. Reinforced: this also applies to reward balances and fee calculations. Any USDC amount from the API must be divided by 1e6 at the boundary.
+**Action:** Normalize ALL token amounts at API boundary, not just balance. Include assertion in tests.

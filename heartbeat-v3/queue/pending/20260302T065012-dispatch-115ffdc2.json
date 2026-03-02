@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "115ffdc2-c985-43f6-a618-c4782670aee4",
+  "filename": "20260302T065012-dispatch-115ffdc2.json",
+  "created_at": "2026-03-02T06:50:12.502045+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Test",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "## Objective",
+    "original_agent": "luan",
+    "session_key": null,
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "115ffdc2-c985-43f6-a618-c4782670aee4",
+    "title": "Test",
+    "description": "## Objective",
+    "priority": "high"
+  }
+}

@@ -400,3 +400,85 @@ When spawning Luan via `sessions_spawn`, the prompt MUST include:
 **Helper script:** `scripts/mc-spawn-luan.sh` generates the full task spec + MC card atomically.
 
 Tasks without acceptance criteria or verification checks will be rejected by Luan's inner loop.
+
+## Two-Phase Spawn Protocol (Mandatory for MEDIUM+ Risk)
+
+For tasks with risk_profile MEDIUM, HIGH, or CRITICAL:
+
+### Phase 1 — Planning
+1. Create MC card (`mc-spawn.sh` or `mc-spawn-luan.sh`)
+2. Spawn Luan with `PHASE: planning` header in task prompt (use `--phase planning`)
+3. Do NOT include `## Execution Plan` in the task spec — Luan creates the plan
+4. Receive Luan's plan in completion report (status: `plan_submitted`)
+5. Review plan against:
+   - Luan's `memory/lessons.md` (cross-reference relevant lessons)
+   - QA Guidance questions from the task spec
+   - Technical context Luna has (prior failures, arch constraints)
+6. If plan is good → proceed to Phase 2
+7. If plan needs changes → re-spawn Phase 1 with feedback (max 2 iterations)
+
+### Phase 2 — Implementation
+1. Spawn Luan with `PHASE: implementation` header (use `--phase implementation`)
+2. Include `## Approved Plan` with the plan (with any Luna adjustments)
+3. Include original task spec (objective, criteria, constraints, etc.)
+4. Receive completion report (status: `complete` | `partial` | `blocked`)
+5. Run QA Review Protocol (already in AGENTS.md)
+
+### When NOT to use Two-Phase:
+- risk_profile: LOW → single spawn, fire-and-forget (current behavior)
+- Trivial tasks (< 3 files, clear implementation) → single spawn
+- Re-spawns after rejection → single spawn with specific feedback
+
+### Task Spec Template for Phase 1:
+```
+PHASE: planning
+
+# [Task Title]
+**MC Task ID:** ...
+**Type:** bugfix|feature|refactor|research
+**Risk:** MEDIUM|HIGH|CRITICAL
+
+## Objective
+[what to achieve]
+
+## Context
+[background, prior work, relevant info]
+
+## Acceptance Criteria
+- [ ] [criterion 1]
+- [ ] [criterion 2]
+
+## Constraints
+[limitations]
+
+## QA Guidance for Luna
+[questions Luna will verify during review]
+
+DO NOT IMPLEMENT. Create implementation plan only.
+Report with status: plan_submitted.
+```
+
+### Task Spec Template for Phase 2:
+```
+PHASE: implementation
+
+# [Task Title]
+**MC Task ID:** ...
+**Type:** bugfix|feature|refactor|research
+**Risk:** MEDIUM|HIGH|CRITICAL
+
+## Approved Plan
+[paste Luan's plan, with any Luna adjustments]
+
+## Objective
+[original objective]
+
+## Acceptance Criteria
+[original criteria]
+
+## Verification Checks
+[commands to run]
+
+## Constraints
+[original constraints]
+```

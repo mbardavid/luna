@@ -44,6 +44,7 @@ from execution.ctf_merge import CTFMerger
 from execution.unwind import UnwindConfig, UnwindManager, UnwindStrategy
 from data.ws_client import CLOBWebSocketClient
 from execution.live_execution import LiveExecution
+from paper.startup_reconciler import StartupReconciler, StartupReconciliationConfig
 
 # ── SOCKS5 Proxy for Polymarket geoblock bypass ──────────────────────
 # py_clob_client uses a global httpx.Client without proxy.
@@ -1619,6 +1620,75 @@ async def async_main(args):
         max_position_per_side=max_position_per_side,
     )
 
+    # ── Startup Reconciliation ───────────────────────────────────
+    # Determine if reconciliation is enabled: config YAML > CLI flag
+    do_reconciliation = True
+    if hasattr(args, "skip_reconciliation") and args.skip_reconciliation:
+        do_reconciliation = False
+        logger.info("startup.reconciliation.skipped", reason="--skip-reconciliation flag")
+
+    # Check YAML config for startup_reconciliation setting
+    reconciliation_yaml: dict = {}
+    if run_config:
+        sr_flag = run_config.params.get("startup_reconciliation")
+        if sr_flag is False:
+            do_reconciliation = False
+            logger.info("startup.reconciliation.skipped", reason="config startup_reconciliation=false")
+        elif isinstance(sr_flag, dict):
+            reconciliation_yaml = sr_flag
+        # Also load from raw YAML top-level if present
+        try:
+            config_file_path = run_config.params.get("config_path", "")
+            if config_file_path:
+                with open(config_file_path) as _cf:
+                    _raw = yaml.safe_load(_cf) or {}
+                sr_section = _raw.get("startup_reconciliation")
+                if isinstance(sr_section, dict):
+                    reconciliation_yaml = sr_section
+                elif sr_section is False:
+                    do_reconciliation = False
+        except Exception:
+            pass  # use defaults
+
+    if do_reconciliation:
+        # Build reconciliation config from YAML or defaults
+        recon_config = StartupReconciliationConfig.from_dict(reconciliation_yaml) if reconciliation_yaml else StartupReconciliationConfig(
+            max_position_per_side=max_position_per_side,
+            min_balance_to_quote=Decimal(str(
+                run_config.params.get("min_balance_to_quote", "5") if run_config else "5"
+            )),
+        )
+
+        reconciler = StartupReconciler(
+            rest_client=rest_client,
+            market_configs=markets,
+            config=recon_config,
+        )
+
+        recon_result = await reconciler.reconcile()
+
+        if not recon_result.passed:
+            logger.critical(
+                "startup.reconciliation.failed",
+                reason=recon_result.reason,
+                cancelled_orders=len(recon_result.cancelled_orders),
+                cancel_failures=len(recon_result.cancel_failures),
+            )
+            print(f"STARTUP RECONCILIATION FAILED: {recon_result.reason}")
+            print("Bot will NOT start. Fix the issue and retry.")
+            print("Use --skip-reconciliation to bypass (DANGEROUS).")
+            sys.exit(1)
+
+        # Apply reconciled positions to wallet
+        reconciler.apply_to_wallet(pipeline.wallet, recon_result)
+        logger.info(
+            "startup.reconciliation.applied",
+            usdc_balance=str(recon_result.usdc_balance),
+            positions=len(recon_result.positions),
+            warnings=len(recon_result.safety_warnings),
+        )
+    # ─────────────────────────────────────────────────────────────
+
     # Handle signals
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -1638,6 +1708,8 @@ def main():
                         help="Unwind positions from a previous run before starting")
     parser.add_argument("--adopt-positions", action="store_true",
                         help="Adopt orphaned positions from a previous run into the tracker")
+    parser.add_argument("--skip-reconciliation", action="store_true",
+                        help="Skip startup reconciliation (cancel stale orders, position sync, safety checks)")
     args = parser.parse_args()
     asyncio.run(async_main(args))
 

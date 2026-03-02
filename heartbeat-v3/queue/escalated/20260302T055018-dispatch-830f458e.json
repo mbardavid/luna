@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "830f458e-5874-4e8c-9e30-22d3f15dd819",
+  "filename": "20260302T055018-dispatch-830f458e.json",
+  "created_at": "2026-03-02T05:50:18.443403+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Crypto-Sage: Supabase History + Discord Visualization Upgrade",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "## \u26a0\ufe0f SPAWN BLOQUEADO \u2014 Requer autoriza\u00e7\u00e3o expl\u00edcita do Matheus\n\n---\n\n## Objective\nDuas melhorias no crypto-sage: (1) Integrar Supabase para persistir hist\u00f3rico completo de opera\u00e7\u00f5es, snapshots de portfolio e PnL \u2014 permitindo an\u00e1lise tradicional tipo planilha financeira. (2) Melhorar visualiza\u00e7\u00e3o do /saldo no Discord com layout mais limpo e informativo.\n\n## Problem Statement\n\n### P1: Sem Hist\u00f3rico Persistente\n- Hoje o /saldo \u00e9 ephemeral \u2014 mostra snapshot atual e desaparece\n- N\u00e3o h\u00e1 como ver: \"quanto eu tinha dia 25/fev?\", \"qual foi o PnL da semana?\", \"quantas opera\u00e7\u00f5es o bot fez?\"\n- Sem hist\u00f3rico, imposs\u00edvel calcular: PnL di\u00e1rio/semanal/mensal, drawdown m\u00e1ximo, Sharpe ratio, taxa de acerto\n- Opera\u00e7\u00f5es do crypto-sage (swaps, bridges, withdrawals) n\u00e3o ficam registradas em nenhum DB\n\n### P2: ",
+    "original_agent": "luan",
+    "session_key": null,
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "830f458e-5874-4e8c-9e30-22d3f15dd819",
+    "title": "Crypto-Sage: Supabase History + Discord Visualization Upgrade",
+    "description": "## \u26a0\ufe0f SPAWN BLOQUEADO \u2014 Requer autoriza\u00e7\u00e3o expl\u00edcita do Matheus\n\n---\n\n## Objective\nDuas melhorias no crypto-sage: (1) Integrar Supabase para persistir hist\u00f3rico completo de opera\u00e7\u00f5es, snapshots de portfolio e PnL \u2014 permitindo an\u00e1lise tradicional tipo planilha financeira. (2) Melhorar visualiza\u00e7\u00e3o do /saldo no Discord com layout mais limpo e informativo.\n\n## Problem Statement\n\n### P1: Sem Hist\u00f3rico Persistente\n- Hoje o /saldo \u00e9 ephemeral \u2014 mostra snapshot atual e desaparece\n- N\u00e3o h\u00e1 como ver: \"quanto eu tinha dia 25/fev?\", \"qual foi o PnL da semana?\", \"quantas opera\u00e7\u00f5es o bot fez?\"\n- Sem hist\u00f3rico, imposs\u00edvel calcular: PnL di\u00e1rio/semanal/mensal, drawdown m\u00e1ximo, Sharpe ratio, taxa de acerto\n- Opera\u00e7\u00f5es do crypto-sage (swaps, bridges, withdrawals) n\u00e3o ficam registradas em nenhum DB\n\n### P2: ",
+    "priority": "high"
+  }
+}

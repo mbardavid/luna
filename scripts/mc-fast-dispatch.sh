@@ -57,6 +57,8 @@ done
 
 # ─── Load task from MC ───────────────────────────────────────────────────────
 
+MC_API_TOKEN="${MC_API_TOKEN:-}"
+
 if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
     log "Loading task from MC: $MC_TASK_ID"
     MC_DATA=$(curl -s "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \

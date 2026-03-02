@@ -115,3 +115,12 @@
 - **Portfolio crypto consolidado em $409.74:** SOL 43%, USDC.e 36%, Polymarket 20%. PnL Polymarket +$21.78 total.
 - **MC inbox com 5 tasks acumuladas:** Heartbeat detectou mas sem autorização/capacidade para drenar. Padrão: tasks se acumulam sem drain quando não há interação humana.
 - **Debt de documentação operacional crescendo:** 8 itens de taxonomia carryover (3-4 dias). SIGUSR1 corrigido em TOOLS.md. Restam 7 itens pendentes — necessário sprint dedicado.
+
+## 2026-03-02
+
+- **PMM completou primeiro ciclo real completo (prod-002):** Launch → fills → capital exhaustion → post-mortem → P5 balance-aware quoting entregue. Próximo passo: startup reconciliation (task blocked on Matheus). Complement routing funcional. Geoblock permanentemente resolvido via Tor monkey-patch.
+- **Infra de autonomia atingiu maturidade operacional:** Dispatcher agent (flash, $0.001/dispatch), safe-restart com rate limit, post-restart auto-recovery via systemd, two-phase spawn para tasks MEDIUM+, MC task specs v2 com QA + lessons injection automática. Sistema pode operar semi-autonomamente por períodos prolongados.
+- **Gateway memory management consolidado:** Sessões de cron acumulam sem limite e causam heap pressure. Solução: limpeza periódica de sessions.json (script Python ad-hoc). Threshold: >200 sessions = risco. Monitorado pelo `mc-resource-monitor.sh` cron (watermark 900MB).
+- **Crypto-sage portfolio tracking agora inclui CTF (ERC-1155):** Posições Polymarket eram invisíveis por falta de env var. Diferença era ~$220. Always verify ALL token types before reporting balances.
+- **Doc debt atingiu 12 itens (5 dias de carryover máximo).** Sprint de documentação é a próxima prioridade após desbloqueio das tasks em inbox. `active-tasks.md` está 3.5 semanas desatualizado — risco de perda de contexto operacional.
+- **Whisper transcription broken:** Timeouts ao carregar modelo faster-whisper. Precisa investigação quando memory pressure estiver baixa.

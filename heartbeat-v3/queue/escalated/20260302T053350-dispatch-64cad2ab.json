@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "64cad2ab-80f0-4f9c-a159-e89b339ecbab",
+  "filename": "20260302T053350-dispatch-64cad2ab.json",
+  "created_at": "2026-03-02T05:33:50.283419+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM: Startup Reconciliation (Cancel Stale + Position Sync + Safety Checks)",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "## \u26a0\ufe0f SPAWN BLOQUEADO \u2014 Requer autoriza\u00e7\u00e3o expl\u00edcita do Matheus\n\n---\n\n## Objective\nImplementar startup reconciliation no PMM para que, ao iniciar (ou recuperar de crash), o bot sincronize com o estado real on-chain ANTES de come\u00e7ar a quotar. Atualmente o recovery relan\u00e7a o processo cego \u2014 position tracker come\u00e7a zerado, ordens stale ficam no book, e o bot pode quotar em cima de estado incorreto.\n\n## Problem Statement\n\nQuando o PMM crasha e \u00e9 recuperado (via pmm-status-updater.sh ou gateway-post-restart-recovery.sh), tr\u00eas problemas ocorrem:\n\n### P1: Ordens Stale no Book\n- Ordens submetidas antes do crash ficam ativas no CLOB do Polymarket\n- Bot reinicia e submete NOVAS ordens sem cancelar as antigas\n- Resultado: duplica\u00e7\u00e3o de exposi\u00e7\u00e3o, poss\u00edvel fill adversarial em pre\u00e7os desatualizados\n\n##",
+    "original_agent": "luan",
+    "session_key": null,
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "64cad2ab-80f0-4f9c-a159-e89b339ecbab",
+    "title": "PMM: Startup Reconciliation (Cancel Stale + Position Sync + Safety Checks)",
+    "description": "## \u26a0\ufe0f SPAWN BLOQUEADO \u2014 Requer autoriza\u00e7\u00e3o expl\u00edcita do Matheus\n\n---\n\n## Objective\nImplementar startup reconciliation no PMM para que, ao iniciar (ou recuperar de crash), o bot sincronize com o estado real on-chain ANTES de come\u00e7ar a quotar. Atualmente o recovery relan\u00e7a o processo cego \u2014 position tracker come\u00e7a zerado, ordens stale ficam no book, e o bot pode quotar em cima de estado incorreto.\n\n## Problem Statement\n\nQuando o PMM crasha e \u00e9 recuperado (via pmm-status-updater.sh ou gateway-post-restart-recovery.sh), tr\u00eas problemas ocorrem:\n\n### P1: Ordens Stale no Book\n- Ordens submetidas antes do crash ficam ativas no CLOB do Polymarket\n- Bot reinicia e submete NOVAS ordens sem cancelar as antigas\n- Resultado: duplica\u00e7\u00e3o de exposi\u00e7\u00e3o, poss\u00edvel fill adversarial em pre\u00e7os desatualizados\n\n##",
+    "priority": "high"
+  }
+}

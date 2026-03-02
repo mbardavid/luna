@@ -56,6 +56,8 @@ Optional:
   --risk-profile <lvl>  Risk: low|medium|high|critical (default: medium)
   --review-depth <n>    Max review cycles (default: 2)
   --no-signature        Skip signature requirement
+  --phase <mode>         Two-phase spawn: planning|implementation
+  --plan-file <path>     Read approved plan from file (for --phase implementation)
 
 Environment:
   MC_AUTH_TOKEN         Override auth token from config
@@ -89,6 +91,8 @@ LOOP_ID=""
 RISK_PROFILE="medium"
 REVIEW_DEPTH=2
 NO_SIGNATURE=0
+PHASE=""
+PLAN_FILE=""
 # Structured spec fields
 SPEC_OBJECTIVE=""
 SPEC_CONTEXT=""
@@ -129,6 +133,8 @@ while [ "$#" -gt 0 ]; do
     --risk-profile) RISK_PROFILE="${2:-medium}"; shift 2 ;;
     --review-depth) REVIEW_DEPTH="${2:-2}";  shift 2 ;;
     --no-signature) NO_SIGNATURE=1;          shift ;;
+    --phase)      PHASE="${2:-}";           shift 2 ;;
+    --plan-file)  PLAN_FILE="${2:-}";       shift 2 ;;
     -h|--help)    usage; exit 0 ;;
     *)            echo "unknown arg: $1" >&2; usage; exit 1 ;;
   esac
@@ -140,6 +146,7 @@ if [ -n "$TASK_FILE" ] && [ -f "$TASK_FILE" ]; then
   TASK=$(cat "$TASK_FILE")
 elif [ -n "$SPEC_OBJECTIVE" ]; then
   export SPAWN_AGENT="$AGENT"
+  export SPAWN_PHASE="$PHASE"
   TASK=$(python3 << 'SPECEOF'
 import os
 
@@ -153,6 +160,7 @@ checks = os.environ.get("SPEC_CHECKS", "")
 qa = os.environ.get("SPEC_QA", "")
 constraints = os.environ.get("SPEC_CONSTRAINTS", "")
 rollback = os.environ.get("SPEC_ROLLBACK", "")
+phase = os.environ.get("SPAWN_PHASE", "")
 
 spec = f"## Objective\n{objective}\n"
 
@@ -160,7 +168,9 @@ if context.strip():
     spec += f"\n## Context\n{context}\n"
 
 if plan.strip():
-    spec += "\n## Execution Plan\n"
+    # Use "Approved Plan" header for implementation phase, "Execution Plan" otherwise
+    plan_header = "## Approved Plan" if phase == "implementation" else "## Execution Plan"
+    spec += f"\n{plan_header}\n"
     for i, step in enumerate(plan.split("|"), 1):
         spec += f"{i}. {step.strip()}\n"
 
@@ -286,6 +296,50 @@ case "$RISK_PROFILE" in
   *) echo "Error: invalid --risk-profile: $RISK_PROFILE" >&2; exit 1 ;;
 esac
 
+# --- Validate --phase flag ---
+if [ -n "$PHASE" ]; then
+  case "$PHASE" in
+    planning|implementation) ;;
+    *) echo "Error: --phase must be 'planning' or 'implementation'" >&2; exit 1 ;;
+  esac
+fi
+
+if [ "$PHASE" = "implementation" ] && [ -z "$SPEC_PLAN" ] && [ -z "$PLAN_FILE" ]; then
+  echo "Error: --phase implementation requires --plan or --plan-file" >&2
+  exit 1
+fi
+
+# --- Apply PHASE modifications to task text ---
+if [ "$PHASE" = "planning" ]; then
+  # Strip any --plan content for planning phase (Luan creates the plan)
+  SPEC_PLAN=""
+  # Prepend PHASE header and append planning instructions
+  PHASE_PREFIX="PHASE: planning
+
+"
+  PHASE_SUFFIX="
+
+DO NOT IMPLEMENT. Create implementation plan only.
+Report with status: plan_submitted."
+elif [ "$PHASE" = "implementation" ]; then
+  # Read plan from file if --plan-file provided
+  if [ -n "$PLAN_FILE" ]; then
+    if [ ! -f "$PLAN_FILE" ]; then
+      echo "Error: --plan-file not found: $PLAN_FILE" >&2
+      exit 1
+    fi
+    SPEC_PLAN=$(cat "$PLAN_FILE")
+  fi
+  # Prepend PHASE header; plan will be included as "## Approved Plan" section
+  PHASE_PREFIX="PHASE: implementation
+
+"
+  PHASE_SUFFIX=""
+else
+  PHASE_PREFIX=""
+  PHASE_SUFFIX=""
+fi
+
 # --- Resolve agent ID from lookup table ---
 resolve_agent_short_id() {
   local agent_name="$1"
@@ -407,8 +461,8 @@ TASK_ID_SHORT="${TASK_ID:0:8}"
 SESSION_LABEL="${LABEL_SLUG}-${TASK_ID_SHORT}"
 
 # --- Build spawn params ---
-# The task text sent to the subagent includes the MC task reference
-SPAWN_TASK_TEXT="${TASK}
+# The task text sent to the subagent includes the MC task reference and PHASE headers
+SPAWN_TASK_TEXT="${PHASE_PREFIX}${TASK}${PHASE_SUFFIX}
 
 MC Task: ${TASK_ID}"
 

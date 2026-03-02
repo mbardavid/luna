@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "4b38f7a7-442c-4b2a-a398-f5dcb9cfa1c9",
+  "filename": "20260302T053923-dispatch-4b38f7a7.json",
+  "created_at": "2026-03-02T05:39:23.672248+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM-PROD P5: Paper trading com dados live",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "Rodar paper venue consumindo dados reais do Polymarket para validar comportamento.\n\nEntreg\u00e1veis:\n1. Pipeline E2E: WS real \u2192 feature engine \u2192 quote engine \u2192 paper venue\n2. Rodar por m\u00ednimo 4h cont\u00ednuas\n3. M\u00e9tricas: PnL simulado, fill rate, inventory drift, spread capturado\n4. Kill switch testado (simular cada trigger)\n5. Relat\u00f3rio com an\u00e1lise de performance\n6. Ajuste de par\u00e2metros se necess\u00e1rio (spread_min, skew_intensity, max_exposure)\n\nCrit\u00e9rio de aprova\u00e7\u00e3o: PnL simulado positivo em >60% das horas\n\nDepend\u00eancia: P4 (mercados configurados)\nRef: polymarket-mm/paper/paper_venue.py",
+    "original_agent": "luan",
+    "session_key": "agent:luan:subagent:c2a3c358-65a2-4b8a-bad7-6db9b0d5b8c1",
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "4b38f7a7-442c-4b2a-a398-f5dcb9cfa1c9",
+    "title": "PMM-PROD P5: Paper trading com dados live",
+    "description": "Rodar paper venue consumindo dados reais do Polymarket para validar comportamento.\n\nEntreg\u00e1veis:\n1. Pipeline E2E: WS real \u2192 feature engine \u2192 quote engine \u2192 paper venue\n2. Rodar por m\u00ednimo 4h cont\u00ednuas\n3. M\u00e9tricas: PnL simulado, fill rate, inventory drift, spread capturado\n4. Kill switch testado (simular cada trigger)\n5. Relat\u00f3rio com an\u00e1lise de performance\n6. Ajuste de par\u00e2metros se necess\u00e1rio (spread_min, skew_intensity, max_exposure)\n\nCrit\u00e9rio de aprova\u00e7\u00e3o: PnL simulado positivo em >60% das horas\n\nDepend\u00eancia: P4 (mercados configurados)\nRef: polymarket-mm/paper/paper_venue.py",
+    "priority": "high"
+  }
+}
