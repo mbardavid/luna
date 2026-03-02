@@ -831,6 +831,10 @@ class PaperTradingPipeline:
         adverse_selection_bps: int = 0,
         maker_fee_bps: int = 0,
         fill_distance_decay: bool = False,
+        balance_aware_quoting: bool = False,
+        min_balance_to_quote: Decimal = Decimal("5"),
+        position_recycling: bool = False,
+        recycle_profit_threshold: Decimal = Decimal("0.02"),
     ):
         self.market_configs = market_configs
         self.duration_hours = duration_hours
@@ -862,6 +866,10 @@ class PaperTradingPipeline:
                 default_order_size=order_size,
                 num_levels=1,
                 default_ttl_ms=30_000,
+                balance_aware_quoting=balance_aware_quoting,
+                min_balance_to_quote=min_balance_to_quote,
+                position_recycling=position_recycling,
+                recycle_profit_threshold=recycle_profit_threshold,
             ),
         )
 
@@ -1780,6 +1788,20 @@ async def async_main(args):
             run_config.params.get("fill_distance_decay", False)
         ) if run_config else False
 
+        # Balance-aware quoting params
+        bal_aware = bool(
+            run_config.params.get("balance_aware_quoting", False)
+        ) if run_config else False
+        min_bal = Decimal(str(
+            run_config.params.get("min_balance_to_quote", 5)
+        )) if run_config else Decimal("5")
+        pos_recycling = bool(
+            run_config.params.get("position_recycling", False)
+        ) if run_config else False
+        recycle_threshold = Decimal(str(
+            run_config.params.get("recycle_profit_threshold", "0.02")
+        )) if run_config else Decimal("0.02")
+
         pipeline = PaperTradingPipeline(
             market_configs=markets,
             duration_hours=args.duration_hours,
@@ -1796,6 +1818,10 @@ async def async_main(args):
             adverse_selection_bps=adv_sel_bps,
             maker_fee_bps=maker_fee,
             fill_distance_decay=fill_decay,
+            balance_aware_quoting=bal_aware,
+            min_balance_to_quote=min_bal,
+            position_recycling=pos_recycling,
+            recycle_profit_threshold=recycle_threshold,
         )
 
         # Handle signals

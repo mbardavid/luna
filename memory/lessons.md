@@ -211,3 +211,44 @@
 **Fix:** Auto-respawn via cron one-shot DESABILITADO. Phase 4 agora apenas notifica `#general-luna` + `#notifications` e move task pra `review`. Re-spawn manual pela Luna na sessão principal (que TEM canal).
 
 **Regra geral:** NUNCA criar cron one-shots que esperam que o agente envie mensagens. Sessões isoladas não têm canal de output. Use `--no-deliver` E garanta que o agente responda `NO_REPLY`, OU não crie a sessão.
+
+## 2026-03-01: Sessão principal acumulada por 6 dias → OOM no gateway
+
+**Incidente:** Gateway no servidor `clawdia` chegou a 812MB / 900MB (86% do MemoryHigh), sem swap disponível. Exec calls travando com timeout de 5s. Discord WebSocket instável.
+
+**Causa raiz:** A sessão `606fef55` do agente `main` ficou ativa por **6 dias e meio** (23/02 → 01/03) sem ser rotacionada. Acumulou **3.386 entradas** (11 compactações realizadas, insuficientes) e chegou a **9.8MB no disco** — tudo carregado em memória pelo gateway. O conteúdo era heterogêneo: cron events, mensagens do Discord, tasks do MC, orquestração do Polymarket MM — tudo no mesmo contexto.
+
+**Agravantes:**
+- VmPeak do processo chegou a 23GB (alocação/liberação acumulada)
+- Sem swap configurado no servidor → qualquer estouro vai direto ao OOM killer
+- Agentes Python secundários dentro do cgroup (paper runner ~116MB + dashboard ~85MB)
+
+**Fix aplicado:** `sudo systemctl restart openclaw-gateway` → memória caiu de 812MB para 462MB imediatamente.
+
+**O que o Heartbeat V3 resolve (e o que NÃO resolve):**
+- ✅ V3 elimina retry storms em sessões isoladas (H1/H2) — causa principal dos OOMs anteriores
+- ✅ V3 adiciona circuit breakers e rate limits nos crons
+- ❌ **V3 NÃO resolve sessão principal de longa duração inchando o contexto** — esse problema é ortogonal aos crashes de heartbeat
+- ✅ **CORRIGIDO (2026-03-01):** `session-compact-sentinel.sh` atualizado para rodar diariamente (era semanal), monitorar `sessions.json` principal (era só `.jsonl`), alertar em 5MB, arquivar inativas automaticamente via `session-archive.sh`
+
+**Regras a adotar:**
+1. **Sessão do canal Discord principal não deve ultrapassar 7 dias sem rotação manual** — mesmo com compactações ativas, o acúmulo de contexto heterogêneo é inevitável
+2. **Ao atingir 5MB no `.jsonl` ativo, tratar como sinal de alerta** — não esperar o cron semanal
+3. **Servidor sem swap é risco crítico** — qualquer pressão de memória vai direto ao OOM killer. Adicionar swap de 1–2GB é defesa simples e de baixo custo
+4. **`system-service` cgroup inclui processos Python filhos** — o `MemoryCurrent` reportado pelo systemd agrega tudo. Monitorar individualmente se necessário
+5. **Reiniciar o gateway é a solução imediata mais eficaz** — libera todo o heap acumulado. Custo: ~30s de downtime. O sentinel já envia alertas via Discord API direta como fallback durante o restart
+
+## Lesson from Luan: Binary Market Complement Consistency (cross-pollinated 2026-03-02)
+**Domain:** Polymarket / Trading
+**Pattern:** In binary markets (YES/NO), `price_yes + price_no = 1.0`. Off-by-one-cent errors in complement routing cause phantom PnL and incorrect order placement.
+**Action:** Always assert complement consistency: `assert abs(price_yes + price_no - 1.0) < 1e-9`.
+
+## Lesson from Luan: Balance Exhaustion in MM Bots (cross-pollinated 2026-03-02)
+**Domain:** Trading / Market Making
+**Pattern:** prod-002 did 2 fills then 7390 rejections because $25 capital was exhausted. Complement routing (BUY YES + BUY NO) doubles capital usage.
+**Action:** Implement balance-aware quoting: check available_balance < min_balance_to_quote BEFORE generating BID quotes. Keep ASK quotes for existing positions. Add position recycling.
+
+## Lesson from Luan: NautilusTrader Porting — Self-Contained Models (cross-pollinated 2026-03-02)
+**Domain:** Backtesting / NautilusTrader
+**Pattern:** Importing full MM codebase into NautilusTrader brings heavy deps (pydantic, structlog) that conflict. Use lightweight inline model stand-ins instead.
+**Action:** For backtesting bridges, create self-contained `__slots__`-based classes. Keep backtest runnable independently of production code.

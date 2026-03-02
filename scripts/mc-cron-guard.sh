@@ -10,8 +10,13 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BOARD_ID="${MC_BOARD_ID:-0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47}"
-MC_TOKEN="${MC_AUTH_TOKEN:-luna_mission_control_access_token_stable_v1_6741ef7ffc207adb58ce632e7ff1d9913dbf2e9c44441aac}"
+MC_TOKEN="${MC_AUTH_TOKEN:-${MC_API_TOKEN:-}}"
+if [ -z "$MC_TOKEN" ]; then
+  echo "ERROR: MC_AUTH_TOKEN or MC_API_TOKEN must be set" >&2
+  exit 1
+fi
 MC_BASE="${MC_BASE_URL:-http://localhost:8000}"
 STATE_FILE="/tmp/.mc-cron-active.json"
 
@@ -106,8 +111,51 @@ case "${1:-help}" in
   finish) cmd_finish "${2:?cron name required}" ;;
   active) cmd_active ;;
   list)   cmd_list ;;
+  kill-switch)
+    # Check kill-switch status against cto-risk-policy.json
+    POLICY_FILE="${SCRIPT_DIR}/../config/cto-risk-policy.json"
+    python3 -c "
+import json, os, sys, time
+
+policy_path = sys.argv[1]
+state_path = sys.argv[2]
+
+policy = {}
+if os.path.exists(policy_path):
+    with open(policy_path) as f:
+        policy = json.load(f)
+
+anti_spam = policy.get('anti_spam', {})
+max_restarts = anti_spam.get('max_restart_actions_per_hour', 3)
+kill_enabled = anti_spam.get('global_kill_switch_enabled', True)
+
+state = {}
+if os.path.exists(state_path):
+    try:
+        with open(state_path) as f:
+            state = json.load(f)
+    except: pass
+
+restarts = state.get('restart_log', [])
+now = time.time()
+hour_ago = now - 3600
+recent_restarts = [r for r in restarts if r.get('at', 0) > hour_ago]
+
+result = {
+    'kill_switch_enabled': kill_enabled,
+    'max_restarts_per_hour': max_restarts,
+    'recent_restarts': len(recent_restarts),
+    'can_restart': len(recent_restarts) < max_restarts and kill_enabled,
+    'status': 'allowed' if len(recent_restarts) < max_restarts else 'blocked'
+}
+print(json.dumps(result, indent=2))
+
+if len(recent_restarts) >= max_restarts:
+    sys.exit(1)
+" "$POLICY_FILE" "$STATE_FILE"
+    ;;
   *)
-    echo "Usage: $0 {start|finish|active|list} [cron-name]"
+    echo "Usage: $0 {start|finish|active|list|kill-switch} [cron-name]"
     exit 1
     ;;
 esac

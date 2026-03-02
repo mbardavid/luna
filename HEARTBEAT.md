@@ -5,7 +5,7 @@
 ## Checklist (rápido, sem orquestração)
 
 1. **Subagents:** `subagents list` — verificar ativos E recentes falhados
-2. **MC inbox:** `curl -s "http://localhost:8000/api/v1/boards/0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47/tasks" -H "Authorization: Bearer luna_mission_control_access_token_stable_v1_6741ef7ffc207adb58ce632e7ff1d9913dbf2e9c44441aac" | python3 -c "import json,sys; tasks=json.loads(sys.stdin.read()).get('items',[]); inbox=[t for t in tasks if t['status']=='inbox']; print(f'{len(inbox)} inbox tasks')"`
+2. **MC inbox:** `curl -s "http://localhost:8000/api/v1/boards/0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47/tasks" -H "Authorization: Bearer $MC_API_TOKEN" | python3 -c "import json,sys; tasks=json.loads(sys.stdin.read()).get('items',[]); inbox=[t for t in tasks if t['status']=='inbox']; print(f'{len(inbox)} inbox tasks')"`
 3. **Anti-spam state:** `cat /tmp/.heartbeat-last-notify.json 2>/dev/null || echo '{"inbox":0,"failed":[]}'` — ler estado anterior
 
 ## Decisão

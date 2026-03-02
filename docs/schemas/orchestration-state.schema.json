@@ -15,7 +15,11 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": "1.0"
+      "type": "string",
+      "enum": [
+        "1.0",
+        "1.1"
+      ]
     },
     "updatedAt": {
       "type": "string",
@@ -67,7 +71,15 @@
             "blocked",
             "done",
             "failed",
-            "rolled_back"
+            "rolled_back",
+            "proposed",
+            "critique",
+            "replan",
+            "authorize",
+            "needs_approval",
+            "stalled",
+            "retry",
+            "review"
           ]
         },
         "mode": {
@@ -103,6 +115,38 @@
             "null"
           ],
           "maxLength": 128
+        },
+        "loop_id": {
+          "type": "string",
+          "description": "Review loop cycle identifier"
+        },
+        "review_state": {
+          "type": "string",
+          "description": "Current state within the review loop",
+          "enum": [
+            "proposed",
+            "critique",
+            "replan",
+            "authorize",
+            "accepted",
+            "rejected"
+          ]
+        },
+        "review_cycle": {
+          "type": "integer",
+          "description": "Current review iteration number",
+          "minimum": 0
+        },
+        "proposed_by": {
+          "type": "string",
+          "description": "Agent that originated the proposal",
+          "minLength": 2,
+          "maxLength": 64
+        },
+        "review_reason": {
+          "type": "string",
+          "description": "Reason for the last review action",
+          "maxLength": 1000
         }
       }
     },

@@ -239,5 +239,45 @@
     "fill_rate": 291.67,
     "max_drawdown": 0,
     "timestamp": "2026-03-01T04:32:20.599358+00:00"
+  },
+  {
+    "run_id": "prod-001",
+    "hypothesis": "production-micro-test",
+    "result": "PASS",
+    "pnl_per_hour": 0.1555,
+    "duration_h": 14.13,
+    "fill_rate": 1.27,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-01T18:40:10.165838+00:00"
+  },
+  {
+    "run_id": "prod-002",
+    "hypothesis": "calibrated-mm-post-prod001",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.01,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-02T00:12:34.038366+00:00"
+  },
+  {
+    "run_id": "prod-002",
+    "hypothesis": "calibrated-mm-post-prod001",
+    "result": "FAIL",
+    "pnl_per_hour": 0.0,
+    "duration_h": 1.72,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-02T01:56:58.517227+00:00"
+  },
+  {
+    "run_id": "prod-002",
+    "hypothesis": "calibrated-mm-post-prod001",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.92,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-02T02:52:38.027492+00:00"
   }
 ]

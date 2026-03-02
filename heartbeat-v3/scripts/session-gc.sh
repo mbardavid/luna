@@ -6,7 +6,7 @@
 # Logic:
 #   - Lists all gateway sessions via `openclaw gateway call sessions.list`
 #   - Finds sessions with "cron" in the key that are older than max_age
-#   - Destroys them via `openclaw gateway call sessions.destroy`
+#   - Destroys them via `openclaw gateway call sessions.delete`
 #   - Logs + notifies Discord about cleanup
 #
 # This prevents the memory leak caused by cron one-shot sessions
@@ -109,8 +109,8 @@ while IFS='|' read -r key age_h; do
     if $OPENCLAW_BIN gateway call \
         --url "$GATEWAY_URL" \
         --token "$GW_TOKEN" \
-        --json --params "{\"sessionKey\":\"$key\"}" \
-        sessions.destroy 2>/dev/null; then
+        --json --params "{\"key\":\"$key\"}" \
+        sessions.delete 2>/dev/null; then
         log "Destroyed: $key (age: ${age_h}h)"
         count=$((count + 1))
         destroyed_keys="${destroyed_keys}\n• \`${key}\` (${age_h}h)"

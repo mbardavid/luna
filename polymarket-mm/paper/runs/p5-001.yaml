@@ -1,0 +1,53 @@
+# P5 Paper Trading — Post-Production Calibration
+# Incorporates all learnings from prod-001 (98.6% SELL rejections) 
+# and prod-002 (balance exhaustion after initial fills)
+#
+# Key findings to address:
+# 1. $25 capital exhausted quickly — need better position sizing
+# 2. Complement routing works but doubles capital usage (BUY on both sides)
+# 3. Fill rate effectively 0% once capital depleted
+# 4. Need: position cap enforcement, capital recycling, balance-aware quoting
+
+run_id: "p5-001"
+duration_hours: 8
+hypothesis: "H3-capital-efficiency"
+
+initial_balance: 500  # Simulate with realistic paper balance
+
+params:
+  quote_interval_s: 3.0
+  default_order_size: 10
+  default_half_spread_bps: 40        # wider than prod-002's 30 (more conservative)
+  gamma_risk_aversion: 0.5
+  max_position_per_side: 100         # cap per side
+  complement_routing: true
+  fill_probability: 0.15             # realistic fill rate for liquid market
+  adverse_selection_bps: 15          # moderate adverse selection
+  maker_fee_bps: -30                 # real Polymarket fee
+  fill_distance_decay: true
+  kill_switch_max_drawdown_pct: 20.0
+  kill_switch_alert_pct: 10.0
+  # NEW: balance-aware quoting
+  balance_aware_quoting: true        # skip quotes if insufficient balance
+  min_balance_to_quote: 5.0          # minimum USDC to keep quoting
+  position_recycling: true           # close profitable positions to free capital
+
+  markets:
+    - "iranian-regime-fall-june-2026"
+
+parent_run: "prod-002"
+changes_from_parent: |
+  - Paper mode (not production)
+  - Balance-aware quoting: skip if balance < min_balance_to_quote
+  - Position recycling: close winning positions to free capital
+  - Wider spread (40 vs 30 bps) for more conservative approach
+  - Larger order size (10 vs 5) with higher initial balance
+  - Adversarial fill model (15% fill rate, 15bps adverse selection)
+
+success_criteria:
+  pnl_positive: true
+  pnl_per_hour_min: 1.0             # $1/hr minimum edge
+  max_net_inventory: 150             # net inventory controlled
+  capital_utilization_pct: 60.0      # use at least 60% of capital
+  balance_never_zero: true           # never exhaust balance completely
+  fill_rate_pct: 5.0                 # at least 5% fill rate

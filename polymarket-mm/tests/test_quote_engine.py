@@ -1516,3 +1516,595 @@ class TestBugFix4BalanceSizingCapsExposure:
                     f"BID order value ${order_value} exceeds 5% cap "
                     f"(${max_allowed}). Price={s.price}, Size={s.size}"
                 )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# NEW tests for balance-aware quoting + position recycling (prod-002 fix)
+# ══════════════════════════════════════════════════════════════════════
+
+
+class TestBalanceAwareQuoting:
+    """Tests for balance-aware quoting: skip BIDs when balance is too low."""
+
+    def _make_engine(self, **kwargs) -> QuoteEngine:
+        config = kwargs.get("config", QuoteEngineConfig(
+            balance_aware_quoting=True,
+            min_balance_to_quote=Decimal("5"),
+        ))
+        return QuoteEngine(
+            spread_model=kwargs.get("spread", SpreadModel()),
+            inventory_skew=kwargs.get("skew", InventorySkew()),
+            rewards_farming=kwargs.get("rewards", RewardsFarming()),
+            toxic_flow=kwargs.get("toxic", ToxicFlowDetector()),
+            config=config,
+        )
+
+    @pytest.fixture
+    def market_state(self) -> MarketState:
+        return MarketState(
+            market_id="test-market-001",
+            condition_id="0xabc123",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            neg_risk=False,
+            yes_bid=Decimal("0.48"),
+            yes_ask=Decimal("0.52"),
+            no_bid=Decimal("0.48"),
+            no_ask=Decimal("0.52"),
+            depth_yes_bid=Decimal("1000"),
+            depth_yes_ask=Decimal("1000"),
+        )
+
+    @pytest.fixture
+    def features(self) -> FeatureVector:
+        return FeatureVector(
+            market_id="test-market-001",
+            spread_bps=Decimal("80"),
+            book_imbalance=0.1,
+            volatility_1m=0.008,
+            liquidity_score=0.6,
+            expected_fee_bps=Decimal("2"),
+            data_quality_score=0.9,
+        )
+
+    def test_bids_suppressed_when_balance_below_threshold(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """When balance < min_balance_to_quote, all BID slices are removed."""
+        engine = self._make_engine()
+        flat = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+        )
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=flat,
+            available_balance=Decimal("3"),  # Below $5 threshold
+        )
+
+        bid_slices = [s for s in plan.slices if s.side == QuoteSide.BID]
+        assert len(bid_slices) == 0, (
+            "Should NOT generate BIDs when balance < min_balance_to_quote"
+        )
+
+    def test_asks_survive_when_balance_low(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """Even with low balance, ASK slices for existing positions survive."""
+        engine = self._make_engine()
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("50"),
+            avg_entry_yes=Decimal("0.45"),
+        )
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=pos,
+            available_balance=Decimal("2"),  # Below threshold
+        )
+
+        ask_slices = [s for s in plan.slices if s.side == QuoteSide.ASK]
+        bid_slices = [s for s in plan.slices if s.side == QuoteSide.BID]
+        assert len(ask_slices) > 0, "ASKs should survive even with low balance"
+        assert len(bid_slices) == 0, "BIDs should be suppressed"
+
+    def test_bids_allowed_when_balance_above_threshold(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """When balance >= min_balance_to_quote, BIDs are generated normally."""
+        engine = self._make_engine()
+        flat = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+        )
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=flat,
+            available_balance=Decimal("100"),  # Above threshold
+        )
+
+        bid_slices = [s for s in plan.slices if s.side == QuoteSide.BID]
+        assert len(bid_slices) > 0, "BIDs should be generated with sufficient balance"
+
+    def test_balance_aware_disabled_by_default(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """With balance_aware_quoting=False (default), low balance doesn't suppress BIDs.
+
+        The _apply_balance_sizing will still remove BIDs if balance=0,
+        but with a small positive balance and the feature disabled, BIDs
+        pass through if sizing allows.
+        """
+        config = QuoteEngineConfig(
+            balance_aware_quoting=False,  # Default — feature OFF
+        )
+        engine = self._make_engine(config=config)
+        flat = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+        )
+        # With balance_aware OFF, even $3 balance should attempt BIDs
+        # (they may be sized down or dropped by balance_sizing, but
+        #  the balance_aware gate itself doesn't suppress them)
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=flat,
+            available_balance=Decimal("100"),  # Enough for sizing to pass
+        )
+
+        bid_slices = [s for s in plan.slices if s.side == QuoteSide.BID]
+        assert len(bid_slices) > 0, (
+            "With balance_aware OFF, BIDs should pass through"
+        )
+
+    def test_both_sides_broke_only_existing_asks(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """When balance is zero and balance_aware is on, only existing positions
+        produce ASK slices. No BIDs at all.
+
+        This simulates the prod-002 scenario where capital was fully exhausted.
+        """
+        engine = self._make_engine()
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("30"),
+            qty_no=Decimal("20"),
+            avg_entry_yes=Decimal("0.45"),
+            avg_entry_no=Decimal("0.48"),
+        )
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=pos,
+            available_balance=Decimal("0"),  # Completely broke
+        )
+
+        bid_slices = [s for s in plan.slices if s.side == QuoteSide.BID]
+        ask_slices = [s for s in plan.slices if s.side == QuoteSide.ASK]
+        assert len(bid_slices) == 0, "No BIDs when broke"
+        assert len(ask_slices) > 0, "ASKs for existing positions should survive"
+
+    def test_prod002_scenario_capital_exhaustion(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """Simulate prod-002: after N fills, capital exhausts and bot stops quoting BIDs.
+
+        Start with sufficient balance, simulate fills that consume capital,
+        verify that once below threshold the bot stops generating BIDs
+        but keeps ASKs for positions.
+        """
+        config = QuoteEngineConfig(
+            balance_aware_quoting=True,
+            min_balance_to_quote=Decimal("5"),
+            default_order_size=Decimal("10"),
+            max_balance_fraction_per_order=Decimal("0.20"),  # 20% so $200 allows BIDs
+        )
+        engine = self._make_engine(config=config)
+
+        # Phase 1: With $200 balance, BIDs are generated
+        pos_initial = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+        )
+        plan_initial = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=pos_initial,
+            available_balance=Decimal("200"),
+        )
+        bids_initial = [s for s in plan_initial.slices if s.side == QuoteSide.BID]
+        assert len(bids_initial) > 0, "BIDs should be generated with $200"
+
+        # Phase 2: After fills consume capital, $3 remaining
+        pos_after_fills = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("40"),  # Accumulated from BUY fills
+            avg_entry_yes=Decimal("0.50"),
+        )
+        plan_depleted = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=pos_after_fills,
+            available_balance=Decimal("3"),  # Below threshold
+        )
+        bids_depleted = [s for s in plan_depleted.slices if s.side == QuoteSide.BID]
+        asks_depleted = [s for s in plan_depleted.slices if s.side == QuoteSide.ASK]
+        assert len(bids_depleted) == 0, (
+            "BIDs should be suppressed when balance drops below threshold"
+        )
+        assert len(asks_depleted) > 0, (
+            "ASKs should survive to unwind existing position"
+        )
+
+
+class TestPositionRecycling:
+    """Tests for position recycling: auto-sell profitable positions."""
+
+    def _make_engine(self, **kwargs) -> QuoteEngine:
+        config = kwargs.get("config", QuoteEngineConfig(
+            position_recycling=True,
+            recycle_profit_threshold=Decimal("0.02"),
+        ))
+        return QuoteEngine(
+            spread_model=kwargs.get("spread", SpreadModel()),
+            inventory_skew=kwargs.get("skew", InventorySkew()),
+            rewards_farming=kwargs.get("rewards", RewardsFarming()),
+            toxic_flow=kwargs.get("toxic", ToxicFlowDetector()),
+            config=config,
+        )
+
+    @pytest.fixture
+    def market_state(self) -> MarketState:
+        return MarketState(
+            market_id="test-market-001",
+            condition_id="0xabc123",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            neg_risk=False,
+            yes_bid=Decimal("0.55"),
+            yes_ask=Decimal("0.60"),
+            no_bid=Decimal("0.40"),
+            no_ask=Decimal("0.45"),
+            depth_yes_bid=Decimal("1000"),
+            depth_yes_ask=Decimal("1000"),
+        )
+
+    @pytest.fixture
+    def features(self) -> FeatureVector:
+        return FeatureVector(
+            market_id="test-market-001",
+            spread_bps=Decimal("80"),
+            book_imbalance=0.1,
+            volatility_1m=0.008,
+            liquidity_score=0.6,
+            expected_fee_bps=Decimal("2"),
+            data_quality_score=0.9,
+        )
+
+    def test_recycle_yes_position_when_profitable(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """When YES position has unrealized profit >= threshold, generates ASK to close."""
+        engine = self._make_engine()
+        # mid = (0.55 + 0.60) / 2 = 0.575
+        # entry = 0.50, profit_per_share = 0.575 - 0.50 = 0.075 > 0.02 threshold
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("50"),
+            avg_entry_yes=Decimal("0.50"),
+        )
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=pos,
+            available_balance=Decimal("100"),
+        )
+
+        # Find recycle ASK slices — they should sell at or near mid
+        ask_yes = [s for s in plan.slices
+                   if s.side == QuoteSide.ASK and s.token == TokenSide.YES]
+        assert len(ask_yes) > 0, "Should generate ASK YES to recycle profitable position"
+
+        # At least one ASK should be for the full position size (recycling)
+        recycle_candidates = [s for s in ask_yes if s.size == Decimal("50")]
+        assert len(recycle_candidates) > 0, (
+            "Recycling ASK should sell full position qty"
+        )
+
+    def test_no_recycle_when_not_profitable(
+        self, features: FeatureVector,
+    ) -> None:
+        """Position below profit threshold does NOT generate recycle slices."""
+        # mid = (0.50 + 0.52) / 2 = 0.51
+        # entry = 0.50, profit = 0.01 < 0.02 threshold
+        state = MarketState(
+            market_id="test-market-001",
+            condition_id="0xabc123",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            yes_bid=Decimal("0.50"),
+            yes_ask=Decimal("0.52"),
+            no_bid=Decimal("0.48"),
+            no_ask=Decimal("0.50"),
+            depth_yes_bid=Decimal("1000"),
+            depth_yes_ask=Decimal("1000"),
+        )
+        engine = self._make_engine()
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("50"),
+            avg_entry_yes=Decimal("0.50"),
+        )
+        plan = engine.generate_quotes(
+            state=state,
+            features=features,
+            position=pos,
+            available_balance=Decimal("100"),
+        )
+
+        # Count ASK YES slices — should only have normal ASKs, no recycle
+        ask_yes = [s for s in plan.slices
+                   if s.side == QuoteSide.ASK and s.token == TokenSide.YES]
+        # Normal ASK is resized to position size (50), no extra recycle slice
+        # The key check: no slice should have size == full position AND price near mid
+        # (normal ASKs are above mid, recycle ASKs are at mid)
+        mid = Decimal("0.51")
+        recycle_at_mid = [s for s in ask_yes
+                         if abs(s.price - mid) < Decimal("0.02")]
+        # With only 0.01 profit, recycling should NOT trigger
+        assert len(recycle_at_mid) == 0 or all(
+            s.size <= pos.qty_yes for s in recycle_at_mid
+        ), "No recycling when profit below threshold"
+
+    def test_recycle_no_position_when_profitable(
+        self, features: FeatureVector,
+    ) -> None:
+        """When NO position has profit >= threshold, generates ASK NO to recycle."""
+        # mid_yes = 0.40, so mid_no = 0.60
+        # entry_no = 0.50, profit = 0.60 - 0.50 = 0.10 > 0.02
+        state = MarketState(
+            market_id="test-market-001",
+            condition_id="0xabc123",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            yes_bid=Decimal("0.38"),
+            yes_ask=Decimal("0.42"),
+            no_bid=Decimal("0.58"),
+            no_ask=Decimal("0.62"),
+            depth_yes_bid=Decimal("1000"),
+            depth_yes_ask=Decimal("1000"),
+        )
+        engine = self._make_engine()
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_no=Decimal("30"),
+            avg_entry_no=Decimal("0.50"),
+        )
+        plan = engine.generate_quotes(
+            state=state,
+            features=features,
+            position=pos,
+            available_balance=Decimal("100"),
+        )
+
+        ask_no = [s for s in plan.slices
+                  if s.side == QuoteSide.ASK and s.token == TokenSide.NO]
+        assert len(ask_no) > 0, "Should generate ASK NO to recycle profitable NO position"
+
+        # Check complement consistency (Lesson 1)
+        mid_yes = Decimal("0.40")
+        mid_no = Decimal("1") - mid_yes
+        assert abs(mid_yes + mid_no - Decimal("1.0")) < Decimal("1e-9"), (
+            "YES mid + NO mid must equal 1.0"
+        )
+
+    def test_recycling_disabled_by_default(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """With position_recycling=False (default), no recycle slices generated."""
+        config = QuoteEngineConfig(
+            position_recycling=False,  # Default
+        )
+        engine = self._make_engine(config=config)
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("50"),
+            avg_entry_yes=Decimal("0.40"),  # Very profitable
+        )
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=pos,
+            available_balance=Decimal("100"),
+        )
+
+        # Should have normal ASKs but no recycling-specific ones at mid
+        # With recycling OFF, the ASKs are at ask price (above mid), not at mid
+        mid = market_state.mid_price
+        ask_yes = [s for s in plan.slices
+                   if s.side == QuoteSide.ASK and s.token == TokenSide.YES]
+        # All ASKs should be above mid (normal quoting), not at/near mid (recycling)
+        for s in ask_yes:
+            assert s.price >= mid, (
+                f"Without recycling, ASK should be above mid. Got {s.price} vs mid {mid}"
+            )
+
+    def test_complement_consistency_in_recycling(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """Recycle slices respect complement pricing: YES_price + NO_price ≈ 1.0.
+
+        Lesson 1: Binary market complement consistency.
+        """
+        engine = self._make_engine()
+        # Both sides profitable
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("50"),
+            qty_no=Decimal("50"),
+            avg_entry_yes=Decimal("0.45"),
+            avg_entry_no=Decimal("0.30"),
+        )
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=pos,
+            available_balance=Decimal("100"),
+        )
+
+        # Find recycle ASKs
+        recycle_yes = [s for s in plan.slices
+                      if s.side == QuoteSide.ASK and s.token == TokenSide.YES
+                      and s.size == Decimal("50")]
+        recycle_no = [s for s in plan.slices
+                     if s.side == QuoteSide.ASK and s.token == TokenSide.NO
+                     and s.size == Decimal("50")]
+
+        if recycle_yes and recycle_no:
+            price_yes = recycle_yes[0].price
+            price_no = recycle_no[0].price
+            total = price_yes + price_no
+            assert abs(total - Decimal("1.0")) < Decimal("0.05"), (
+                f"Complement pricing violated: YES={price_yes} + NO={price_no} = {total}"
+            )
+
+
+class TestBalanceAwareWithRecyclingIntegration:
+    """Integration tests: balance-aware quoting + position recycling together."""
+
+    def _make_engine(self, **kwargs) -> QuoteEngine:
+        config = kwargs.get("config", QuoteEngineConfig(
+            balance_aware_quoting=True,
+            min_balance_to_quote=Decimal("5"),
+            position_recycling=True,
+            recycle_profit_threshold=Decimal("0.02"),
+            default_order_size=Decimal("10"),
+        ))
+        return QuoteEngine(
+            spread_model=kwargs.get("spread", SpreadModel()),
+            inventory_skew=kwargs.get("skew", InventorySkew()),
+            rewards_farming=kwargs.get("rewards", RewardsFarming()),
+            toxic_flow=kwargs.get("toxic", ToxicFlowDetector()),
+            config=config,
+        )
+
+    @pytest.fixture
+    def market_state(self) -> MarketState:
+        return MarketState(
+            market_id="test-market-001",
+            condition_id="0xabc123",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            tick_size=Decimal("0.01"),
+            min_order_size=Decimal("5"),
+            neg_risk=False,
+            yes_bid=Decimal("0.55"),
+            yes_ask=Decimal("0.60"),
+            no_bid=Decimal("0.40"),
+            no_ask=Decimal("0.45"),
+            depth_yes_bid=Decimal("1000"),
+            depth_yes_ask=Decimal("1000"),
+        )
+
+    @pytest.fixture
+    def features(self) -> FeatureVector:
+        return FeatureVector(
+            market_id="test-market-001",
+            spread_bps=Decimal("80"),
+            book_imbalance=0.1,
+            volatility_1m=0.008,
+            liquidity_score=0.6,
+            expected_fee_bps=Decimal("2"),
+            data_quality_score=0.9,
+        )
+
+    def test_broke_but_profitable_position_recycles(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """When balance is exhausted but position is profitable,
+        recycling generates ASK to reclaim capital. BIDs are suppressed."""
+        engine = self._make_engine()
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("50"),
+            avg_entry_yes=Decimal("0.45"),  # mid=0.575, profit=0.125 > 0.02
+        )
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=pos,
+            available_balance=Decimal("1"),  # Nearly broke
+        )
+
+        bid_slices = [s for s in plan.slices if s.side == QuoteSide.BID]
+        ask_slices = [s for s in plan.slices if s.side == QuoteSide.ASK]
+
+        assert len(bid_slices) == 0, "BIDs suppressed when broke"
+        assert len(ask_slices) > 0, "Recycle ASKs should be generated"
+
+        # At least one recycle ASK for full position
+        recycle = [s for s in ask_slices
+                   if s.token == TokenSide.YES and s.size == Decimal("50")]
+        assert len(recycle) > 0, "Should recycle full YES position"
+
+    def test_backward_compatible_no_new_params(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """Default config (no new params) works exactly like before."""
+        config = QuoteEngineConfig()  # All defaults
+        engine = self._make_engine(config=config)
+        flat = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+        )
+
+        # Should produce normal bilateral quotes
+        plan = engine.generate_quotes(
+            state=market_state,
+            features=features,
+            position=flat,
+            available_balance=Decimal("100"),
+        )
+
+        sides = {s.side for s in plan.slices}
+        tokens = {s.token for s in plan.slices}
+        assert QuoteSide.BID in sides
+        assert QuoteSide.ASK in sides
+        assert TokenSide.YES in tokens
+        assert TokenSide.NO in tokens

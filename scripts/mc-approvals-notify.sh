@@ -133,6 +133,11 @@ for appr in items[: args.max]:
     if len(title) > 120:
       title = title[:117] + "..."
 
+    fields = task.get("custom_field_values") or {}
+    review_reason = str(fields.get("mc_review_reason", "") or "").strip()
+    loop_id = str(fields.get("mc_loop_id", "") or "").strip()
+    risk_profile = str(fields.get("mc_risk_profile", "") or "").strip()
+
     link = f"{public_url}/boards/{board_id}?task={task_id}" if public_url else ""
     msg = (
       f"🔔 Approval pendente no Mission Control\n"
@@ -141,6 +146,9 @@ for appr in items[: args.max]:
       f"Approval ID: {approval_id}\n"
       f"Status: {status}\n"
       + (f"Motivo: {reasoning}\n" if reasoning else "")
+      + (f"Review Reason: {review_reason}\n" if review_reason else "")
+      + (f"Loop ID: {loop_id}\n" if loop_id else "")
+      + (f"Risco: {risk_profile}\n" if risk_profile else "")
       + (f"Link: {link}" if link else "")
     )
 

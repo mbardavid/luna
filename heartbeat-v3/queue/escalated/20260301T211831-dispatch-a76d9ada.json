@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "a76d9ada-20b0-44bc-8a60-e8353107772e",
+  "filename": "20260301T211831-dispatch-a76d9ada.json",
+  "created_at": "2026-03-01T21:18:31.425423+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "[auto-compact] test pendency",
+  "agent": "main",
+  "priority": "medium",
+  "context": {
+    "description": "Test from smart compact\n\n---\n_source: auto-compact | session: 606fef55_",
+    "eligible_count": 1,
+    "in_progress_count": 1
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "a76d9ada-20b0-44bc-8a60-e8353107772e",
+    "title": "[auto-compact] test pendency",
+    "description": "Test from smart compact\n\n---\n_source: auto-compact | session: 606fef55_",
+    "priority": "medium"
+  }
+}

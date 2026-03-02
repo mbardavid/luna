@@ -40,8 +40,24 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from core.event_bus import EventBus
 from core.kill_switch import KillSwitch, KillSwitchState
 from data.rest_client import CLOBRestClient
+from execution.ctf_merge import CTFMerger
+from execution.unwind import UnwindConfig, UnwindManager, UnwindStrategy
 from data.ws_client import CLOBWebSocketClient
 from execution.live_execution import LiveExecution
+
+# ── SOCKS5 Proxy for Polymarket geoblock bypass ──────────────────────
+# py_clob_client uses a global httpx.Client without proxy.
+# Monkey-patch it to route through Tor SOCKS5 on localhost:9050.
+try:
+    import httpx as _httpx
+    import py_clob_client.http_helpers.helpers as _clob_helpers
+    _PROXY_URL = os.environ.get("POLYMARKET_PROXY", "socks5://127.0.0.1:9050")
+    _clob_helpers._http_client = _httpx.Client(
+        http2=True, proxy=_PROXY_URL, timeout=30.0
+    )
+except Exception:
+    pass  # If proxy not available, fall through to direct connection
+# ─────────────────────────────────────────────────────────────────────
 from models.market_state import MarketState, MarketType
 from models.order import Order, OrderStatus, OrderType, Side
 from models.position import Position
@@ -470,6 +486,9 @@ class ProductionTradingPipeline:
         initial_balance: Decimal = Decimal("25"),
         kill_switch_max_drawdown_pct: float = 20.0,
         kill_switch_alert_pct: float = 10.0,
+        unwind_config: UnwindConfig | None = None,
+        complement_routing: bool = True,
+        max_position_per_side: Decimal = Decimal("100"),
     ):
         self.market_configs = market_configs
         self.rest_client = rest_client
@@ -482,6 +501,10 @@ class ProductionTradingPipeline:
         # Kill switch thresholds
         self._kill_switch_max_drawdown_pct = kill_switch_max_drawdown_pct
         self._kill_switch_alert_pct = kill_switch_alert_pct
+
+        # Complement routing & position cap
+        self._complement_routing = complement_routing
+        self._max_position_per_side = max_position_per_side
 
         # Core strategy components (shared with paper)
         self.event_bus = EventBus()
@@ -573,9 +596,18 @@ class ProductionTradingPipeline:
             self._token_to_market[m.token_id_yes] = m
             self._token_to_market[m.token_id_no] = m
 
+        # Unwind manager for graceful position exit
+        self._unwind_config = unwind_config or UnwindConfig()
+        self._unwind_manager = UnwindManager(
+            rest_client=rest_client,
+            ctf_merger=CTFMerger(),
+            config=self._unwind_config,
+        )
+
         # Control
         self._running = False
         self._shutdown_event = asyncio.Event()
+        self._shutdown_reason: str = ""
 
     # ── Trade Dedup Persistence (BUG-1 FIX) ──────────────────────
 
@@ -695,11 +727,35 @@ class ProductionTradingPipeline:
             logger.info("production.shutting_down")
             self._running = False
 
-            # Cancel all open orders before stopping
+            # Unwind all positions before stopping
             try:
-                await self._cancel_all_orders()
+                reason = self._shutdown_reason or "graceful_shutdown"
+                # Determine strategy based on kill switch state
+                if self.kill_switch.is_halted:
+                    strategy = UnwindStrategy.SWEEP
+                else:
+                    strategy = UnwindStrategy.AGGRESSIVE
+
+                unwind_report = await self._unwind_manager.unwind_all(
+                    positions=dict(self.wallet._positions),
+                    reason=reason,
+                    strategy=strategy,
+                    market_configs=self.market_configs,
+                )
+
+                # Save unwind report
+                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                report_path = DATA_DIR / f"unwind_{self._run_id}_{timestamp}.json"
+                unwind_report.save(report_path)
+                logger.info(
+                    "production.unwind_complete",
+                    success=unwind_report.success,
+                    proceeds=str(unwind_report.total_proceeds),
+                    merged=str(unwind_report.total_merged_usdc),
+                    orphaned=len(unwind_report.orphaned),
+                )
             except Exception as e:
-                logger.error("production.cancel_all_failed", error=str(e))
+                logger.error("production.unwind_failed", error=str(e))
 
             for t in tasks:
                 t.cancel()
@@ -709,9 +765,10 @@ class ProductionTradingPipeline:
             await self.rest_client.disconnect()
             logger.info("production.stopped")
 
-    async def stop(self):
+    async def stop(self, reason: str = "graceful_shutdown"):
         """Signal graceful shutdown."""
         self._running = False
+        self._shutdown_reason = reason
         self._shutdown_event.set()
 
     # ── Event Processing Loops ──────────────────────────────────
@@ -862,6 +919,75 @@ class ProductionTradingPipeline:
                     "order_type": OrderType.GTC,
                     "maker_only": True,
                 })
+
+                # ── Complement routing ──────────────────────────
+                # If SELL and we don't hold enough shares, convert:
+                #   SELL YES @ P  →  BUY NO  @ (1 - P)
+                #   SELL NO  @ P  →  BUY YES @ (1 - P)
+                if order.side == Side.SELL:
+                    token_is_yes = (order.token_id == market_cfg.token_id_yes)
+                    cr_position = self.wallet.get_position(market_cfg.market_id)
+                    available = Decimal("0")
+                    if cr_position is not None:
+                        available = cr_position.qty_yes if token_is_yes else cr_position.qty_no
+
+                    if available < order.size:
+                        if self._complement_routing:
+                            complement_token_id = (
+                                market_cfg.token_id_no if token_is_yes
+                                else market_cfg.token_id_yes
+                            )
+                            complement_price = Decimal("1") - order.price
+                            original_desc = (
+                                f"SELL {'YES' if token_is_yes else 'NO'} "
+                                f"@ {order.price}"
+                            )
+                            order = order.model_copy(update={
+                                "side": Side.BUY,
+                                "token_id": complement_token_id,
+                                "price": complement_price,
+                            })
+                            routed_desc = (
+                                f"BUY {'NO' if token_is_yes else 'YES'} "
+                                f"@ {complement_price}"
+                            )
+                            logger.debug(
+                                "production.complement_routing",
+                                original=original_desc,
+                                routed=routed_desc,
+                                market_id=market_cfg.market_id,
+                            )
+                        else:
+                            # Complement routing disabled — skip SELL
+                            # we can't sell what we don't have
+                            logger.debug(
+                                "production.sell_skipped_no_position",
+                                side=order.side.value,
+                                token="YES" if (order.token_id == market_cfg.token_id_yes) else "NO",
+                                available=str(available),
+                                order_size=str(order.size),
+                                market_id=market_cfg.market_id,
+                            )
+                            continue
+
+                # ── Position cap ────────────────────────────────
+                # After potential complement routing, check BUY cap
+                if order.side == Side.BUY:
+                    cap_token_is_yes = (order.token_id == market_cfg.token_id_yes)
+                    cap_position = self.wallet.get_position(market_cfg.market_id)
+                    current = Decimal("0")
+                    if cap_position is not None:
+                        current = cap_position.qty_yes if cap_token_is_yes else cap_position.qty_no
+                    if current + order.size > self._max_position_per_side:
+                        logger.debug(
+                            "production.position_cap",
+                            current=str(current),
+                            order_size=str(order.size),
+                            cap=str(self._max_position_per_side),
+                            token="YES" if cap_token_is_yes else "NO",
+                            market_id=market_cfg.market_id,
+                        )
+                        continue
 
                 self.metrics.record_order(market_cfg.market_id)
                 submit_time = time.monotonic()
@@ -1365,9 +1491,12 @@ async def async_main(args):
     gamma = 0.3
     initial_balance = Decimal("25")
     quote_interval = 5.0
+    _unwind_config = None
     kill_switch_max_dd = 20.0
     kill_switch_alert = 10.0
     duration_hours = 24.0
+    complement_routing = True
+    max_position_per_side = Decimal("100")
 
     if args.config:
         config_file = Path(args.config)
@@ -1384,7 +1513,20 @@ async def async_main(args):
         quote_interval = float(params.get("quote_interval_s", 5.0))
         kill_switch_max_dd = float(params.get("kill_switch_max_drawdown_pct", 20.0))
         kill_switch_alert = float(params.get("kill_switch_alert_pct", 10.0))
+        complement_routing = bool(params.get("complement_routing", True))
+        max_position_per_side = Decimal(str(params.get("max_position_per_side", 100)))
         run_config.params["config_path"] = str(config_file)
+
+        # Load unwind config from YAML if present
+        # Read raw YAML to get the unwind section
+        try:
+            with open(config_file) as _f:
+                raw_yaml = yaml.safe_load(_f) or {}
+            unwind_yaml = raw_yaml.get("unwind", params.get("unwind", {}))
+            if unwind_yaml:
+                _unwind_config = UnwindConfig.from_dict(unwind_yaml)
+        except Exception as _e:
+            logger.warning("production.unwind_config_load_error", error=str(_e))
 
         logger.info(
             "production.config_loaded",
@@ -1392,6 +1534,8 @@ async def async_main(args):
             initial_balance=str(initial_balance),
             order_size=str(order_size),
             quote_interval=quote_interval,
+            complement_routing=complement_routing,
+            max_position_per_side=str(max_position_per_side),
         )
 
     # Initialize REST client with env vars
@@ -1470,12 +1614,18 @@ async def async_main(args):
         initial_balance=initial_balance,
         kill_switch_max_drawdown_pct=kill_switch_max_dd,
         kill_switch_alert_pct=kill_switch_alert,
+        unwind_config=_unwind_config,
+        complement_routing=complement_routing,
+        max_position_per_side=max_position_per_side,
     )
 
     # Handle signals
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(pipeline.stop()))
+        loop.add_signal_handler(
+            sig,
+            lambda s=sig: asyncio.create_task(pipeline.stop(reason=f"signal_{s.name}")),
+        )
 
     await pipeline.start()
 
@@ -1484,6 +1634,10 @@ def main():
     parser = argparse.ArgumentParser(description="Production Trading Pipeline (Micro Test)")
     parser.add_argument("--config", type=str, default=None,
                         help="Path to run config YAML (e.g., paper/runs/prod-001.yaml)")
+    parser.add_argument("--unwind-previous", action="store_true",
+                        help="Unwind positions from a previous run before starting")
+    parser.add_argument("--adopt-positions", action="store_true",
+                        help="Adopt orphaned positions from a previous run into the tracker")
     args = parser.parse_args()
     asyncio.run(async_main(args))
 

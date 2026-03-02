@@ -1,0 +1,21 @@
+{
+    "schemaVersion": "1.1",
+    "updatedAt": "2026-03-01T18:38:00Z",
+    "activeHandoffs": {},
+    "routingTable": {},
+    "promotion": {
+        "currentStage": "dev",
+        "candidateStage": null,
+        "gateStatus": "pending",
+        "lastGatePassed": null,
+        "approvedBy": null,
+        "approvedAt": null
+    },
+    "rollback": {
+        "required": true,
+        "planRef": "docs/agentic-loop-contract.md",
+        "lastRollbackAt": null,
+        "lastRollbackReason": null
+    },
+    "delegationAuditLog": []
+}

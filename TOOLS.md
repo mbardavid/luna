@@ -68,10 +68,13 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 - Drop-ins migrados: bird-env, crypto-sage-env, polymarket-env
 - Config: `--bind lan`, `Restart=always`, `KillMode=process`, enabled on boot
 
-**⚠️ REGRA CRÍTICA: NUNCA parar/reiniciar o gateway via exec**
-- `sudo systemctl stop/restart openclaw-gateway` mata a Luna junto
-- Se detectar instabilidade → **apenas alertar Matheus**
-- O systemd cuida do restart automaticamente
+**⚠️ REGRA CRÍTICA: Gateway restart apenas via script seguro**
+- `scripts/gateway-safe-restart.sh --auto --reason "<motivo>"` — método correto
+- O script limpa sessões, notifica Discord, respeita rate limit, e só então reinicia
+- `sudo systemctl stop/restart openclaw-gateway` direto: **PROIBIDO** (exceto quando Matheus pedir explicitamente)
+- CTO-ops (`mc-resource-monitor.sh`) executa restart automático quando gateway memory > 80% do watermark
+- Rate limit: max 3 restarts/hora (enforced pelo script)
+- Se detectar instabilidade sem atingir threshold → **apenas alertar Matheus**
 
 **Diagnóstico (somente leitura):**
 - `sudo systemctl status openclaw-gateway` — status atual

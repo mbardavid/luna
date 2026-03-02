@@ -224,6 +224,54 @@ elif load_pct <= args.recover_pct and in_degrade:
     "Retomando operação normal."
   )
 
+# ─── CTO-ops: Gateway memory auto-restart ────────────────────────────
+# Check gateway-specific memory (cgroup) separately from system RAM.
+# If gateway memory > 80% of high watermark, trigger safe restart.
+gateway_restart_triggered = False
+try:
+  gw_mem_path = "/sys/fs/cgroup/system.slice/openclaw-gateway.service/memory.current"
+  gw_high_path = "/sys/fs/cgroup/system.slice/openclaw-gateway.service/memory.high"
+  if os.path.exists(gw_mem_path) and os.path.exists(gw_high_path):
+    gw_current = int(open(gw_mem_path).read().strip())
+    gw_high_raw = open(gw_high_path).read().strip()
+    gw_high = int(gw_high_raw) if gw_high_raw != "max" else 0
+    if gw_high > 0:
+      gw_pct = round(gw_current / gw_high * 100, 1)
+      gw_current_mb = gw_current // (1024 * 1024)
+      gw_high_mb = gw_high // (1024 * 1024)
+      if gw_pct >= 80:
+        # Check rate limit via state
+        last_gw_restart_ms = int(state.get("last_gateway_restart_ms", 0))
+        if (now_ms - last_gw_restart_ms) > 60 * 60 * 1000:  # max 1 per hour from resource-monitor
+          restart_script = os.path.join(
+            os.environ.get("WORKSPACE", "/home/openclaw/.openclaw/workspace"),
+            "scripts", "gateway-safe-restart.sh"
+          )
+          if os.path.isfile(restart_script):
+            reason = f"resource-monitor: gateway memory {gw_pct}% ({gw_current_mb}MB/{gw_high_mb}MB)"
+            events.append(
+              f"🔄 **CTO-ops auto-restart**: gateway em {gw_pct}% do watermark "
+              f"({gw_current_mb}MB/{gw_high_mb}MB). Executando restart seguro..."
+            )
+            state["last_gateway_restart_ms"] = now_ms
+            state["gateway_restart_count"] = int(state.get("gateway_restart_count", 0)) + 1
+            if not args.dry_run:
+              subprocess.Popen(
+                [restart_script, "--auto", "--reason", reason],
+                stdout=open(os.path.join(
+                  os.environ.get("WORKSPACE", "/home/openclaw/.openclaw/workspace"),
+                  "logs", "gateway-safe-restart.log"
+                ), "a"),
+                stderr=subprocess.STDOUT,
+              )
+              gateway_restart_triggered = True
+          else:
+            events.append(f"⚠️ Gateway em {gw_pct}% mas script de restart não encontrado")
+        else:
+          pass  # rate limited, skip silently
+except Exception as e:
+  pass  # non-fatal, don't break resource monitor
+
 killed = []
 if load_pct >= args.kill_pct and args.kill_allowlist:
   elapsed_ms = now_ms - int(state.get("last_kill_at_ms", 0))

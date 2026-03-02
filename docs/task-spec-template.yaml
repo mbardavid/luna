@@ -1,0 +1,41 @@
+# Task Spec Template
+# Used by Luna (orchestrator) when spawning agent tasks.
+# All fields are optional except title and type.
+
+task:
+  title: ""
+  description: ""
+  type: bugfix|feature|refactor|research|review
+
+  # Target workspace and relevant files
+  workspace: /path/to/workspace
+  files:
+    - path/to/file1.py
+    - path/to/file2.py
+
+  # What defines success
+  acceptance_criteria:
+    - All existing tests pass
+    - New tests cover the change
+    - No regressions in test count
+
+  # What NOT to do or limits
+  constraints:
+    - Don't modify unrelated modules
+    - Keep backward compatibility
+
+  # What the agent must produce
+  artifacts_required:
+    - test_report: pytest/test runner output
+    - diff_summary: files changed + lines added/removed
+    - completion_report: structured report per AGENTS.md format
+
+  # Optional context
+  context:
+    related_tasks: []
+    previous_attempts: []
+    relevant_lessons: []
+
+  # Priority and urgency
+  priority: normal  # low | normal | high | critical
+  timeout_minutes: 30

@@ -23,3 +23,18 @@ success_criteria:
   pnl_positive: false          # not expected to be profitable yet
   max_drawdown_pct: 20.0
   data_collection_hours: 8     # minimum hours needed for valid param extraction
+
+unwind:
+  enabled: true
+  max_time_seconds: 60
+  strategies:
+    normal_shutdown: aggressive    # best_bid/ask
+    kill_switch: sweep             # mid - 5%
+    crash_recovery: hold           # don't unwind, adopt
+  dust_threshold_shares: 5         # min order size on Polymarket
+  merge_enabled: true              # try CTF merge before selling
+  progressive_pricing:
+    attempt_1_offset_pct: 0        # at market
+    attempt_2_offset_pct: 2        # 2% worse
+    attempt_3_offset_pct: 5        # 5% worse (last resort)
+  alert_on_orphan: true            # notify if unwind fails

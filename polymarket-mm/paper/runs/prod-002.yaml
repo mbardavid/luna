@@ -1,0 +1,53 @@
+# Production Run 002 — Calibrated MM
+# Fixes from prod-001:
+# 1. SELL rejections: bot was sending ~1100 SELLs/hour all rejected (no position to sell)
+#    FIX: complement routing enabled — SELL YES = BUY NO when no YES inventory
+# 2. All 199 fills in first 5min, then 9h dead
+#    FIX: tighter spread (30bps vs 50bps), faster requoting (3s vs 5s)
+# 3. Virtual tracker diverged from on-chain
+#    FIX: reconcile more frequently (every 60s vs 300s)
+# 4. Market moved +18% and bot didn't adapt
+#    FIX: higher gamma (0.5) for stronger inventory skew response
+# 5. Better market selection: Iranian regime fall by June 30
+#    mid=0.43, vol=$1.1M/24h, liq=$715K — much more liquid than Hormuz
+
+run_id: "prod-002"
+mode: "production"
+duration_hours: 24
+hypothesis: "calibrated-mm-post-prod001"
+initial_balance: 25
+
+params:
+  quote_interval_s: 3.0              # faster requoting (was 5s)
+  default_order_size: 5              # minimum Polymarket order size
+  default_half_spread_bps: 30        # tighter spread (was 50)
+  gamma_risk_aversion: 0.5           # stronger inventory skew (was 0.3)
+  max_position_per_side: 50          # cap inventory at 50 shares per side
+  complement_routing: true           # SELL YES → BUY NO when no position
+  reconcile_interval_s: 60           # on-chain reconcile every 60s (was 300s)
+  kill_switch_max_drawdown_pct: 20.0 # $5 loss = halt
+  kill_switch_alert_pct: 10.0        # $2.50 loss = alert
+  initial_on_chain_balance: 226.57   # current portfolio value
+  markets:
+    - "0x9352c559e9648ab4cab236087b64ca85c5b7123a4c7d9d7d4efde4a39c18056f"
+
+success_criteria:
+  pnl_positive: false
+  max_drawdown_pct: 20.0
+  min_fill_rate_pct: 0.5             # at least 0.5% fills (was 1.37% in prod-001)
+  data_collection_hours: 8
+
+unwind:
+  enabled: true
+  max_time_seconds: 60
+  strategies:
+    normal_shutdown: aggressive
+    kill_switch: sweep
+    crash_recovery: hold
+  dust_threshold_shares: 5
+  merge_enabled: true
+  progressive_pricing:
+    attempt_1_offset_pct: 0
+    attempt_2_offset_pct: 2
+    attempt_3_offset_pct: 5
+  alert_on_orphan: true

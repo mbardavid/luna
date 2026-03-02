@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "name": "OpenClaw CTO-ops risk policy",
+  "updated_at": "2026-03-01T00:00:00Z",
+  "risk_profiles": {
+    "low": {
+      "max_auto_approve_seconds": 900,
+      "allowed_commands": [
+        "mc-watchdog.sh",
+        "mc-failure-detector.sh",
+        "heartbeat-check.sh",
+        "mc-delivery.sh"
+      ],
+      "allow_new_spawns": true,
+      "require_signature": true
+    },
+    "medium": {
+      "max_auto_approve_seconds": 1800,
+      "allowed_commands": [
+        "mc-resource-monitor.sh",
+        "session-compact-sentinel.sh",
+        "gateway-health-sentinel.sh"
+      ],
+      "allow_new_spawns": true,
+      "require_signature": true
+    },
+    "high": {
+      "max_auto_approve_seconds": 300,
+      "allowed_commands": [
+        "mc-cron-guard.sh",
+        "mc-phase1-cron.sh",
+        "gateway-wake-sentinel.sh",
+        "gateway-safe-restart.sh"
+      ],
+      "allow_new_spawns": false,
+      "require_signature": true,
+      "requires_authorization": false,
+      "requires_approval_reason": true,
+      "gateway_restart_policy": {
+        "allowed": true,
+        "only_via_script": "scripts/gateway-safe-restart.sh",
+        "conditions": [
+          "memory > 70% of high watermark OR --force flag",
+          "rate limit: max 3 restarts per hour",
+          "must notify Discord BEFORE restart",
+          "must clean dead sessions BEFORE restart",
+          "must log to cto-ops-audit.log"
+        ],
+        "never_use_directly": [
+          "sudo systemctl restart openclaw-gateway",
+          "sudo systemctl stop openclaw-gateway",
+          "kill -USR1"
+        ]
+      }
+    },
+    "critical": {
+      "max_auto_approve_seconds": 0,
+      "allowed_commands": [],
+      "allow_new_spawns": false,
+      "require_signature": true,
+      "requires_authorization": true,
+      "requires_human_gate": true
+    }
+  },
+  "anti_spam": {
+    "max_actions_per_minute": 12,
+    "max_restart_actions_per_hour": 3,
+    "global_kill_switch_enabled": true
+  },
+  "denylist_targets": [
+    "raw systemctl restart openclaw-gateway",
+    "raw systemctl stop openclaw-gateway",
+    "kill -USR1 gateway"
+  ],
+  "allowed_restart_method": "scripts/gateway-safe-restart.sh --auto --reason '<motivo>'"
+}

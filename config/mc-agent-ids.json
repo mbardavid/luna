@@ -2,5 +2,11 @@
   "luan": "ccd2e6d0",
   "crypto-sage": "ad3cf364",
   "main": "70bd8378",
-  "quant-strategist": "b66bda98"
+  "quant-strategist": "b66bda98",
+  "luan-dev": "ccd2e6d0",
+  "cto-ops": "cto-ops-agent-01",
+  "luan_dev": "ccd2e6d0",
+  "cto_ops": "cto-ops-agent-01",
+  "blockchain-operator": "ad3cf364",
+  "blockchain_operator": "ad3cf364"
 }

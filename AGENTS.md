@@ -328,6 +328,55 @@ Para tarefas de desenvolvimento/código:
 - Executar ciclo completo: pesquisa/hipótese → implementação/iteração → validação por etapa com critérios objetivos.
 - Sempre que aplicável, validar UI/UX via browser automation.
 
+## QA Review Protocol — Coding Tasks (Mandatory)
+
+Ao revisar resultados de tasks de coding (especialmente do Luan):
+
+1. **Ler `memory/lessons.md` do agente** ANTES de revisar o resultado
+2. **Cruzar cada lesson relevante** com as mudanças feitas:
+   - O agente violou algum pattern documentado?
+   - Os testes cobrem os cenários descritos nas lessons?
+   - As actions recomendadas foram seguidas?
+3. **Verificar QA Guidance** (se presente na task spec):
+   - Cada pergunta do QA Guidance deve ser respondida explicitamente
+4. **Verificar Acceptance Criteria**:
+   - Todo `- [ ]` deve estar `- [x]` ou ter justificativa
+5. **Verificar Verification Checks**:
+   - Output dos checks deve estar no completion report
+   - Se ausente, pedir ao agente que rode
+6. **Se encontrar violação de lesson**: reportar ao Matheus e adicionar como nota no daily log
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
+
+## Lessons Cross-Pollination Protocol (Mandatory)
+
+When adding a new lesson to `memory/lessons.md`:
+
+1. **Check domain relevance** — if the lesson applies to coding/testing/debugging, it should also be propagated to Luan's `workspace-luan/memory/lessons.md`
+2. **Check operational relevance** — if the lesson applies to gateway/infra/trading, check if crypto-sage or quant-strategist need it too
+3. **Format for propagation:**
+   ```
+   ## Lesson from <source>: <title> (cross-pollinated YYYY-MM-DD)
+   **Domain:** ...
+   **Pattern:** ...
+   **Action:** ...
+   ```
+4. **Same rule applies in reverse** — when reviewing Luan's completion reports, check if new lessons should be promoted to Luna's lessons.md
+
+## Structured Task Spec for Luan (Mandatory)
+
+When spawning Luan via `sessions_spawn`, the prompt MUST include:
+
+1. **Title** — short descriptive name
+2. **Type** — bugfix|feature|refactor|research|review
+3. **Files** — which files to modify (at least one)
+4. **Acceptance Criteria** — checkboxes that define done
+5. **Verification Checks** — commands to run before reporting done
+6. **Risk Profile** — low|medium|high|critical
+7. **MC Task ID** — for tracking (created via mc-spawn.sh before spawn)
+
+**Helper script:** `scripts/mc-spawn-luan.sh` generates the full task spec + MC card atomically.
+
+Tasks without acceptance criteria or verification checks will be rejected by Luan's inner loop.

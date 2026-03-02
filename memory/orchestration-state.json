@@ -1,11 +1,79 @@
 {
-  "schemaVersion": "1.0",
-  "updatedAt": "2026-02-18T19:37:00Z",
-  "activeHandoffs": {},
+  "schemaVersion": "1.1",
+  "updatedAt": "2026-03-01T20:24:23Z",
+  "activeHandoffs": {
+    "loop_5n8yaudh7f57": {
+      "status": "running",
+      "mode": "dev",
+      "sourceAgent": "luna",
+      "targetAgent": "luan-dev",
+      "routeKey": "luan-dev.dev-execution.v1",
+      "lastUpdatedAt": "2026-03-01T20:16:12Z",
+      "loop_id": "loop_5n8yaudh7f57",
+      "review_state": "accepted",
+      "review_cycle": 2,
+      "proposed_by": "luna",
+      "review_reason": "Plano aprovado com ajustes"
+    },
+    "loop_cf9gmu74ougj": {
+      "status": "authorize",
+      "mode": "dev",
+      "sourceAgent": "luna",
+      "targetAgent": "cto-ops",
+      "routeKey": "cto-ops.ops-monitoring.v1",
+      "lastUpdatedAt": "2026-03-01T20:16:12Z",
+      "loop_id": "loop_cf9gmu74ougj",
+      "review_state": "authorize",
+      "review_cycle": 1,
+      "proposed_by": "luna",
+      "review_reason": "Aprovação manual pelo operador"
+    },
+    "loop_8djvl2hvzr7s": {
+      "status": "failed",
+      "mode": "dev",
+      "sourceAgent": "luna",
+      "targetAgent": "luan-dev",
+      "routeKey": "luan-dev.dev-execution.v1",
+      "lastUpdatedAt": "2026-03-01T20:16:12Z",
+      "loop_id": "loop_8djvl2hvzr7s",
+      "review_state": "rejected",
+      "review_cycle": 1,
+      "proposed_by": "luna",
+      "review_reason": "Objetivo fora do escopo do projeto"
+    },
+    "crash_orphan_7ox5qr4t": {
+      "status": "review",
+      "mode": "dev",
+      "sourceAgent": "luna",
+      "targetAgent": "luan-dev",
+      "routeKey": "luan-dev.dev-execution.v1",
+      "lastUpdatedAt": "2026-03-01T20:24:23Z",
+      "loop_id": "crash_orphan_7ox5qr4t",
+      "review_state": "rejected",
+      "review_cycle": 1,
+      "proposed_by": "luna",
+      "review_reason": "Stale orphan from crash — auto-recovered"
+    }
+  },
   "routingTable": {
     "crypto-sage.execution-plane.v1": {
       "capability": "execution-plane",
       "primaryAgentId": "blockchain-operator",
+      "fallbackAgentId": null
+    },
+    "luan-dev.dev-execution.v1": {
+      "capability": "dev-execution",
+      "primaryAgentId": "luan-dev",
+      "fallbackAgentId": null
+    },
+    "cto-ops.ops-monitoring.v1": {
+      "capability": "ops-monitoring",
+      "primaryAgentId": "cto-ops",
+      "fallbackAgentId": null
+    },
+    "luan-dev.code-review.v1": {
+      "capability": "code-review",
+      "primaryAgentId": "luan-dev",
       "fallbackAgentId": null
     }
   },
@@ -23,5 +91,149 @@
     "lastRollbackAt": null,
     "lastRollbackReason": null
   },
-  "delegationAuditLog": []
+  "delegationAuditLog": [
+    {
+      "eventId": "evt_6avvh0owxx1y",
+      "handoffId": "hs_sprint3_dev_loop_5n8ya",
+      "principal": "luna",
+      "delegateAgent": "luan-dev",
+      "task": "propose",
+      "riskClassification": "medium",
+      "decision": "allowed",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_ue9auvq1repg",
+      "authorizationRef": null,
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_hfmbphybcugf",
+      "handoffId": "hs_sprint3_dev_loop_5n8ya",
+      "principal": "luan-dev",
+      "delegateAgent": "luan-dev",
+      "task": "critique",
+      "riskClassification": "medium",
+      "decision": "allowed",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_dnhptpdhu7vp",
+      "authorizationRef": "Testes unitários necessários",
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_wnssc2h9b2zu",
+      "handoffId": "hs_sprint3_dev_loop_5n8ya",
+      "principal": "luna",
+      "delegateAgent": "luan-dev",
+      "task": "replan",
+      "riskClassification": "medium",
+      "decision": "allowed",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_w72e9gsbefna",
+      "authorizationRef": "Plano ajustado com coverage mínima 80%",
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_um4qyuh39bdn",
+      "handoffId": "hs_sprint3_dev_loop_5n8ya",
+      "principal": "luan-dev",
+      "delegateAgent": "luan-dev",
+      "task": "authorize",
+      "riskClassification": "medium",
+      "decision": "allowed",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_vcv91jbz4kpw",
+      "authorizationRef": "Aprovado após inclusão de testes",
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_q7nx35qfdcrg",
+      "handoffId": "hs_sprint3_dev_loop_5n8ya",
+      "principal": "luna",
+      "delegateAgent": "luan-dev",
+      "task": "accepted",
+      "riskClassification": "medium",
+      "decision": "allowed",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_xdh7xn2ft0wz",
+      "authorizationRef": "Loop completo, tarefa em execução",
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_l9a7d8gvhwzw",
+      "handoffId": "hs_sprint3_maint_loop_cf9gm",
+      "principal": "luna",
+      "delegateAgent": "luan-dev",
+      "task": "propose-high-risk",
+      "riskClassification": "high",
+      "decision": "allowed",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_050mijyeq4j3",
+      "authorizationRef": "Gateway restart - requer autorização",
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_ma5wq7j0ztxz",
+      "handoffId": "hs_sprint3_maint_loop_cf9gm",
+      "principal": "cto-ops",
+      "delegateAgent": "luan-dev",
+      "task": "auto-escalate",
+      "riskClassification": "high",
+      "decision": "denied",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_wf6whf813cxs",
+      "authorizationRef": "requires_authorization=true per policy",
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_u5ve98784sv4",
+      "handoffId": "hs_sprint3_maint_loop_cf9gm",
+      "principal": "luna",
+      "delegateAgent": "luan-dev",
+      "task": "human-authorize",
+      "riskClassification": "high",
+      "decision": "allowed",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_lp3uuhnxrzp9",
+      "authorizationRef": "Aprovado por operador humano",
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_mvbinb0n78z5",
+      "handoffId": "hs_sprint3_reject_loop_8djvl",
+      "principal": "luna",
+      "delegateAgent": "luan-dev",
+      "task": "propose",
+      "riskClassification": "medium",
+      "decision": "allowed",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_67hxkepysa0f",
+      "authorizationRef": null,
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_x6zicf3e8d0k",
+      "handoffId": "hs_sprint3_reject_loop_8djvl",
+      "principal": "luan-dev",
+      "delegateAgent": "luan-dev",
+      "task": "reject",
+      "riskClassification": "medium",
+      "decision": "denied",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_m5ytt0pov1ns",
+      "authorizationRef": "Fora do escopo",
+      "recordedAt": "2026-03-01T20:16:12Z"
+    },
+    {
+      "eventId": "evt_6ftptee6",
+      "handoffId": "hs_crash_recovery_crash_orph",
+      "principal": "cto-ops",
+      "delegateAgent": "luan-dev",
+      "task": "crash-recovery",
+      "riskClassification": "high",
+      "decision": "allowed",
+      "policyRef": "config/cto-risk-policy.json",
+      "envelopeHash": "sha256:hash_1vzqmvri",
+      "authorizationRef": "auto-recovery from crash 2026-02-24",
+      "recordedAt": "2026-03-01T20:24:23Z"
+    }
+  ]
 }

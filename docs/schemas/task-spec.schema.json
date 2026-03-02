@@ -21,7 +21,11 @@
   ],
   "properties": {
     "taskSpecVersion": {
-      "const": "1.0"
+      "type": "string",
+      "enum": [
+        "1.0",
+        "1.1"
+      ]
     },
     "handoffId": {
       "type": "string",
@@ -391,6 +395,48 @@
           }
         }
       }
+    },
+    "loop_id": {
+      "type": "string",
+      "description": "Unique identifier for the review loop cycle",
+      "pattern": "^loop_[a-z0-9]{8,64}$"
+    },
+    "proposed_by": {
+      "type": "string",
+      "description": "Agent that originated the proposal",
+      "minLength": 2,
+      "maxLength": 64
+    },
+    "risk_profile": {
+      "type": "string",
+      "description": "Risk classification for the task",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "review_depth": {
+      "type": "integer",
+      "description": "Maximum number of review cycles before escalation",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "review_feedback_required": {
+      "type": "boolean",
+      "description": "Whether explicit review feedback is required before execution"
+    },
+    "auto_approve_window": {
+      "type": "integer",
+      "description": "Seconds within which low-risk tasks can be auto-approved",
+      "minimum": 0,
+      "maximum": 86400
+    },
+    "review_reason": {
+      "type": "string",
+      "description": "Reason provided during critique/rejection phase",
+      "maxLength": 1000
     },
     "intent": {
       "type": "object",
@@ -820,6 +866,25 @@
             }
           }
         }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "taskSpecVersion": {
+            "const": "1.1"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "proposed_by",
+          "loop_id",
+          "risk_profile",
+          "review_depth",
+          "review_feedback_required",
+          "auto_approve_window"
+        ]
       }
     }
   ]

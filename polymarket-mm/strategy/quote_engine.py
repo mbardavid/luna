@@ -92,6 +92,26 @@ class QuoteEngineConfig:
     # that side is suppressed to prevent further accumulation.
     inventory_saturation_pct: Decimal = Decimal("0.80")
 
+    # ── Balance-aware quoting (prod-002 fix) ─────────────────────
+    # When True, skip BID generation entirely when available_balance
+    # is below min_balance_to_quote. Prevents "dead bot" scenario
+    # where balance is exhausted and every order gets rejected.
+    balance_aware_quoting: bool = False
+
+    # Minimum balance (in USDC) required to generate BID quotes.
+    # Below this, only ASK quotes for existing positions are produced.
+    min_balance_to_quote: Decimal = Decimal("5")
+
+    # ── Position recycling ───────────────────────────────────────
+    # When True, positions with unrealized PnL above the threshold
+    # generate automatic SELL slices to reclaim locked capital.
+    position_recycling: bool = False
+
+    # Minimum unrealized PnL per share (in price terms) before
+    # a position qualifies for recycling.
+    # E.g. 0.02 = recycle when avg_entry + 0.02 <= mid_price.
+    recycle_profit_threshold: Decimal = Decimal("0.02")
+
     # Strategy tag for generated quotes
     strategy_tag: str = "quote_engine_v1"
 
@@ -247,6 +267,21 @@ class QuoteEngine:
             )
             return plan
 
+        # ── Gate 5: Balance-aware quoting (prod-002 fix) ─────────
+        # When enabled, check if we have enough balance to place BIDs.
+        # Track whether BIDs should be suppressed so we can skip them
+        # later without losing ASK quotes for existing positions.
+        suppress_bids = False
+        if c.balance_aware_quoting and available_balance is not None:
+            if available_balance < c.min_balance_to_quote:
+                suppress_bids = True
+                logger.warning(
+                    "quote_engine.insufficient_balance_for_bids",
+                    market_id=mkt,
+                    available_balance=str(available_balance),
+                    min_balance_to_quote=str(c.min_balance_to_quote),
+                )
+
         # ── Step 1: Optimal half-spread ──────────────────────────
         volatility = Decimal(str(features.volatility_1m))
         half_spread = self._spread.optimal_half_spread(
@@ -326,6 +361,36 @@ class QuoteEngine:
                 available_balance=available_balance,
                 min_order_size=state.min_order_size,
             )
+
+        # ── Step 9: Balance-aware BID suppression ────────────────
+        # Remove all BID slices when balance is too low. This gate
+        # was computed earlier (Gate 5) but applied here so that
+        # ASK slices from position-aware filtering survive.
+        if suppress_bids:
+            plan.slices = [s for s in plan.slices if s.side != QuoteSide.BID]
+
+        # ── Step 10: Position recycling ──────────────────────────
+        # When enabled and balance is low, generate SELL slices for
+        # positions with unrealized profit above the threshold. This
+        # reclaims capital so the bot can keep trading.
+        if (
+            c.position_recycling
+            and position is not None
+            and mid_price > _ZERO
+        ):
+            recycle_slices = self._generate_recycle_slices(
+                position=position,
+                mid_price=mid_price,
+                tick_size=state.tick_size,
+                min_order_size=state.min_order_size,
+            )
+            if recycle_slices:
+                logger.info(
+                    "quote_engine.position_recycling",
+                    market_id=mkt,
+                    recycle_slices=len(recycle_slices),
+                )
+                plan.slices.extend(recycle_slices)
 
         logger.info(
             "quote_engine.plan_generated",
@@ -593,6 +658,81 @@ class QuoteEngine:
         return result
 
     # ── Helpers ──────────────────────────────────────────────────
+
+    def _generate_recycle_slices(
+        self,
+        position: Position,
+        mid_price: Decimal,
+        tick_size: Decimal,
+        min_order_size: Decimal,
+    ) -> list[QuoteSlice]:
+        """Generate SELL slices for profitable positions to reclaim capital.
+
+        For each token side with positive inventory, check if the
+        unrealized profit per share exceeds ``recycle_profit_threshold``.
+        If so, generate an ASK slice at the current mid price to close
+        the position and free the locked capital.
+
+        Returns a list of ASK (SELL) slices for recycling.
+        """
+        c = self._config
+        slices: list[QuoteSlice] = []
+
+        # Check YES side
+        if position.qty_yes > _ZERO and position.avg_entry_yes > _ZERO:
+            unrealized_per_share = mid_price - position.avg_entry_yes
+            if unrealized_per_share >= c.recycle_profit_threshold:
+                # Sell at mid (aggressive exit to reclaim capital)
+                sell_price = self._quantize_price(mid_price, tick_size)
+                sell_price = self._clamp_price(sell_price)
+                if sell_price is not None and sell_price > _ZERO:
+                    sell_size = position.qty_yes
+                    if sell_size >= min_order_size or sell_size > _ZERO:
+                        slices.append(
+                            QuoteSlice(
+                                side=QuoteSide.ASK,
+                                token=TokenSide.YES,
+                                price=sell_price,
+                                size=sell_size,
+                                ttl_ms=c.default_ttl_ms,
+                            )
+                        )
+                        logger.info(
+                            "quote_engine.recycle_yes",
+                            qty=str(sell_size),
+                            entry=str(position.avg_entry_yes),
+                            mid=str(mid_price),
+                            profit_per_share=str(unrealized_per_share),
+                        )
+
+        # Check NO side
+        no_mid = _ONE - mid_price
+        if position.qty_no > _ZERO and position.avg_entry_no > _ZERO:
+            unrealized_per_share = no_mid - position.avg_entry_no
+            if unrealized_per_share >= c.recycle_profit_threshold:
+                sell_price = self._quantize_price(no_mid, tick_size)
+                sell_price = self._clamp_price(sell_price)
+                if sell_price is not None and sell_price > _ZERO:
+                    sell_size = position.qty_no
+                    if sell_size >= min_order_size or sell_size > _ZERO:
+                        slices.append(
+                            QuoteSlice(
+                                side=QuoteSide.ASK,
+                                token=TokenSide.NO,
+                                price=sell_price,
+                                size=sell_size,
+                                ttl_ms=c.default_ttl_ms,
+                            )
+                        )
+                        logger.info(
+                            "quote_engine.recycle_no",
+                            qty=str(sell_size),
+                            entry=str(position.avg_entry_no),
+                            mid=str(no_mid),
+                            profit_per_share=str(unrealized_per_share),
+                        )
+
+        return slices
 
     def _quantize_price(self, price: Decimal, tick_size: Decimal) -> Decimal:
         """Round price to the nearest valid tick."""

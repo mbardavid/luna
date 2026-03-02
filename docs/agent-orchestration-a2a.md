@@ -38,7 +38,7 @@ Nenhum handoff é válido sem `TaskSpec` completo.
 
 ### 3.1 Campos mínimos obrigatórios
 
-- `taskSpecVersion` (`"1.0"`)
+- `taskSpecVersion` (`"1.0"` ou `"1.1"` — campos de review loop obrigatórios em 1.1)
 - `handoffId` (ID único do handoff)
 - `correlationId` (ID do ciclo fim-a-fim)
 - `createdAt` (ISO-8601)
@@ -344,6 +344,46 @@ Falha em qualquer uma dessas regras => handoff bloqueado com auditoria (`decisio
 - em `mentionDelegationMode=gated`, mention `@bot` é só trigger; execução exige policy+envelope+risk validados.
 - em `mentionDelegationMode=gated`, bloquear loop (`originBotId == targetBotId`).
 - em `mentionDelegationMode=gated`, dedupe obrigatório por `messageId` dentro da janela `ttlSeconds`.
+
+### 3.7 Campos de Review Loop (v1.1 — obrigatórios quando `taskSpecVersion=1.1`)
+
+A versão 1.1 do TaskSpec introduz campos para o ciclo de revisão dupla (Luna ⇄ Luan):
+
+- `loop_id` — identificador único do ciclo de revisão (`^loop_[a-z0-9]{8,64}$`)
+- `proposed_by` — agente que originou a proposta
+- `risk_profile` — classificação de risco (`low|medium|high|critical`)
+- `review_depth` — máximo de ciclos de revisão (1-10, default: 2)
+- `review_feedback_required` — se feedback explícito é necessário antes da execução
+- `auto_approve_window` — janela em segundos para auto-aprovação de tarefas de baixo risco (0-86400)
+- `review_reason` — motivo fornecido na fase de crítica/rejeição (max 1000 chars)
+
+#### Ciclo de revisão em 4 passos:
+
+1. **Propose** — Luna cria TaskSpec com `loop_id`, `risk_profile` e `proposed_by`
+2. **Critique** — Luan responde com plano estruturado (lógica, falhas, testes)
+3. **Replan** — Luna revisa e pode solicitar `counter-review` com `review_reason`
+4. **Authorize** — Luna aprova (auto ou manual conforme `risk_profile` e `auto_approve_window`)
+
+#### Estados finais:
+
+- `accepted_for_execution` — aprovado para execução
+- `needs_authorized_edit` — precisa de edição autorizada
+- `blocked_by_review` — bloqueado por revisão
+- `completed_with_checks` — concluído com validações
+
+#### Regras anti-collapse de status:
+
+- `needs_approval` **nunca** deve colapsar em `review`
+- `stalled` **nunca** deve colapsar em `review`
+- `retry` **nunca** deve colapsar em `review` ou `stalled`
+- Cada estado semântico deve permanecer distinguível no `orchestration-state`
+
+### 3.8 Assinaturas anti-impersonation (obrigatório em v1.1)
+
+- Toda task com `risk_profile=high|critical` deve incluir assinatura no `audit.delegation`
+- Allowlist de comandos críticos definida em `config/cto-risk-policy.json`
+- Wrapper de recepção deve validar `audit.delegation.envelopeHash` contra payload recebido
+- Tasks sem `risk_profile` em v1.1 devem ser rejeitadas com erro de schema
 
 ---
 

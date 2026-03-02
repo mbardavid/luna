@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "4b38f7a7-442c-4b2a-a398-f5dcb9cfa1c9",
+  "filename": "20260302T020018-respawn-4b38f7a7.json",
+  "created_at": "2026-03-02T02:00:18.602923+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM-PROD P5: Paper trading com dados live",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "Rodar paper venue consumindo dados reais do Polymarket para validar comportamento.\n\nEntreg\u00e1veis:\n1. Pipeline E2E: WS real \u2192 feature engine \u2192 quote engine \u2192 paper venue\n2. Rodar por m\u00ednimo 4h cont\u00ednuas\n3. M\u00e9tricas: PnL simulado, fill rate, inventory drift, spread capturado\n4. Kill switch testado (sim",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 1,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:c2a3c358-65a2-4b8a-bad7-6db9b0d5b8c1"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

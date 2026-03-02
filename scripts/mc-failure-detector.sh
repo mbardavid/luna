@@ -158,21 +158,31 @@ for task in tasks:
 
     title = task.get("title", "(sem título)")
     agent = str(task.get("assigned_agent_id", "unknown") or "unknown")[:8]
+    risk_profile = str(fields.get("mc_risk_profile", "unknown") or "unknown")
+    loop_id = str(fields.get("mc_loop_id", "") or "")
+    priority = str(task.get("priority", "medium") or "medium")
 
     failures_found.append({
         "task_id": task_id,
         "title": title,
         "session_key": session_key,
         "agent": agent,
+        "risk_profile": risk_profile,
+        "loop_id": loop_id,
+        "priority": priority,
     })
 
 if failures_found:
     lines = ["⚠️ **Failure Detector** — subagent(s) falharam com tasks abertas no MC:\n"]
     for f in failures_found:
-        lines.append(f"• `{f['task_id'][:8]}` — **{f['title']}** (sessão morta: `{f['session_key'][-12:]}`)")
-        notified[f["task_id"]] = {"at": now_ms, "session": f["session_key"]}
+        risk_tag = f"[{f['risk_profile'].upper()}]" if f['risk_profile'] != 'unknown' else ''
+        loop_tag = f" loop:`{f['loop_id'][:12]}`" if f['loop_id'] else ''
+        lines.append(f"• `{f['task_id'][:8]}` — **{f['title']}** {risk_tag} (sessão morta: `{f['session_key'][-12:]}`){loop_tag}")
+        notified[f["task_id"]] = {"at": now_ms, "session": f["session_key"], "risk": f["risk_profile"]}
 
     lines.append("\nAção necessária: investigar e re-spawnar ou marcar como failed.")
+    if any(f["risk_profile"] in ("high", "critical") for f in failures_found):
+        lines.append("🔴 **ATENÇÃO**: falha(s) com risco alto/critical detectada(s). Escalonar para cto-ops/Luna.")
     message = "\n".join(lines)
 
     if send_discord(message):

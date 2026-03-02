@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-03-01T18:40:10.164784+00:00",
+  "run_id": "prod-001",
+  "status": "FINISHED",
+  "uptime_seconds": 50866.6,
+  "duration_target_hours": 24.0,
+  "progress_pct": 58.9,
+  "pnl": {
+    "cumulative": 2.1976,
+    "realized": 2.1976,
+    "unrealized": 42.2786,
+    "per_hour_avg": 0.1555,
+    "max_drawdown": -0.6748,
+    "sharpe_estimate": -0.03
+  },
+  "markets": {
+    "0x561cd8d035bac38ed04e23d7882a126da38d7ead9d6679f722ad62c0c9d54ad2": {
+      "description": "Will Iran close the Strait of Hormuz by March 31?",
+      "mid_price": 0.325,
+      "spread_bps": 307,
+      "our_bid": 0,
+      "our_ask": 0,
+      "position_net": -189.259729,
+      "pnl": 2.197622656175822,
+      "fills_count": 0,
+      "last_fill_ago_s": 0,
+      "kill_switch": "RUNNING",
+      "data_gap_s": 1.5
+    }
+  },
+  "totals": {
+    "quotes_generated": 15814,
+    "orders_submitted": 15814,
+    "fills": 201,
+    "fill_rate_pct": 1.27,
+    "ws_messages": 72747,
+    "errors": 0
+  },
+  "system": {
+    "memory_mb": 121.0,
+    "ws_connected": true
+  },
+  "hypothesis_under_test": "production-micro-test",
+  "run_config_path": "/home/openclaw/.openclaw/workspace/polymarket-mm/paper/runs/prod-001.yaml",
+  "wallet": {
+    "initial_balance": 25.0,
+    "available_balance": -35.846946,
+    "locked_balance": 0.0,
+    "total_equity": 152.626249075,
+    "pnl_pct": 510.5,
+    "total_fees": 0.0,
+    "total_gas": 0.0
+  },
+  "on_chain": {
+    "initial_on_chain": 232.106,
+    "usdc_balance": 224.30933,
+    "last_updated": "2026-03-01T18:39:16.891744+00:00",
+    "positions": {
+      "0x561cd8d035bac38ed04e23d7882a126da38d7ead9d6679f722ad62c0c9d54ad2": {
+        "yes_shares": 0.722878,
+        "no_shares": 4.982607,
+        "yes_price": 0.36,
+        "no_price": 0.67,
+        "yes_value": 0.26023608,
+        "no_value": 3.33834669,
+        "description": "Will Iran close the Strait of Hormuz by March 31?"
+      }
+    },
+    "portfolio_value": 227.90791277,
+    "real_pnl": -4.19808723,
+    "discrepancy_usdc": 81.9058
+  }
+}

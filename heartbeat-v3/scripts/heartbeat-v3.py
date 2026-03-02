@@ -791,7 +791,13 @@ log(f"Phase 4.7: Rate limit OK ({len(recent_dispatches)}/{MAX_DISPATCHES_PER_HOU
 # ============================================================
 # PHASE 5: Check active subagents + in_progress tasks
 # ============================================================
-in_progress = [t for t in tasks if str(t.get("status", "")).lower() == "in_progress"]
+# Exclude SERVICE tasks (persistent, never complete — e.g. PMM bot)
+SERVICE_TITLE_PREFIXES = ["PMM Service:", "🤖 PMM"]
+in_progress = [
+    t for t in tasks
+    if str(t.get("status", "")).lower() == "in_progress"
+    and not any(str(t.get("title", "")).startswith(pfx) for pfx in SERVICE_TITLE_PREFIXES)
+]
 if len(in_progress) >= MAX_CONCURRENT_IN_PROGRESS:
     titles = [t.get("title", "?")[:40] for t in in_progress[:3]]
     log(f"SKIP: {len(in_progress)} tasks in_progress (max {MAX_CONCURRENT_IN_PROGRESS}): {', '.join(titles)}")
@@ -936,21 +942,49 @@ if not mc_update_task(task_id,
     record_cb_failure(state)
     sys.exit(1)
 
-# Step 9b: Write queue file (atomic)
+# Step 9b: Fast dispatch via openclaw agent (replaces queue + nudge)
 dispatch_payload = build_dispatch_payload(next_task, agent_name, len(eligible), len(in_progress))
-queue_filename = write_queue_item("dispatch", task_id, dispatch_payload)
+fast_dispatch_script = os.path.join(WORKSPACE, "scripts", "mc-fast-dispatch.sh")
 
-if not queue_filename:
-    # ROLLBACK: revert task to inbox
-    log("ERROR: queue write failed — rolling back")
-    mc_update_task(task_id,
-        status="inbox",
-        comment="[heartbeat-v3] rollback — queue write failed")
-    record_cb_failure(state)
-    sys.exit(1)
+dispatch_ok = False
+dispatch_method = "queue"  # fallback
 
-# Step 9c: Send system-event nudge to Luna (non-blocking)
-send_system_event_nudge(title, task_id)
+if os.path.isfile(fast_dispatch_script) and os.access(fast_dispatch_script, os.X_OK):
+    # Try fast dispatch first (direct openclaw agent call)
+    try:
+        description = next_task.get("description", "")[:2000]
+        task_msg = f"## MC Task: {title}\n\n{description}"
+        
+        fd_result = run_cmd([
+            fast_dispatch_script,
+            "--agent", agent_name,
+            "--task", task_msg,
+            "--title", title,
+            "--from-mc", task_id,
+            "--timeout", "600",
+        ], timeout=620)
+        
+        log(f"FAST DISPATCH: {task_id[:8]} → {agent_name} (direct)")
+        dispatch_ok = True
+        dispatch_method = "fast"
+    except Exception as e:
+        log(f"WARN: fast dispatch failed ({e}), falling back to queue")
+
+if not dispatch_ok:
+    # Fallback: write queue file + nudge (old method)
+    queue_filename = write_queue_item("dispatch", task_id, dispatch_payload)
+    
+    if not queue_filename:
+        log("ERROR: queue write failed — rolling back")
+        mc_update_task(task_id,
+            status="inbox",
+            comment="[heartbeat-v3] rollback — queue write failed")
+        record_cb_failure(state)
+        sys.exit(1)
+    
+    send_system_event_nudge(title, task_id)
+    dispatch_method = "queue"
+    dispatch_ok = True
 
 # Step 9d: Update state
 state["last_dispatched_id"] = task_id
@@ -958,8 +992,9 @@ state["dispatched_at"] = now_ms
 state["dispatch_history"].append({
     "task_id": task_id,
     "at": now_ms,
-    "queue_file": queue_filename,
+    "queue_file": dispatch_method,
     "agent": agent_name,
+    "method": dispatch_method,
 })
 # Trim history to last 24h
 state["dispatch_history"] = [d for d in state["dispatch_history"]
@@ -976,9 +1011,9 @@ save_state(state)
 # Step 9e: Notify #notifications
 notif_msg = (
     f"📋 **Heartbeat V3** dispatch: `{task_id[:8]}` — **{title}** → `{agent_name}`\n"
-    f"Eligible: {len(eligible)} | In-progress: {len(in_progress)} | Via: queue"
+    f"Eligible: {len(eligible)} | In-progress: {len(in_progress)} | Via: {dispatch_method}"
 )
 send_discord(NOTIFICATIONS_CHANNEL, notif_msg)
 
-log(f"DISPATCH: {task_id[:8]} → {agent_name} (queue: {queue_filename})")
+log(f"DISPATCH: {task_id[:8]} → {agent_name} (method: {dispatch_method})")
 log("heartbeat-v3 complete")
