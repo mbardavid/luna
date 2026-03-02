@@ -76,6 +76,7 @@ from paper.paper_runner import (
     RunHistory,
     TradeLogger,
 )
+from paper.db.supabase_logger import SupabaseLogger
 
 logger = structlog.get_logger("production.runner")
 
@@ -490,6 +491,7 @@ class ProductionTradingPipeline:
         unwind_config: UnwindConfig | None = None,
         complement_routing: bool = True,
         max_position_per_side: Decimal = Decimal("100"),
+        supabase_logging: bool = False,
     ):
         self.market_configs = market_configs
         self.rest_client = rest_client
@@ -548,6 +550,12 @@ class ProductionTradingPipeline:
 
         # Trade logger (production-specific)
         self.trade_logger = ProductionTradeLogger(run_id=self._run_id)
+
+        # Supabase logger (fire-and-forget, never blocks trading loop)
+        self.supabase_logger = SupabaseLogger(
+            run_id=self._run_id,
+            enabled=supabase_logging,
+        )
 
         # Live state writer (production-specific)
         self.live_state_writer = ProductionLiveStateWriter(
@@ -661,6 +669,18 @@ class ProductionTradingPipeline:
         # Connect REST client
         await self.rest_client.connect()
 
+        # Start Supabase logger
+        await self.supabase_logger.start()
+        self.supabase_logger.log_run_start(config={
+            "markets": [m.market_id for m in self.market_configs],
+            "duration_hours": self.duration_hours,
+            "quote_interval_s": self.quote_interval,
+            "initial_balance": str(self.wallet.initial_balance),
+            "kill_switch_max_drawdown_pct": self._kill_switch_max_drawdown_pct,
+            "complement_routing": self._complement_routing,
+            "max_position_per_side": str(self._max_position_per_side),
+        })
+
         # Verify on-chain balance (BUG-2 FIX)
         try:
             balance_info = await self.rest_client.get_balance_allowance("COLLATERAL")
@@ -755,6 +775,23 @@ class ProductionTradingPipeline:
                     merged=str(unwind_report.total_merged_usdc),
                     orphaned=len(unwind_report.orphaned),
                 )
+
+                # Log exits to Supabase for each unwound position
+                for pos_id, pos in self.wallet._positions.items():
+                    for token_side, qty, avg_entry in [
+                        ("YES", pos.qty_yes, pos.avg_entry_yes),
+                        ("NO", pos.qty_no, pos.avg_entry_no),
+                    ]:
+                        if qty > Decimal("0") and avg_entry > Decimal("0"):
+                            self.supabase_logger.log_exit(
+                                market_id=pos_id,
+                                token_side=token_side,
+                                entry_price=avg_entry,
+                                exit_price=Decimal("0"),  # unknown at unwind time
+                                quantity=qty,
+                                pnl=pos.realized_pnl,
+                                reason=reason,
+                            )
             except Exception as e:
                 logger.error("production.unwind_failed", error=str(e))
 
@@ -762,6 +799,16 @@ class ProductionTradingPipeline:
                 t.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             await self._final_flush()
+
+            # Log run end to Supabase
+            self.supabase_logger.log_run_end(
+                total_pnl=self.total_pnl,
+                total_fills=self.metrics.total_fills,
+                total_orders=self.metrics.total_orders,
+                status="completed",
+            )
+            await self.supabase_logger.stop()
+
             await self.ws_client.stop()
             await self.rest_client.disconnect()
             logger.info("production.stopped")
@@ -1041,6 +1088,18 @@ class ProductionTradingPipeline:
                         latency_ms=round(latency_ms, 1),
                     )
 
+                    # Log order to Supabase
+                    token_is_yes_for_log = (order.token_id == market_cfg.token_id_yes)
+                    self.supabase_logger.log_order(
+                        market_id=market_cfg.market_id,
+                        order_id=str(order.client_order_id),
+                        side=order.side.value,
+                        token_side="YES" if token_is_yes_for_log else "NO",
+                        price=order.price,
+                        size=order.size,
+                        status="submitted",
+                    )
+
             except Exception as e:
                 logger.warning(
                     "production.order.submit_error",
@@ -1198,6 +1257,18 @@ class ProductionTradingPipeline:
                 fee=str(mo_fee),
                 pnl=str(pnl),
                 total_pnl=str(self.total_pnl),
+            )
+
+            # Log fill to Supabase
+            self.supabase_logger.log_fill(
+                market_id=market_cfg.market_id,
+                trade_id=f"{trade_id}:{mo_order_id}",
+                order_id=mo_order_id,
+                side=mo_side,
+                token_side=token_label,
+                price=mo_price,
+                size=mo_qty,
+                fee=mo_fee,
             )
 
         # Persist dedup state after processing all maker orders in this trade
@@ -1498,6 +1569,7 @@ async def async_main(args):
     duration_hours = 24.0
     complement_routing = True
     max_position_per_side = Decimal("100")
+    supabase_logging = False
 
     if args.config:
         config_file = Path(args.config)
@@ -1516,6 +1588,7 @@ async def async_main(args):
         kill_switch_alert = float(params.get("kill_switch_alert_pct", 10.0))
         complement_routing = bool(params.get("complement_routing", True))
         max_position_per_side = Decimal(str(params.get("max_position_per_side", 100)))
+        supabase_logging = bool(params.get("supabase_logging", False))
         run_config.params["config_path"] = str(config_file)
 
         # Load unwind config from YAML if present
@@ -1618,6 +1691,7 @@ async def async_main(args):
         unwind_config=_unwind_config,
         complement_routing=complement_routing,
         max_position_per_side=max_position_per_side,
+        supabase_logging=supabase_logging,
     )
 
     # ── Startup Reconciliation ───────────────────────────────────

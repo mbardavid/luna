@@ -10,8 +10,11 @@
 
 4. **MC review/needs_approval tasks:** Check for tasks in `review` or `needs_approval` status that need Luna's attention. Use `mc-client.sh list-tasks --status review` or the QA Review Protocol from AGENTS.md.
 
+5. **Stale tasks (marker file):** `cat /tmp/.mc-stale-tasks.txt 2>/dev/null` — se existir, há tasks com sessão morta ou sem executor. NOTIFICAR SEMPRE (é ação pendente da Luna/Opus).
+
 ## Decisão
 
+- Se **stale tasks marker existe** (`/tmp/.mc-stale-tasks.txt`): NOTIFICAR conteúdo do arquivo. É a prioridade #1 — significa que completions estão travadas ou tasks órfãs existem.
 - Se **tasks em review/needs_approval**: Process via QA Review Protocol (AGENTS.md). Use `mc-review-reject.sh` or `mc-authorize-plan.sh` as appropriate.
 - Se **subagents ativos (não falhados)**: → HEARTBEAT_OK (trabalho em andamento)
 - Se **subagents recentes FALHADOS** (status=failed na lista):

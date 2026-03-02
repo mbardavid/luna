@@ -22,6 +22,17 @@ MC_API_URL="${MC_API_URL:-http://localhost:8000}"
 mkdir -p "$(dirname "$LOG_FILE")"
 log() { echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] RECOVERY: $1" >> "$LOG_FILE"; }
 
+# Load user environment (MC_API_TOKEN, etc.)
+# ExecStartPost runs with systemd env — needs bashrc tokens
+if [ -f "$HOME/.bashrc" ]; then
+    set +euo pipefail
+    source "$HOME/.bashrc" 2>/dev/null || true
+    set -euo pipefail
+fi
+
+MC_API_TOKEN="${MC_API_TOKEN:-}"
+MC_BOARD_ID="${MC_BOARD_ID:-0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47}"
+
 log "=== Post-restart recovery starting ==="
 
 # Wait for gateway to be fully ready
@@ -210,3 +221,15 @@ cp "$STATE_FILE" "$WORKSPACE/logs/recovery-snapshots/$(date -u '+%Y%m%dT%H%M%S')
 rm -f "$STATE_FILE"
 
 log "Recovery complete: recovered=$RECOVERED failed=$FAILED"
+
+# ─── 6. Trigger immediate heartbeat ─────────────────────────────────────────
+# Don't wait for next cron cycle (up to 10min). Run heartbeat now.
+
+HEARTBEAT_SCRIPT="$WORKSPACE/heartbeat-v3/scripts/heartbeat-v3.sh"
+if [ -f "$HEARTBEAT_SCRIPT" ]; then
+    log "Triggering immediate heartbeat..."
+    nohup bash "$HEARTBEAT_SCRIPT" >> "$WORKSPACE/logs/heartbeat-v3.log" 2>&1 &
+    log "Heartbeat triggered (PID $!)"
+else
+    log "Heartbeat script not found: $HEARTBEAT_SCRIPT"
+fi

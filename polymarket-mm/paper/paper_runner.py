@@ -1,12 +1,19 @@
 """PaperRunner — E2E pipeline: WS real → Feature Engine → Quote Engine → Paper Venue.
 
+.. deprecated::
+    This module is deprecated.  Use ``python -m runner --mode paper`` instead.
+    All classes are re-exported for backward compatibility.
+
 Connects to real Polymarket WebSocket, processes live orderbook data,
 generates quotes through the strategy pipeline, and simulates fills
 in the paper venue. All trading is simulated — NO real orders.
 
-Usage:
+Usage (deprecated):
     python -m paper.paper_runner --duration-hours 4
     python -m paper.paper_runner --config paper/runs/run-001.yaml
+
+New usage:
+    python -m runner --mode paper --config paper/runs/p5-001.yaml
 """
 
 from __future__ import annotations

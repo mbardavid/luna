@@ -1,0 +1,28 @@
+{
+  "task_id": "35bf6f84-16d5-4aaa-b6f3-6d808d1bf1e3",
+  "title": "",
+  "type": "",
+  "risk": "low",
+  "agent": "luan",
+  "phases": {
+    "specs": {
+      "timestamp": "2026-03-02T13:03:45Z"
+    },
+    "plan": {
+      "timestamp": "2026-03-02T13:03:45Z",
+      "status": "plan_submitted"
+    },
+    "plan_review": {
+      "timestamp": "2026-03-02T13:03:45Z",
+      "decision": "approved"
+    },
+    "qa_review": {
+      "timestamp": "2026-03-02T14:54:37Z",
+      "decision": "approved",
+      "verification_ran": true
+    }
+  },
+  "outcome": "done",
+  "total_spawns": 0,
+  "total_cost_estimate_usd": 0
+}

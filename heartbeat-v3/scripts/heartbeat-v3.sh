@@ -26,6 +26,14 @@ WORKSPACE_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 export WORKSPACE="${WORKSPACE:-$WORKSPACE_DIR}"
 export HEARTBEAT_V3_DIR="${HEARTBEAT_V3_DIR:-$V3_DIR}"
 
+# Load user environment (MC_API_TOKEN, SUPABASE_*, etc.)
+# Cron runs with minimal env — bashrc has the tokens we need
+if [ -f "$HOME/.bashrc" ]; then
+    set +euo pipefail  # bashrc may have unguarded expansions
+    source "$HOME/.bashrc" 2>/dev/null || true
+    set -euo pipefail
+fi
+
 # Ensure queue directories exist
 mkdir -p "$V3_DIR/queue"/{pending,active,done,failed,escalated}
 

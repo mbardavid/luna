@@ -310,6 +310,15 @@ Call: `bash scripts/mc-fail.sh --task-id <id> --error "What went wrong" --retry`
 ### Anti-footgun
 - Never attempt to spawn via `openclaw gateway call sessions.spawn` (RPC method does not exist).
 - `sessions_spawn` only works as a tool call — `mc-spawn.sh` prepares the payload, Luna does the actual spawn.
+- **NEVER create MC tasks via manual API calls (urllib/curl).** Always use `mc-spawn.sh`. The script enforces description quality validation — tasks with generic/short descriptions are rejected BEFORE creation.
+- **MC card description = resumo executivo auto-suficiente.** Must contain: objective, approach/files, acceptance criteria. Minimum 200 chars. Artifact files have detail; MC card has the human-readable summary.
+- **Description quality is BLOCKING.** If `mc-spawn.sh` rejects the description, no task is created and no spawn params are generated. Fix the description, don't bypass the script.
+- **Rejection = mandatory retry.** When `mc-spawn.sh` exits with code 3 (description rejected), Luna MUST:
+  1. Read the error output (it says exactly what's missing)
+  2. Rewrite the description using `--objective`, `--context`, `--criteria` flags
+  3. Re-run `mc-spawn.sh` in the SAME TURN — do NOT proceed without valid spawn params
+  4. Never fall back to manual API calls to bypass the validation
+  If retry also fails, escalate to Matheus with the error — do NOT silently drop the task.
 
 ---
 
@@ -328,6 +337,48 @@ Para tarefas de desenvolvimento/código:
 - Executar ciclo completo: pesquisa/hipótese → implementação/iteração → validação por etapa com critérios objetivos.
 - Sempre que aplicável, validar UI/UX via browser automation.
 
+## A2A Task Lifecycle — Artifact Tracking (Mandatory)
+
+**Ref:** `docs/a2a-task-lifecycle.md` — full spec
+**Script:** `scripts/mc-lifecycle.sh` — artifact management
+**Artifacts dir:** `tasks/<task_id>/`
+
+Every task goes through lifecycle phases with persistent artifacts:
+
+| Phase | Artifact | Who | Gate |
+|-------|----------|-----|------|
+| Specs | `01-specs.md` | Luna | Must exist before spawn |
+| Plan | `02-plan.md` | Luan | MEDIUM+ only |
+| Plan Review | `03-plan-review.md` | Luna | Must approve before Phase 2 |
+| Completion | `04-completion.md` | Luan | Structured format required |
+| QA Review | `05-qa-review.md` | Luna | Must exist before marking done |
+
+### Mandatory Steps (NO EXCEPTIONS)
+
+**Before spawning Luan:**
+```bash
+bash scripts/mc-lifecycle.sh save-specs <task_id> <specs_file>
+bash scripts/mc-lifecycle.sh check-gate <task_id> 1
+```
+
+**When Luan returns plan (MEDIUM+):**
+```bash
+bash scripts/mc-lifecycle.sh save-plan <task_id>      # save from completion report
+# THEN: read lessons.md + inspect 1+ target file + write review
+bash scripts/mc-lifecycle.sh save-review <task_id> --decision approved --notes "..." --lessons "L1,L2,L11"
+bash scripts/mc-lifecycle.sh check-gate <task_id> 3    # gate before Phase 2
+```
+
+**When Luan returns completion:**
+```bash
+bash scripts/mc-lifecycle.sh save-completion <task_id>  # save + auto-parse structured block
+# THEN: read lessons.md + run verification checks + inspect 2+ changed files
+bash scripts/mc-lifecycle.sh save-qa <task_id> --decision approved --verification-ran --files-inspected "path1,path2" --notes "..."
+```
+
+### LOW Risk — Simplified (specs + completion + QA only)
+### MEDIUM+ Risk — Full (all 5 artifacts)
+
 ## QA Review Protocol — Coding Tasks (Mandatory)
 
 Ao revisar resultados de tasks de coding (especialmente do Luan):
@@ -343,8 +394,32 @@ Ao revisar resultados de tasks de coding (especialmente do Luan):
    - Todo `- [ ]` deve estar `- [x]` ou ter justificativa
 5. **Verificar Verification Checks**:
    - Output dos checks deve estar no completion report
-   - Se ausente, pedir ao agente que rode
+   - Se ausente, **rodar os checks ela mesma** (não confiar cegamente)
+   - Inspecionar pelo menos 2 arquivos modificados (abrir e ler o código)
 6. **Se encontrar violação de lesson**: reportar ao Matheus e adicionar como nota no daily log
+7. **Salvar QA review como artifact**: `bash scripts/mc-lifecycle.sh save-qa <task_id> ...`
+
+## Post-Completion Dispatch (Option A — Mandatory)
+
+After processing ANY subagent result (success or failure), Luna MUST check for next work **in the same turn**:
+
+### On SUCCESS:
+1. QA Review (existing protocol above)
+2. Mark MC task done
+3. **Check MC inbox** → if actionable tasks available, spawn next one immediately
+4. If nothing actionable → done (heartbeat is safety net)
+
+### On FAILURE:
+1. Investigate immediately (`sessions_history`, check partial work, inspect files)
+2. Decide: re-spawn with adjustments OR mark failed + report to Matheus
+3. **Check MC inbox** → if other tasks available and no blockers, spawn next
+4. Never let a failure die in silence
+
+### Rules:
+- **Do NOT wait for heartbeat** to drain inbox — heartbeat is safety net only
+- **Do NOT wait for human** to ask "what happened?" on failures
+- Skip intentionally-gated tasks (P6 Deploy, etc.) — check `heartbeat-blocklist.json`
+- Max 1 concurrent Luan spawn (check `subagents list` first)
 
 ## Make It Yours
 

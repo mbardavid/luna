@@ -358,3 +358,43 @@
 **Domain:** DeFi / API Integration
 **Pattern:** Already documented as Lesson 3. Reinforced: this also applies to reward balances and fee calculations. Any USDC amount from the API must be divided by 1e6 at the boundary.
 **Action:** Normalize ALL token amounts at API boundary, not just balance. Include assertion in tests.
+
+## 2026-03-02 (failure-detector cron gap)
+- **mc-failure-detector.sh existia desde 25/fev mas NUNCA foi adicionado ao crontab.** O lesson documentou a solução mas ninguém ativou. Fix: cron adicionado (*/5), bashrc sourcing adicionado.
+- **Lesson meta:** documentar uma solução nos lessons NÃO é o mesmo que implementá-la. Sempre verificar: "o fix foi deployado?" antes de considerar resolvido.
+- **Padrão sistêmico: bashrc em cron.** Todo script bash que roda via cron/systemd e precisa de tokens (MC_API_TOKEN, SUPABASE_*, etc.) DEVE ter `source ~/.bashrc`. Scripts afetados: heartbeat-v3.sh ✅, gateway-post-restart-recovery.sh ✅, queue-escalation.sh ✅, mc-failure-detector.sh ✅. Verificar novos scripts no futuro.
+
+## 2026-03-02 (inventory management failure — PMM critical)
+- **O bot PMM acumulou $227 em posições direcionais sem reciclar, esgotou capital, e morreu.** Ninguém detectou que o bot precisava ser relançado com as melhorias prontas. Matheus teve que perguntar pra descobrir.
+- **Root cause 1:** prod-002 não tinha position recycling → acumulou inventário → capital zerou → bot parou
+- **Root cause 2:** Após morte do bot, Luna não sinalizou proativamente "melhorias prontas, bot parado, próximo passo?" — esperou Matheus perguntar
+- **Root cause 3:** O bot não tem lógica de market rotation — se um mercado fica ilíquido ou inventário vira direcional, deveria auto-realocar
+- **Regra nova:** Bot MM deve ter 3 guardas automáticas:
+  1. **Inventory guard:** Se net_inventory > max_position, reciclar automaticamente (já implementado via position_recycling)
+  2. **Capital guard:** Se USDC < min_balance, parar de quotar e vender posições pra liberar capital (balance-aware existe, mas não vende)
+  3. **Market rotation:** Se spread > X ou volume < Y por N horas, fechar posições e migrar pra mercado melhor (NÃO IMPLEMENTADO)
+- **Ação:** Luan deve implementar market rotation + capital recovery no runner. Luna deve monitorar proativamente o status do bot.
+
+## 2026-03-02 (MC description quality gap — process failure)
+- **Luna criou MC task com descrição genérica de 1 linha, bypassando mc-spawn.sh com API manual.** Dashboard ficou inútil pra quem olha. Matheus teve que pedir fix.
+- **Root cause 1:** API manual não tem validação de qualidade. mc-spawn.sh tem formatação mas não tinha gate de qualidade.
+- **Root cause 2:** Separação errada — Luna tratou artifact como "doc real" e MC card como "pointer". MC é o que humanos veem.
+- **Root cause 3:** Nenhum gate verificava qualidade da description antes de criar task.
+- **Fix implementado:** mc-spawn.sh agora tem validação atômica BLOCKING:
+  1. Description < 200 chars → rejeita, task NÃO é criada
+  2. Sem estrutura (headers/sections) → rejeita
+  3. Placeholder detected → rejeita
+  4. Só gera spawn params se description passar validação
+- **Regra nova:** NUNCA criar MC task via API manual. Sempre usar mc-spawn.sh. O script é o gate de qualidade.
+- **MC card description = resumo executivo auto-suficiente.** Artifact tem detalhe, MC tem resumo legível com objetivo + abordagem + acceptance criteria.
+
+## 2026-03-02 (stale task detection gap — orchestration failure)
+- **Tasks completadas pelo Luan ficaram em `in_progress`/`review` por tempo indeterminado.** Luna não processou o resultado do subagent (QA review + mark done + check inbox). Matheus teve que perguntar "as tasks estão sendo realizadas de fato?" para Luna descobrir que: (1) Quant Agent já tinha completado, (2) Market Rotation nunca foi spawnada, (3) PMM Service estava desatualizada.
+- **Root cause 1 (Post-Completion Dispatch não seguido):** O auto-announce do Luan chegou, mas Luna não processou. A regra "após completion, fazer QA + check inbox" existe em AGENTS.md mas não foi seguida.
+- **Root cause 2 (Orphan task invisível):** Task criada via API manual foi pra `review` sem sessão. Ninguém trabalhou nela. Nenhum mecanismo detecta "task ativa sem sessão".
+- **Root cause 3 (Heartbeat não detecta completions pendentes):** O heartbeat detecta falhas e inbox, mas NÃO detecta "subagent completou, sessão morreu, task ainda não é done" — o caso mais comum e importante.
+- **Gap sistêmico:** Falta um check automático: "task com `mc_session_key` preenchida + sessão morta + status ≠ done → alerta completion pendente de QA". Também falta: "task em status ativo + sem session_key → alerta task órfã".
+- **Fix:** Implementar mc-stale-task-detector no watchdog/cron. Dois checks:
+  1. **Completion pendente:** session_key exists + session dead + status ∈ {in_progress, review} → "QA review pendente"
+  2. **Task órfã:** status ∈ {in_progress, review} + NO session_key → "task sem executor"
+- **Regra reforçada:** Post-Completion Dispatch NÃO É OPCIONAL. Quando subagent result chega, processar imediatamente — mesmo que isso signifique interromper o que estiver fazendo.

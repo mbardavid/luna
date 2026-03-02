@@ -147,6 +147,8 @@ if [ -n "$TASK_FILE" ] && [ -f "$TASK_FILE" ]; then
 elif [ -n "$SPEC_OBJECTIVE" ]; then
   export SPAWN_AGENT="$AGENT"
   export SPAWN_PHASE="$PHASE"
+  export SPEC_OBJECTIVE SPEC_CONTEXT SPEC_PLAN SPEC_WORKSPACE SPEC_FILES
+  export SPEC_CRITERIA SPEC_CHECKS SPEC_QA SPEC_CONSTRAINTS SPEC_ROLLBACK
   TASK=$(python3 << 'SPECEOF'
 import os
 
@@ -296,6 +298,73 @@ case "$RISK_PROFILE" in
   *) echo "Error: invalid --risk-profile: $RISK_PROFILE" >&2; exit 1 ;;
 esac
 
+# --- Validate task description quality (BLOCKING) ---
+# The MC card description MUST be substantive enough for humans to understand
+# the task without reading spawn prompts or artifact files.
+# This validation is atomic: no task is created, no spawn happens, until
+# the description passes quality checks.
+validate_description_quality() {
+  local desc="$1"
+  python3 - <<'VALIDATE_EOF' "$desc"
+import sys
+
+desc = sys.argv[1] if len(sys.argv) > 1 else ""
+errors = []
+
+# 1. Minimum length (200 chars)
+if len(desc) < 200:
+    errors.append(f"Description too short ({len(desc)} chars, minimum 200). "
+                  f"The MC card must be self-sufficient for human readers.")
+
+# 2. Must contain at least ONE of these structural markers
+required_sections = ["Objective", "Objetivo", "## ", "Acceptance Criteria",
+                     "Criteria", "Context", "Contexto", "What", "Problem"]
+has_structure = any(s in desc for s in required_sections)
+if not has_structure:
+    errors.append("Description lacks structure. Must contain at least one section "
+                  "header (## Objective, ## Context, ## Acceptance Criteria, etc.).")
+
+# 3. Must not be a placeholder
+placeholders = ["TBD", "TODO", "to be defined", "will be added",
+                "Design and implement", "see specs", "see artifact"]
+desc_lower = desc.lower()
+# Only flag if the ENTIRE description is a placeholder-like phrase
+if len(desc) < 300:
+    for p in placeholders:
+        if desc_lower.strip().startswith(p.lower()):
+            errors.append(f"Description appears to be a placeholder (starts with '{p}'). "
+                          f"Provide a substantive summary with objective, approach, and criteria.")
+            break
+
+if errors:
+    print("❌ DESCRIPTION QUALITY CHECK FAILED", file=sys.stderr)
+    print("", file=sys.stderr)
+    for e in errors:
+        print(f"  → {e}", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("The MC card description must be self-sufficient:", file=sys.stderr)
+    print("  - What is the task? (objective)", file=sys.stderr)
+    print("  - How will it be done? (approach/files)", file=sys.stderr)
+    print("  - How do we know it's done? (acceptance criteria)", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("RETRY REQUIRED: Re-run mc-spawn.sh with a richer description.", file=sys.stderr)
+    print("Recommended: use --objective, --context, --criteria flags.", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("Example:", file=sys.stderr)
+    print('  mc-spawn.sh --agent luan --title "Fix X" \\', file=sys.stderr)
+    print('    --objective "Fix the auth module timeout causing 500 errors on login" \\', file=sys.stderr)
+    print('    --context "Users report intermittent 500s since deploy v2.3. Root cause: DB pool exhaustion under concurrent OAuth flows." \\', file=sys.stderr)
+    print('    --criteria "Login succeeds under 50 concurrent users|No 500 errors in 1h load test|DB pool stays under 80% capacity" \\', file=sys.stderr)
+    print('    --checks "python3 -m pytest tests/auth/ -x|curl -s localhost:8080/health" \\', file=sys.stderr)
+    print('    --json', file=sys.stderr)
+    sys.exit(1)
+else:
+    sys.exit(0)
+VALIDATE_EOF
+}
+
+# Description quality validation moved AFTER spec construction (below)
+
 # --- Validate --phase flag ---
 if [ -n "$PHASE" ]; then
   case "$PHASE" in
@@ -407,6 +476,15 @@ if len(slug) > 40:
     slug = slug[:40].rstrip('-')
 print(slug)
 " "$TITLE")
+
+# --- Validate task description quality AFTER spec construction (BLOCKING) ---
+# This runs after --objective/--context/--criteria flags have been assembled into $TASK.
+# No MC task is created and no spawn params are generated until this passes.
+if ! validate_description_quality "$TASK"; then
+  echo "" >&2
+  echo "Task NOT created. Fix the description and try again." >&2
+  exit 3
+fi
 
 # --- Create MC task (or use existing) ---
 TASK_ID=""

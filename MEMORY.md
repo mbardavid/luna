@@ -124,3 +124,15 @@
 - **Crypto-sage portfolio tracking agora inclui CTF (ERC-1155):** Posições Polymarket eram invisíveis por falta de env var. Diferença era ~$220. Always verify ALL token types before reporting balances.
 - **Doc debt atingiu 12 itens (5 dias de carryover máximo).** Sprint de documentação é a próxima prioridade após desbloqueio das tasks em inbox. `active-tasks.md` está 3.5 semanas desatualizado — risco de perda de contexto operacional.
 - **Whisper transcription broken:** Timeouts ao carregar modelo faster-whisper. Precisa investigação quando memory pressure estiver baixa.
+
+## 2026-03-02 (tarde)
+
+- **A2A Task Lifecycle implementado:** 5 artifacts persistentes por task (specs, plan, plan-review, completion, qa-review) + metadata.json. Script `mc-lifecycle.sh` com 5 gates de enforcement. Documentado em `docs/a2a-task-lifecycle.md`.
+- **Completion report estruturado obrigatório:** Luan deve incluir bloco `COMPLETION_STATUS: complete` parseável. Luna's automation depende disso.
+- **QA Review reforçado:** Luna deve inspecionar 2+ arquivos modificados + rodar verification checks ela mesma. Não basta ler o report.
+- **Unify runners DONE:** `runner/` package com VenueAdapter + WalletAdapter ABCs + UnifiedTradingPipeline. 764 testes (47 novos). `python3 -m runner --mode paper|live`.
+- **Supabase PMM logging DONE:** 4 tabelas (pmm_orders/fills/exits/runs), fire-and-forget async. 16 novos testes.
+- **Bug sistêmico: `.bashrc` em cron/systemd.** Todos os scripts bash que rodam via cron ou ExecStartPost precisam de `source ~/.bashrc` para ter `MC_API_TOKEN`, `SUPABASE_*`, etc. Fixado em heartbeat-v3.sh, gateway-post-restart-recovery.sh, queue-escalation.sh.
+- **Queue escalation reescrito:** Agora consulta MC antes de alertar, dedup por task_id, auto-limpa tasks já resolvidas.
+- **Watchdog auto-complete é perigoso:** Completou task usando summary de Phase 1 quando Phase 2 nem existia. Precisa de safeguard (verificar COMPLETION_STATUS).
+- **Subagent failure detection gap:** Heartbeat não detecta subagents recentes com status `failed`. Falhas passam despercebidas até interação humana.

@@ -33,7 +33,8 @@ params:
   position_recycling: true           # close profitable positions to free capital
 
   markets:
-    - "iranian-regime-fall-june-2026"
+    - "us-strikes-iran-by-march-31-2026"
+    - "will-axiom-be-accused-of-insider-trading"
 
 parent_run: "prod-002"
 changes_from_parent: |

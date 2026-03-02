@@ -997,19 +997,23 @@ if next_task is None:
         filtered_count = len(inbox) - len(eligible)
         log(f"IDLE: no eligible inbox tasks ({len(inbox)} total, {filtered_count} filtered)")
 
-        # Blocklist stall alert: all inbox tasks filtered but inbox non-empty
-        if inbox and filtered_count == len(inbox):
+        # Blocklist stall alert: only if some tasks are stuck for non-intentional reasons
+        # Don't alert when ALL filtered tasks are in the explicit blocklist (intentional gating)
+        non_blocklist_filtered = [t for t in inbox if t.get("id", "") not in blocked_ids]
+        if inbox and filtered_count == len(inbox) and len(non_blocklist_filtered) > 0:
             blocklist_stall_key = "blocklist_stall_last_alert"
             last_stall_alert = state.get(blocklist_stall_key, 0)
             stall_alert_cooldown = 6 * 60 * 60 * 1000  # 6h
             if now_ms - last_stall_alert > stall_alert_cooldown:
                 stall_msg = (
-                    f"⚠️ **Blocklist Stall** — {len(inbox)} inbox tasks, ALL filtered "
-                    f"(blocked={len(blocked_ids)}, deps unmet, etc). No work can proceed."
+                    f"⚠️ **Blocklist Stall** — {len(non_blocklist_filtered)} inbox tasks stuck "
+                    f"(deps unmet, etc). {len(blocked_ids)} intentionally gated. No work can proceed."
                 )
                 send_discord(NOTIFICATIONS_CHANNEL, stall_msg)
                 state[blocklist_stall_key] = now_ms
-                log(f"ALERT: blocklist stall — {len(inbox)} tasks, all filtered")
+                log(f"ALERT: blocklist stall — {len(non_blocklist_filtered)} stuck, {len(blocked_ids)} gated")
+        elif inbox and filtered_count == len(inbox):
+            log(f"IDLE: all {len(inbox)} inbox tasks intentionally gated — no alert needed")
 
         cleanup_threshold = now_ms - 24 * 60 * 60 * 1000
         cleaned = {k: v for k, v in notified_failures.items()

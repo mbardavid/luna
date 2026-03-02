@@ -4,6 +4,13 @@
 # Unlike watchdog (which moves tasks to review), this NOTIFIES Luna immediately.
 set -euo pipefail
 
+# Load env (MC_API_TOKEN, etc.) — cron doesn't have interactive shell
+if [ -f "$HOME/.bashrc" ]; then
+    set +euo pipefail
+    source "$HOME/.bashrc" 2>/dev/null || true
+    set -euo pipefail
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MC_CLIENT="${MC_CLIENT:-${SCRIPT_DIR}/mc-client.sh}"
 OPENCLAW_BIN="${OPENCLAW_BIN:-openclaw}"
