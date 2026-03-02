@@ -214,15 +214,54 @@ def run_orchestrator(args):
     save_json(state_file, state)
 
 
+def update_loop_state(workspace: str, loop_id_val: str, review_state: str) -> None:
+    """Update review_state for an existing loop in orchestration-state.json."""
+    state_file = Path(workspace) / "memory" / "orchestration-state.json"
+    if not state_file.exists():
+        print(f"ERROR: {state_file} not found")
+        raise SystemExit(1)
+
+    state = json.loads(state_file.read_text(encoding="utf-8"))
+    handoffs = state.get("activeHandoffs", {})
+
+    if loop_id_val not in handoffs:
+        print(f"ERROR: loop_id '{loop_id_val}' not found in activeHandoffs")
+        raise SystemExit(1)
+
+    h = handoffs[loop_id_val]
+    old_state = h.get("review_state", "unknown")
+    h["review_state"] = review_state
+    h["lastUpdatedAt"] = now_iso()
+
+    if review_state == "counter_review":
+        h["review_cycle"] = h.get("review_cycle", 1) + 1
+
+    state["updatedAt"] = now_iso()
+
+    audit = state.setdefault("delegationAuditLog", [])
+    audit.append({
+        "at": now_iso(),
+        "action": f"review_state: {old_state} → {review_state}",
+        "loop_id": loop_id_val,
+        "actor": "orchestrator",
+    })
+
+    save_json(state_file, state)
+    print(json.dumps({"loop_id": loop_id_val, "review_state": review_state, "previous": old_state}, indent=2))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+
+    # Default: create new loop (backward compatible — no subcommand)
     parser.add_argument("--workspace", default=".", help="Workspace root")
     parser.add_argument("--scripts-dir", default="../scripts")
     parser.add_argument("--loop-id", default="")
-    parser.add_argument("--agent", required=True)
-    parser.add_argument("--title", required=True)
-    parser.add_argument("--operation", required=True)
-    parser.add_argument("--objective", required=True)
+    parser.add_argument("--agent", default="")
+    parser.add_argument("--title", default="")
+    parser.add_argument("--operation", default="")
+    parser.add_argument("--objective", default="")
     parser.add_argument("--summary", default="")
     parser.add_argument("--notes", default="")
     parser.add_argument("--artifacts", default="")
@@ -244,7 +283,28 @@ def main() -> int:
     parser.add_argument("--auto-spawn", action="store_true")
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--priority", default="medium")
+
+    # Subcommand: update-loop
+    parser.add_argument("--update-loop", default="", help="Loop ID to update review_state")
+    parser.add_argument("--review-state", default="", help="New review_state (proposed|authorized|counter_review|accepted|rejected)")
+
     args = parser.parse_args()
+
+    # Handle --update-loop mode
+    if args.update_loop:
+        if not args.review_state:
+            print("ERROR: --review-state is required with --update-loop")
+            return 1
+        valid_states = {"proposed", "authorized", "counter_review", "accepted", "rejected"}
+        if args.review_state not in valid_states:
+            print(f"ERROR: --review-state must be one of {valid_states}")
+            return 1
+        update_loop_state(args.workspace, args.update_loop, args.review_state)
+        return 0
+
+    # Original create-loop mode — require agent/title/operation/objective
+    if not args.agent or not args.title or not args.operation or not args.objective:
+        parser.error("--agent, --title, --operation, and --objective are required for loop creation")
 
     args.scripts_dir = os.path.expanduser(args.scripts_dir)
     run_orchestrator(args)

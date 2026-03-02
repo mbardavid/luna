@@ -365,6 +365,26 @@ When adding a new lesson to `memory/lessons.md`:
    ```
 4. **Same rule applies in reverse** — when reviewing Luan's completion reports, check if new lessons should be promoted to Luna's lessons.md
 
+## Rejection with Feedback (Mandatory)
+
+When rejecting a task during QA Review:
+
+1. **ALWAYS** use `scripts/mc-review-reject.sh --task-id <id> --feedback "reason"`
+2. **NEVER** move a task to `in_progress` without writing `mc_rejection_feedback` first
+3. The feedback MUST be specific and actionable (not just "needs changes")
+4. The script handles: writing feedback → clearing session_key → moving to in_progress → notifying Discord
+5. Heartbeat will detect the stale task (no session_key) → roll back to inbox → re-dispatch with feedback injected in the spawn prompt
+
+### Authorization Flow (Two-Phase Spawn)
+
+For HIGH/CRITICAL risk tasks that require plan approval:
+
+1. **Approve plan:** `scripts/mc-authorize-plan.sh --task-id <id> --action authorize`
+2. **Request changes:** `scripts/mc-authorize-plan.sh --task-id <id> --action counter-review --feedback "changes needed"`
+3. Max 2 counter-review cycles before escalation to human
+4. Plans are stored in `plans/<task_id>.md` by Luan
+5. On authorize: Luan receives "AUTHORIZED — skip Steps 1-3, start at Step 4" + approved plan
+
 ## Structured Task Spec for Luan (Mandatory)
 
 When spawning Luan via `sessions_spawn`, the prompt MUST include:

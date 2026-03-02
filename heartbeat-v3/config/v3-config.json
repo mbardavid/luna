@@ -3,10 +3,13 @@
   "escalation_warn_minutes": 15,
   "escalation_critical_minutes": 30,
   "session_gc_max_age_hours": 2,
-  "max_dispatches_per_hour": 3,
-  "max_concurrent_in_progress": 2,
+  "max_dispatches_per_hour": 5,
+  "max_concurrent_in_progress": 3,
   "discord_channel": "1473367119377731800",
   "notifications_channel": "1476255906894446644",
   "circuit_breaker_max_failures": 3,
-  "circuit_breaker_cooldown_minutes": 30
+  "circuit_breaker_cooldown_minutes": 30,
+  "review_dispatch_cooldown_minutes": 30,
+  "active_hour_start": 0,
+  "active_hour_end": 24
 }

@@ -141,6 +141,22 @@ DESIRED_FIELDS='[
     "ui_visibility": "if_set",
     "required": false,
     "default_value": false
+  },
+  {
+    "field_key": "mc_rejection_feedback",
+    "label": "MC Rejection Feedback",
+    "field_type": "text_long",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_authorization_status",
+    "label": "MC Authorization Status",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
   }
 ]'
 

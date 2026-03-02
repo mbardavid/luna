@@ -28,7 +28,7 @@ MC_BOARD_ID="${MC_BOARD_ID:-0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47}"
 DISCORD_CHANNEL="${DISCORD_CHANNEL:-1473367119377731800}"
 LOG_FILE="$WORKSPACE/logs/fast-dispatch.log"
 RATE_STATE="/tmp/.fast-dispatch-rate.json"
-MAX_DISPATCHES_PER_HOUR=6
+MAX_DISPATCHES_PER_HOUR=8
 
 mkdir -p "$(dirname "$LOG_FILE")"
 log() { echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"; }
@@ -73,6 +73,57 @@ print(agent_map.get(aid, aid))
 " 2>/dev/null)
         TITLE=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('title',''))" 2>/dev/null)
         TASK=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('description',''))" 2>/dev/null)
+
+        # Extract rejection feedback and authorization status
+        MC_REJECTION_FEEDBACK=$(echo "$MC_DATA" | python3 -c "
+import json,sys
+t = json.load(sys.stdin)
+fields = t.get('custom_field_values') or {}
+print(fields.get('mc_rejection_feedback', ''))
+" 2>/dev/null) || MC_REJECTION_FEEDBACK=""
+
+        MC_AUTH_STATUS=$(echo "$MC_DATA" | python3 -c "
+import json,sys
+t = json.load(sys.stdin)
+fields = t.get('custom_field_values') or {}
+print(fields.get('mc_authorization_status', ''))
+" 2>/dev/null) || MC_AUTH_STATUS=""
+
+        # Prepend feedback/authorization context to TASK
+        EXTRA_CONTEXT=""
+        if [ -n "$MC_REJECTION_FEEDBACK" ]; then
+            EXTRA_CONTEXT="## ⚠️ PREVIOUS REVIEW FEEDBACK (MUST ADDRESS)
+${MC_REJECTION_FEEDBACK}
+
+**You MUST address all points above before reporting done.**
+
+"
+        fi
+
+        if [ "$MC_AUTH_STATUS" = "authorized" ]; then
+            PLAN_FILE="$WORKSPACE/plans/${MC_TASK_ID}.md"
+            PLAN_CONTENT=""
+            if [ -f "$PLAN_FILE" ]; then
+                PLAN_CONTENT=$(cat "$PLAN_FILE")
+            fi
+            EXTRA_CONTEXT="${EXTRA_CONTEXT}## ✅ AUTHORIZED — Proceed to Implementation
+This task plan was reviewed and authorized by Luna. Skip Steps 1-3, start at Step 4.
+
+### Approved Plan
+${PLAN_CONTENT:-No plan file found.}
+
+"
+        elif [ "$MC_AUTH_STATUS" = "counter_review" ]; then
+            EXTRA_CONTEXT="${EXTRA_CONTEXT}## 🔄 COUNTER-REVIEW — Revise Plan
+Luna reviewed your plan and requests changes. See feedback above.
+Revise your plan and re-submit for authorization (max 2 cycles).
+
+"
+        fi
+
+        if [ -n "$EXTRA_CONTEXT" ]; then
+            TASK="${EXTRA_CONTEXT}${TASK}"
+        fi
     fi
 fi
 

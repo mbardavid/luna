@@ -114,8 +114,8 @@ AGENT_IDS_FILE = os.path.join(WORKSPACE, "config", "mc-agent-ids.json")
 MC_CONFIG_FILE = os.path.join(WORKSPACE, "config", "mission-control-ids.local.json")
 
 # Tuning
-ACTIVE_HOUR_START = 8     # São Paulo local time
-ACTIVE_HOUR_END = 24      # 00:00 (midnight)
+ACTIVE_HOUR_START = V3_CONFIG.get("active_hour_start", 6)   # São Paulo local time
+ACTIVE_HOUR_END = V3_CONFIG.get("active_hour_end", 24)      # 00:00 (midnight)
 MAX_DISPATCHES_PER_HOUR = V3_CONFIG.get("max_dispatches_per_hour", 3)
 MAX_CONCURRENT_IN_PROGRESS = V3_CONFIG.get("max_concurrent_in_progress", 2)
 MIN_DISPATCH_INTERVAL_MS = 5 * 60 * 1000   # 5min between dispatches
@@ -132,7 +132,7 @@ FAILURE_COOLDOWN_MS = 30 * 60 * 1000     # 30min cooldown per failure notificati
 MAX_RETRIES = 2
 
 # Review dispatcher tuning
-REVIEW_DISPATCH_COOLDOWN_MS = 2 * 60 * 60 * 1000   # 2h — don't re-dispatch same review task
+REVIEW_DISPATCH_COOLDOWN_MS = V3_CONFIG.get("review_dispatch_cooldown_minutes", 30) * 60 * 1000  # 30min default
 REVIEW_STALE_IGNORE_DAYS = 14                        # Ignore review tasks older than 14 days
 
 # Dry-run support
@@ -523,6 +523,7 @@ def build_dispatch_payload(task: dict, agent_name: str, eligible_count: int, in_
     task_id = task.get("id", "")
     description = task.get("description", "")[:500]
     priority = task.get("priority", "medium")
+    fields = task.get("custom_field_values") or {}
 
     return {
         "title": title,
@@ -532,6 +533,8 @@ def build_dispatch_payload(task: dict, agent_name: str, eligible_count: int, in_
             "description": description,
             "eligible_count": eligible_count,
             "in_progress_count": in_progress_count,
+            "rejection_feedback": fields.get("mc_rejection_feedback", ""),
+            "authorization_status": fields.get("mc_authorization_status", ""),
         },
         "constraints": {
             "max_age_minutes": V3_CONFIG.get("escalation_critical_minutes", 30),
@@ -588,6 +591,8 @@ def build_review_payload(task: dict) -> dict:
             "session_key": fields.get("mc_session_key", ""),
             "review_depth": fields.get("mc_review_depth", "standard"),
             "risk_profile": fields.get("mc_risk_profile", "medium"),
+            "rejection_feedback": fields.get("mc_rejection_feedback", ""),
+            "authorization_status": fields.get("mc_authorization_status", ""),
         },
         "constraints": {
             "max_age_minutes": V3_CONFIG.get("escalation_critical_minutes", 30),
@@ -644,10 +649,13 @@ else:
     sp_tz = dateutil.tz.gettz("America/Sao_Paulo")
 
 sp_hour = datetime.now(sp_tz).hour
-if sp_hour < ACTIVE_HOUR_START:
+if ACTIVE_HOUR_START == 0 and ACTIVE_HOUR_END == 24:
+    log(f"Phase 2: Active hours 24/7 ({sp_hour}h São Paulo)")
+elif sp_hour < ACTIVE_HOUR_START:
     log(f"SKIP: outside active hours ({sp_hour}h São Paulo)")
     sys.exit(0)
-log(f"Phase 2: Active hours OK ({sp_hour}h São Paulo)")
+else:
+    log(f"Phase 2: Active hours OK ({sp_hour}h São Paulo)")
 
 # ============================================================
 # PHASE 3: Fetch data (sessions + MC tasks)
@@ -944,50 +952,65 @@ else:
 # ============================================================
 if next_task is None:
     inbox = [t for t in tasks if str(t.get("status", "")).lower() == "inbox"]
-inbox.sort(key=lambda t: t.get("created_at", ""))
+    inbox.sort(key=lambda t: t.get("created_at", ""))
 
-# Load blocklist and dependency chain
-BLOCKLIST_FILE = os.path.join(WORKSPACE, "config", "heartbeat-blocklist.json")
-blocked_ids = set()
-dep_chain = {}
-try:
-    with open(BLOCKLIST_FILE) as f:
-        bl = json.load(f)
-    blocked_ids = set(bl.get("blocked_task_ids", {}).keys())
-    dep_chain = bl.get("dependency_chain", {})
-except Exception:
-    pass
+    # Load blocklist and dependency chain
+    BLOCKLIST_FILE = os.path.join(WORKSPACE, "config", "heartbeat-blocklist.json")
+    blocked_ids = set()
+    dep_chain = {}
+    try:
+        with open(BLOCKLIST_FILE) as f:
+            bl = json.load(f)
+        blocked_ids = set(bl.get("blocked_task_ids", {}).keys())
+        dep_chain = bl.get("dependency_chain", {})
+    except Exception:
+        pass
 
-task_status_by_id = {t.get("id", ""): t.get("status", "").lower() for t in tasks}
+    task_status_by_id = {t.get("id", ""): t.get("status", "").lower() for t in tasks}
 
-eligible = []
-for t in inbox:
-    tid = t.get("id", "")
-    title = t.get("title", "?")
+    eligible = []
+    for t in inbox:
+        tid = t.get("id", "")
+        title = t.get("title", "?")
 
-    if tid in blocked_ids:
-        log(f"FILTER: {tid[:8]} blocked (human-gate): {title[:40]}")
-        continue
+        if tid in blocked_ids:
+            log(f"FILTER: {tid[:8]} blocked (human-gate): {title[:40]}")
+            continue
 
-    deps = dep_chain.get(tid, [])
-    unmet = [d for d in deps if task_status_by_id.get(d, "").lower() != "done"]
-    if unmet:
-        unmet_short = ", ".join(d[:8] for d in unmet)
-        log(f"FILTER: {tid[:8]} has unmet deps ({unmet_short}): {title[:40]}")
-        continue
+        deps = dep_chain.get(tid, [])
+        unmet = [d for d in deps if task_status_by_id.get(d, "").lower() != "done"]
+        if unmet:
+            unmet_short = ", ".join(d[:8] for d in unmet)
+            log(f"FILTER: {tid[:8]} has unmet deps ({unmet_short}): {title[:40]}")
+            continue
 
-    mc_deps = t.get("depends_on_task_ids", []) or []
-    mc_unmet = [d for d in mc_deps if task_status_by_id.get(d, "").lower() != "done"]
-    if mc_unmet:
-        unmet_short = ", ".join(d[:8] for d in mc_unmet)
-        log(f"FILTER: {tid[:8]} has unmet MC deps ({unmet_short}): {title[:40]}")
-        continue
+        mc_deps = t.get("depends_on_task_ids", []) or []
+        mc_unmet = [d for d in mc_deps if task_status_by_id.get(d, "").lower() != "done"]
+        if mc_unmet:
+            unmet_short = ", ".join(d[:8] for d in mc_unmet)
+            log(f"FILTER: {tid[:8]} has unmet MC deps ({unmet_short}): {title[:40]}")
+            continue
 
-    eligible.append(t)
+        eligible.append(t)
 
     if not eligible:
         filtered_count = len(inbox) - len(eligible)
         log(f"IDLE: no eligible inbox tasks ({len(inbox)} total, {filtered_count} filtered)")
+
+        # Blocklist stall alert: all inbox tasks filtered but inbox non-empty
+        if inbox and filtered_count == len(inbox):
+            blocklist_stall_key = "blocklist_stall_last_alert"
+            last_stall_alert = state.get(blocklist_stall_key, 0)
+            stall_alert_cooldown = 6 * 60 * 60 * 1000  # 6h
+            if now_ms - last_stall_alert > stall_alert_cooldown:
+                stall_msg = (
+                    f"⚠️ **Blocklist Stall** — {len(inbox)} inbox tasks, ALL filtered "
+                    f"(blocked={len(blocked_ids)}, deps unmet, etc). No work can proceed."
+                )
+                send_discord(NOTIFICATIONS_CHANNEL, stall_msg)
+                state[blocklist_stall_key] = now_ms
+                log(f"ALERT: blocklist stall — {len(inbox)} tasks, all filtered")
+
         cleanup_threshold = now_ms - 24 * 60 * 60 * 1000
         cleaned = {k: v for k, v in notified_failures.items()
                    if isinstance(v, dict) and v.get("at", 0) > cleanup_threshold}

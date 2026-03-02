@@ -8,8 +8,11 @@
 2. **MC inbox:** `curl -s "http://localhost:8000/api/v1/boards/0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47/tasks" -H "Authorization: Bearer $MC_API_TOKEN" | python3 -c "import json,sys; tasks=json.loads(sys.stdin.read()).get('items',[]); inbox=[t for t in tasks if t['status']=='inbox']; print(f'{len(inbox)} inbox tasks')"`
 3. **Anti-spam state:** `cat /tmp/.heartbeat-last-notify.json 2>/dev/null || echo '{"inbox":0,"failed":[]}'` — ler estado anterior
 
+4. **MC review/needs_approval tasks:** Check for tasks in `review` or `needs_approval` status that need Luna's attention. Use `mc-client.sh list-tasks --status review` or the QA Review Protocol from AGENTS.md.
+
 ## Decisão
 
+- Se **tasks em review/needs_approval**: Process via QA Review Protocol (AGENTS.md). Use `mc-review-reject.sh` or `mc-authorize-plan.sh` as appropriate.
 - Se **subagents ativos (não falhados)**: → HEARTBEAT_OK (trabalho em andamento)
 - Se **subagents recentes FALHADOS** (status=failed na lista):
   - Verificar se o label do subagent falhado JÁ ESTÁ no array `failed` do state file

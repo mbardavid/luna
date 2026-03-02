@@ -213,8 +213,33 @@ class QueueConsumer:
         description = spawn_params.get("description", context.get("description", ""))
         priority = data.get("priority", "medium")
 
-        message = f"""📋 Heartbeat V3 dispatch — execute a task abaixo.
+        rejection_feedback = context.get("rejection_feedback", "")
+        authorization_status = context.get("authorization_status", "")
 
+        feedback_section = ""
+        if rejection_feedback:
+            feedback_section = f"""
+## ⚠️ PREVIOUS REVIEW FEEDBACK (MUST ADDRESS)
+{rejection_feedback}
+
+**You MUST address all points above before reporting done.**
+"""
+
+        auth_section = ""
+        if authorization_status == "authorized":
+            auth_section = """
+## ✅ AUTHORIZED — Proceed to Implementation
+This task plan was reviewed and authorized by Luna. Skip Steps 1-3, start at Step 4 (implementation).
+"""
+        elif authorization_status == "counter_review":
+            auth_section = f"""
+## 🔄 COUNTER-REVIEW — Revise Plan
+Luna reviewed your plan and requests changes. See feedback above.
+Revise your plan and re-submit for authorization (max 2 cycles).
+"""
+
+        message = f"""📋 Heartbeat V3 dispatch — execute a task abaixo.
+{feedback_section}{auth_section}
 ## Task
 **Título:** {title}
 **MC Task ID:** {task_id}
@@ -259,8 +284,19 @@ class QueueConsumer:
         adjustments = context.get("adjustments", "nenhum")
         description = context.get("description", "")
 
-        message = f"""🔄 Heartbeat V3 failure respawn — re-executar task que falhou.
+        rejection_feedback = context.get("rejection_feedback", "")
 
+        feedback_section = ""
+        if rejection_feedback:
+            feedback_section = f"""
+## ⚠️ PREVIOUS REVIEW FEEDBACK (MUST ADDRESS)
+{rejection_feedback}
+
+**You MUST address all points above before reporting done.**
+"""
+
+        message = f"""🔄 Heartbeat V3 failure respawn — re-executar task que falhou.
+{feedback_section}
 ## Task
 **Título:** {title}
 **MC Task ID:** {task_id}
