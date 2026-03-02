@@ -48,7 +48,7 @@ class QueueConsumer:
             d.mkdir(parents=True, exist_ok=True)
 
     def peek(self) -> list[dict]:
-        """List all pending queue items sorted by creation time (oldest first)."""
+        """List all pending queue items sorted by priority (high first), then creation time."""
         items = []
         for f in sorted(self.pending.glob("*.json")):
             try:
@@ -65,6 +65,12 @@ class QueueConsumer:
                     "_path": str(f),
                     "_error": str(e),
                 })
+        # Sort: high priority first, then oldest first
+        priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+        items.sort(key=lambda x: (
+            priority_order.get(x.get("priority", "medium"), 2),
+            x.get("created_at", "9999"),
+        ))
         return items
 
     def count_active(self) -> int:
@@ -186,6 +192,8 @@ class QueueConsumer:
             return self._build_dispatch_result(data, filename)
         elif item_type == "respawn":
             return self._build_respawn_result(data, filename)
+        elif item_type == "review":
+            return self._build_review_result(data, filename)
         elif item_type == "alert":
             return self._build_alert_result(data, filename)
         else:
@@ -284,6 +292,56 @@ class QueueConsumer:
                 "agent": agent,
                 "message": message,
                 "label": f"hb-respawn-{task_id[:8]}",
+                "mc_task_id": task_id,
+            },
+        }
+
+    def _build_review_result(self, data: dict, filename: str) -> dict:
+        """Build sessions_spawn parameters for a review item (Luna validates Luan's work)."""
+        task_id = data.get("task_id", "")
+        title = data.get("title", "(sem título)")
+        context = data.get("context", {})
+        description = context.get("description", "")
+        review_depth = context.get("review_depth", "standard")
+        risk_profile = context.get("risk_profile", "medium")
+        original_agent = context.get("original_agent", "luan")
+
+        message = f"""🔍 Review Task (HIGH PRIORITY) — validate trabalho do {original_agent}.
+
+## Task
+**Título:** {title}
+**MC Task ID:** {task_id}
+**Prioridade:** HIGH
+**Review depth:** {review_depth}
+**Risk profile:** {risk_profile}
+
+## Descrição
+{description if description else '(sem descrição)'}
+
+## Checklist de Revisão
+1. Verificar workspace-luan/memory/active-tasks.md para status da task
+2. Revisar arquivos criados/modificados pelo {original_agent}
+3. Rodar testes se aplicável (pytest workspace-luan/tests/)
+4. Se APROVADO: fechar MC card como done
+   `mc-client.sh update-task {task_id} --status done --comment "[luna] reviewed and approved"`
+5. Se REPROVADO: mover para in_progress com feedback
+   `mc-client.sh update-task {task_id} --status in_progress --comment "[luna] needs changes: <motivo>"`
+
+## Contexto
+- Task movida para review pelo {original_agent}
+- Dispatch source: heartbeat-v3 review-dispatcher
+- Queue priority: HIGH"""
+
+        return {
+            "action": "review",
+            "queue_file": filename,
+            "task_id": task_id,
+            "agent": "main",
+            "priority": "high",
+            "spawn_params": {
+                "agent": "main",
+                "message": message,
+                "label": f"hb-review-{task_id[:8]}",
                 "mc_task_id": task_id,
             },
         }

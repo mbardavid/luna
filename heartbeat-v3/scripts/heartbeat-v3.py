@@ -131,6 +131,10 @@ CB_COOLDOWN_MS = V3_CONFIG.get("circuit_breaker_cooldown_minutes", 30) * 60 * 10
 FAILURE_COOLDOWN_MS = 30 * 60 * 1000     # 30min cooldown per failure notification
 MAX_RETRIES = 2
 
+# Review dispatcher tuning
+REVIEW_DISPATCH_COOLDOWN_MS = 2 * 60 * 60 * 1000   # 2h — don't re-dispatch same review task
+REVIEW_STALE_IGNORE_DAYS = 14                        # Ignore review tasks older than 14 days
+
 # Dry-run support
 DRY_RUN = "--dry-run" in sys.argv
 VERBOSE = "--verbose" in sys.argv or DRY_RUN
@@ -213,6 +217,7 @@ def ensure_state_fields(state: dict) -> dict:
     cb.setdefault("failures", 0)
     cb.setdefault("last_failure_at", 0)
     cb.setdefault("opened_at", 0)
+    state.setdefault("review_dispatched", {})
     return state
 
 
@@ -565,6 +570,39 @@ def build_failure_payload(task: dict, failure_type: str, retry_count: int, adjus
     }
 
 
+def build_review_payload(task: dict) -> dict:
+    """Build the queue payload for a review dispatch to Luna."""
+    title = task.get("title", "(sem título)")
+    task_id = task.get("id", "")
+    description = task.get("description", "")[:800]
+    priority = task.get("priority", "medium")
+    fields = task.get("custom_field_values") or {}
+
+    return {
+        "title": title,
+        "agent": "main",  # Luna reviews, not Luan
+        "priority": "high",
+        "context": {
+            "description": description,
+            "original_agent": fields.get("mc_assigned_agent", "luan"),
+            "session_key": fields.get("mc_session_key", ""),
+            "review_depth": fields.get("mc_review_depth", "standard"),
+            "risk_profile": fields.get("mc_risk_profile", "medium"),
+        },
+        "constraints": {
+            "max_age_minutes": V3_CONFIG.get("escalation_critical_minutes", 30),
+            "timeout_seconds": 900,  # Reviews may take longer
+        },
+        "spawn_params": {
+            "agent": "main",
+            "task_id": task_id,
+            "title": title,
+            "description": description,
+            "priority": "high",
+        },
+    }
+
+
 # ============================================================
 # START
 # ============================================================
@@ -845,9 +883,67 @@ for t in in_progress:
 log("Phase 5.5: No stale dispatches")
 
 # ============================================================
-# PHASE 7: Pull oldest inbox task (FIFO) with filtering
+# PHASE 6: Review dispatcher (HIGH PRIORITY — runs before inbox)
+#
+# Review tasks from Luan take priority over new inbox dispatch.
+# Routes to Luna (main) for validation. Luan never self-reviews.
 # ============================================================
-inbox = [t for t in tasks if str(t.get("status", "")).lower() == "inbox"]
+review_tasks = [
+    t for t in tasks
+    if str(t.get("status", "")).lower() == "review"
+    and not any(str(t.get("title", "")).startswith(pfx) for pfx in SERVICE_TITLE_PREFIXES)
+]
+# Sort by updated_at (most recently moved to review first)
+review_tasks.sort(key=lambda t: t.get("updated_at", t.get("created_at", "")), reverse=True)
+
+# Filter: ignore stale reviews (>14 days) and already-dispatched (cooldown 2h)
+review_dispatched = state.get("review_dispatched", {})
+eligible_reviews = []
+for t in review_tasks:
+    tid = t.get("id", "")
+    title_check = t.get("title", "?")
+
+    # Age filter: skip reviews older than REVIEW_STALE_IGNORE_DAYS
+    created_at = t.get("created_at", "")
+    if created_at:
+        try:
+            from datetime import datetime as _dt
+            task_age_days = (datetime.now(timezone.utc) - _dt.fromisoformat(created_at.replace("Z", "+00:00"))).days
+            if task_age_days > REVIEW_STALE_IGNORE_DAYS:
+                log(f"REVIEW SKIP: {tid[:8]} too old ({task_age_days}d): {title_check[:40]}")
+                continue
+        except Exception:
+            pass
+
+    # Cooldown filter: don't re-dispatch within 2h
+    prev = review_dispatched.get(tid, {})
+    prev_at = prev.get("at", 0) if isinstance(prev, dict) else 0
+    if now_ms - prev_at < REVIEW_DISPATCH_COOLDOWN_MS:
+        log(f"REVIEW SKIP: {tid[:8]} dispatched {(now_ms - prev_at) // 60000}min ago")
+        continue
+
+    eligible_reviews.append(t)
+
+# Decision: if review tasks found, they take priority over inbox
+next_task = None
+dispatch_type = "inbox"  # default
+
+if eligible_reviews:
+    next_task = eligible_reviews[0]
+    dispatch_type = "review"
+    task_id = next_task.get("id", "")
+    title = next_task.get("title", "(sem título)")
+    description = next_task.get("description", "")[:500]
+    log(f"Phase 6: Review task FOUND (priority=high): {task_id[:8]} — {title}")
+    log(f"Phase 6: {len(eligible_reviews)} eligible review(s), skipping inbox")
+else:
+    log(f"Phase 6: No eligible review tasks ({len(review_tasks)} total)")
+
+# ============================================================
+# PHASE 7: Pull oldest inbox task (FIFO) — ONLY if Phase 6 found nothing
+# ============================================================
+if next_task is None:
+    inbox = [t for t in tasks if str(t.get("status", "")).lower() == "inbox"]
 inbox.sort(key=lambda t: t.get("created_at", ""))
 
 # Load blocklist and dependency chain
@@ -889,23 +985,24 @@ for t in inbox:
 
     eligible.append(t)
 
-if not eligible:
-    filtered_count = len(inbox) - len(eligible)
-    log(f"IDLE: no eligible inbox tasks ({len(inbox)} total, {filtered_count} filtered)")
-    cleanup_threshold = now_ms - 24 * 60 * 60 * 1000
-    cleaned = {k: v for k, v in notified_failures.items()
-               if isinstance(v, dict) and v.get("at", 0) > cleanup_threshold}
-    if len(cleaned) != len(notified_failures):
-        state["notified_failures"] = cleaned
-        save_state(state)
-    sys.exit(0)
+    if not eligible:
+        filtered_count = len(inbox) - len(eligible)
+        log(f"IDLE: no eligible inbox tasks ({len(inbox)} total, {filtered_count} filtered)")
+        cleanup_threshold = now_ms - 24 * 60 * 60 * 1000
+        cleaned = {k: v for k, v in notified_failures.items()
+                   if isinstance(v, dict) and v.get("at", 0) > cleanup_threshold}
+        if len(cleaned) != len(notified_failures):
+            state["notified_failures"] = cleaned
+            save_state(state)
+        sys.exit(0)
 
-next_task = eligible[0]
-task_id = next_task.get("id", "")
-title = next_task.get("title", "(sem título)")
-description = next_task.get("description", "")[:500]
+    next_task = eligible[0]
+    task_id = next_task.get("id", "")
+    title = next_task.get("title", "(sem título)")
+    description = next_task.get("description", "")[:500]
+    dispatch_type = "inbox"
 
-log(f"Phase 7: Eligible task: {task_id[:8]} — {title}")
+    log(f"Phase 7: Eligible inbox task: {task_id[:8]} — {title}")
 
 # ============================================================
 # PHASE 8: Dedup — already dispatched this task?
@@ -929,21 +1026,33 @@ log("Phase 8: Dedup OK")
 # ============================================================
 # PHASE 9: Dispatch via QUEUE (NOT cron one-shot)
 # ============================================================
-assigned_uuid = str(next_task.get("assigned_agent_id", "") or "")
-agent_name = resolve_agent_name(assigned_uuid, agent_mapping)
+# Route: review tasks → Luna (main); inbox tasks → normal agent resolution
+if dispatch_type == "review":
+    agent_name = "main"  # Luna reviews
+else:
+    assigned_uuid = str(next_task.get("assigned_agent_id", "") or "")
+    agent_name = resolve_agent_name(assigned_uuid, agent_mapping)
 
-log(f"Phase 9: Dispatching {task_id[:8]} → {agent_name}")
+log(f"Phase 9: Dispatching {task_id[:8]} → {agent_name} (type={dispatch_type})")
 
-# Step 9a: Mark task in_progress
-if not mc_update_task(task_id,
-    status="in_progress",
-    comment=f"[heartbeat-v3] dispatching to {agent_name} via queue"):
-    log("ERROR: failed to mark task in_progress")
-    record_cb_failure(state)
-    sys.exit(1)
+# Step 9a: Mark task in_progress (for inbox) or add comment (for review — keep status)
+if dispatch_type == "review":
+    # Don't change status — task stays in review. Just add a comment.
+    mc_update_task(task_id,
+        comment=f"[heartbeat-v3] dispatching review to Luna for validation")
+else:
+    if not mc_update_task(task_id,
+        status="in_progress",
+        comment=f"[heartbeat-v3] dispatching to {agent_name} via queue"):
+        log("ERROR: failed to mark task in_progress")
+        record_cb_failure(state)
+        sys.exit(1)
 
 # Step 9b: Fast dispatch via openclaw agent (replaces queue + nudge)
-dispatch_payload = build_dispatch_payload(next_task, agent_name, len(eligible), len(in_progress))
+if dispatch_type == "review":
+    dispatch_payload = build_review_payload(next_task)
+else:
+    dispatch_payload = build_dispatch_payload(next_task, agent_name, len(eligible) if "eligible" in dir() else 0, len(in_progress))
 fast_dispatch_script = os.path.join(WORKSPACE, "scripts", "mc-fast-dispatch.sh")
 
 dispatch_ok = False
@@ -953,7 +1062,22 @@ if os.path.isfile(fast_dispatch_script) and os.access(fast_dispatch_script, os.X
     # Try fast dispatch first (direct openclaw agent call)
     try:
         description = next_task.get("description", "")[:2000]
-        task_msg = f"## MC Task: {title}\n\n{description}"
+        if dispatch_type == "review":
+            task_msg = (
+                f"## Review Task (HIGH PRIORITY)\n\n"
+                f"**Título:** {title}\n"
+                f"**MC Task ID:** {task_id}\n\n"
+                f"Luan completou esta task e moveu para review. "
+                f"Valide o trabalho do Luan:\n"
+                f"1. Verifique workspace-luan/memory/active-tasks.md para status\n"
+                f"2. Revise os arquivos criados/modificados\n"
+                f"3. Rode testes se aplicável\n"
+                f"4. Se aprovado, feche o MC card como done via mc-client.sh update-task {task_id} --status done\n"
+                f"5. Se reprovado, mova de volta para in_progress com comentário explicando o que ajustar\n\n"
+                f"## Descrição Original\n{description}"
+            )
+        else:
+            task_msg = f"## MC Task: {title}\n\n{description}"
         
         fd_result = run_cmd([
             fast_dispatch_script,
@@ -989,6 +1113,15 @@ if not dispatch_ok:
 # Step 9d: Update state
 state["last_dispatched_id"] = task_id
 state["dispatched_at"] = now_ms
+
+# Track review dispatch for cooldown dedup
+if dispatch_type == "review":
+    review_dispatched = state.get("review_dispatched", {})
+    review_dispatched[task_id] = {"at": now_ms, "agent": agent_name}
+    # Trim old entries (>7 days)
+    review_dispatched = {k: v for k, v in review_dispatched.items()
+                          if isinstance(v, dict) and now_ms - v.get("at", 0) < 7 * 24 * 3600 * 1000}
+    state["review_dispatched"] = review_dispatched
 state["dispatch_history"].append({
     "task_id": task_id,
     "at": now_ms,
@@ -1009,10 +1142,16 @@ if cb["state"] == "half-open":
 save_state(state)
 
 # Step 9e: Notify #notifications
-notif_msg = (
-    f"📋 **Heartbeat V3** dispatch: `{task_id[:8]}` — **{title}** → `{agent_name}`\n"
-    f"Eligible: {len(eligible)} | In-progress: {len(in_progress)} | Via: {dispatch_method}"
-)
+if dispatch_type == "review":
+    notif_msg = (
+        f"🔍 **Heartbeat V3** review dispatch: `{task_id[:8]}` — **{title}** → `{agent_name}` (Luna)\n"
+        f"Prioridade: HIGH | Reviews pendentes: {len(eligible_reviews)} | Via: {dispatch_method}"
+    )
+else:
+    notif_msg = (
+        f"📋 **Heartbeat V3** dispatch: `{task_id[:8]}` — **{title}** → `{agent_name}`\n"
+        f"Eligible: {len(eligible) if 'eligible' in dir() else '?'} | In-progress: {len(in_progress)} | Via: {dispatch_method}"
+    )
 send_discord(NOTIFICATIONS_CHANNEL, notif_msg)
 
 log(f"DISPATCH: {task_id[:8]} → {agent_name} (method: {dispatch_method})")
