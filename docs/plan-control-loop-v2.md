@@ -773,6 +773,159 @@ Antes de criar um NOVO script de detecção:
 
 ---
 
+## 8.5 Cenário Crítico: Gateway Restart Mid-Task
+
+### Problema
+Quando o gateway reinicia (manual, CTO-ops, update, OOM), todas as sessões de subagents morrem. Tasks ficam `in_progress` no MC com `session_key` apontando para sessões que não existem mais. Sem intervenção, essas tasks ficam órfãs indefinidamente.
+
+### O que existe hoje
+`gateway-post-restart-recovery.sh` (hook systemd ExecStartPost):
+- Espera gateway ficar ready
+- Relança PMM se estava rodando
+- Move tasks `in_progress` → `inbox` (limpa session_key)
+- Notifica Discord
+- Dispara heartbeat imediato
+
+### Gaps identificados
+
+**Gap 1 — Sem snapshot, sem recovery.**
+O script depende de `/tmp/.gateway-pre-restart-state.json` (escrito pelo `gateway-safe-restart.sh`). Restarts via systemd direto, CTO-ops, ou OOM kill não geram snapshot → recovery pula tudo → tasks órfãs.
+
+**Gap 2 — Move pra inbox, não continua de onde parou.**
+Mover task de `in_progress` → `inbox` perde contexto. Luan é re-spawnado do zero, sem saber que já tinha feito 80% na sessão anterior. Desperdício de tokens e tempo.
+
+**Gap 3 — PMM restart usa comando antigo.**
+Script referencia `production_runner` e `prod-002.yaml`, não o runner unificado com `prod-003.yaml`.
+
+### Solução (incluída na Fase 1)
+
+#### 1. Recovery SEM snapshot (snapshot-less recovery)
+
+Adicionar ao `gateway-post-restart-recovery.sh` um fallback que consulta MC API diretamente quando snapshot não existe:
+
+```bash
+if [ ! -f "$STATE_FILE" ]; then
+    log "No snapshot — running snapshot-less recovery via MC API"
+    
+    # Query MC for in_progress tasks with session_key
+    ORPHAN_TASKS=$(curl -s -H "Authorization: Bearer $MC_API_TOKEN" \
+      "$MC_API_URL/api/v1/boards/$MC_BOARD_ID/tasks" | \
+    python3 -c "
+    import json, sys
+    tasks = json.load(sys.stdin).get('items', [])
+    for t in tasks:
+        if t['status'] in ('in_progress', 'review'):
+            sk = (t.get('custom_field_values') or {}).get('mc_session_key', '')
+            if sk:  # Has session_key but session is dead (gateway just restarted)
+                print(json.dumps({
+                    'task_id': t['id'],
+                    'title': t['title'],
+                    'session_key': sk,
+                    'status': t['status']
+                }))
+    ")
+    
+    # Process each orphaned task
+    echo "$ORPHAN_TASKS" | while read -r task_json; do
+        # Generate queue item for heartbeat-v3 to process
+        # (see point 2 below)
+    done
+fi
+```
+
+#### 2. Continuação com contexto (respawn-with-context)
+
+Em vez de mover para `inbox` (perde contexto), gerar um queue item estruturado:
+
+```json
+{
+  "type": "respawn-with-context",
+  "task_id": "e5692112-...",
+  "task_title": "Control Loop Fase 1: Absorver detectores",
+  "previous_session_key": "agent:luan:subagent:abc123",
+  "previous_status": "in_progress",
+  "recovery_reason": "gateway_restart",
+  "context_instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Read session history of previous session for context. Do NOT restart from scratch.",
+  "timestamp": "2026-03-02T22:00:00Z"
+}
+```
+
+Quando Luna processa este queue item:
+1. Lê `sessions_history` da sessão anterior (se ainda existir no storage)
+2. Extrai progresso: quais arquivos foram modificados, quais testes passaram, onde parou
+3. Re-spawna Luan com prompt que inclui: "Sessão anterior morreu por gateway restart. Progresso até aqui: [resumo]. Continue de onde parou."
+
+Se a sessão anterior não tiver history acessível, fallback para re-spawn completo (comportamento atual).
+
+#### 3. PMM restart atualizado
+
+```bash
+# ANTES (hardcoded):
+nohup python3 -m paper.production_runner --config "paper/runs/prod-002.yaml" ...
+
+# DEPOIS (dinâmico):
+# Encontrar o config mais recente
+LATEST_CONFIG=$(ls -t "$PMM_DIR/paper/runs/prod-*.yaml" 2>/dev/null | head -1)
+if [ -z "$LATEST_CONFIG" ]; then
+    LATEST_CONFIG="paper/runs/prod-003.yaml"
+fi
+
+# Usar runner unificado com .env loading
+python3 -c "
+import subprocess, sys, os
+from pathlib import Path
+
+env = os.environ.copy()
+dotenv = Path('$PMM_DIR/.env')
+if dotenv.exists():
+    for line in dotenv.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith('#') and '=' in line:
+            k, v = line.split('=', 1)
+            env[k.strip()] = v.strip()
+
+proc = subprocess.Popen(
+    [sys.executable, '-m', 'runner', '--mode', 'live', '--config', '$LATEST_CONFIG'],
+    stdout=open('logs/production.log', 'a'),
+    stderr=subprocess.STDOUT,
+    start_new_session=True,
+    cwd='$PMM_DIR',
+    env=env,
+)
+print(proc.pid)
+with open('paper/data/production_trading.pid', 'w') as f:
+    f.write(str(proc.pid))
+"
+```
+
+### Fluxo Completo Pós-Restart
+
+```
+Gateway reinicia (t=0)
+  → systemd ExecStartPost → gateway-post-restart-recovery.sh (t=5s)
+    → Snapshot exists?
+      → YES: recovery normal (existente)
+      → NO: snapshot-less recovery via MC API
+    → Para cada task órfã:
+      → Gera queue item "respawn-with-context" em heartbeat-v3/queue/pending/
+    → PMM alive?
+      → NO: restart com runner unificado + .env
+    → Notifica Discord
+    → Dispara heartbeat imediato (t=15s)
+  → heartbeat-v3 acorda (t=15-20s)
+    → Processa queue items (respawn-with-context)
+    → Nudge Luna via system-event
+  → Luna acorda (t=20-30s)
+    → Lê queue items
+    → Lê session history da sessão morta
+    → Re-spawna com contexto
+  → Luan retoma trabalho com contexto (t=30-60s)
+
+Latência total: 30-60 segundos (antes: 30min+)
+```
+
+---
+
 ## 9. Rollback Plan
 
 ### 9.1 Rollback por Fase
