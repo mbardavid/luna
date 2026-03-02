@@ -117,6 +117,30 @@ DESIRED_FIELDS='[
     "ui_visibility": "if_set",
     "required": false,
     "default_value": null
+  },
+  {
+    "field_key": "mc_risk_profile",
+    "label": "MC Risk Profile",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "medium"
+  },
+  {
+    "field_key": "mc_review_depth",
+    "label": "MC Review Depth",
+    "field_type": "integer",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": 2
+  },
+  {
+    "field_key": "mc_signature_required",
+    "label": "MC Signature Required",
+    "field_type": "boolean",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": false
   }
 ]'
 
