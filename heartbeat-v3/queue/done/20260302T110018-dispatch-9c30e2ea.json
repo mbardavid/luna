@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "9c30e2ea-9c3d-4a30-89e8-053f14aae437",
+  "filename": "20260302T110018-dispatch-9c30e2ea.json",
+  "created_at": "2026-03-02T11:00:18.073283+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Fix production runner: trade dedup, on-chain reconciliation, wallet sync",
+  "agent": "luan",
+  "priority": "medium",
+  "context": {
+    "description": "O production_runner.py do polymarket-mm tem 3 bugs cr\u00edticos de tracking:\n\n**BUG 1 \u2014 Trade dedup n\u00e3o persiste entre restarts**\n`_processed_trades` \u00e9 um set em mem\u00f3ria. Quando o runner reinicia, rel\u00ea todos os trades hist\u00f3ricos da API (`get_trades()`) e conta tudo de novo. Resultado: 60 fills reais aparecem como 120.\n\nFIX: Persistir `_processed_trades` em arquivo JSON (`paper/data/processed_trade_ids.json`). Carregar no startup, salvar a cada novo fill. Ou melhor: guardar o timestamp do \u00faltimo trad",
+    "eligible_count": 1,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "9c30e2ea-9c3d-4a30-89e8-053f14aae437",
+    "title": "Fix production runner: trade dedup, on-chain reconciliation, wallet sync",
+    "description": "O production_runner.py do polymarket-mm tem 3 bugs cr\u00edticos de tracking:\n\n**BUG 1 \u2014 Trade dedup n\u00e3o persiste entre restarts**\n`_processed_trades` \u00e9 um set em mem\u00f3ria. Quando o runner reinicia, rel\u00ea todos os trades hist\u00f3ricos da API (`get_trades()`) e conta tudo de novo. Resultado: 60 fills reais aparecem como 120.\n\nFIX: Persistir `_processed_trades` em arquivo JSON (`paper/data/processed_trade_ids.json`). Carregar no startup, salvar a cada novo fill. Ou melhor: guardar o timestamp do \u00faltimo trad",
+    "priority": "medium"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "017469bb-6cfb-4d08-b8a1-2cabf4d62bcd",
+  "filename": "20260302T174010-dispatch-017469bb.json",
+  "created_at": "2026-03-02T17:40:10.614894+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM: Market Rotation + Capital Recovery (auto-reallocation)",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "## Problem\nThe PMM bot accumulated $227 in directional positions, exhausted all free capital, and died. Nobody detected it needed relaunching. The bot has no logic to:\n1. Detect when a market becomes unfavorable (high spread, low volume, directional inventory)\n2. Close positions and free capital automatically\n3. Migrate to a better market\n\n## Solution: 3 new modules in runner/\n\n### A. Market Health Monitor (`runner/market_health.py`)\n- Track per-market metrics: spread, volume, fill_rate, invento",
+    "eligible_count": 1,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "017469bb-6cfb-4d08-b8a1-2cabf4d62bcd",
+    "title": "PMM: Market Rotation + Capital Recovery (auto-reallocation)",
+    "description": "## Problem\nThe PMM bot accumulated $227 in directional positions, exhausted all free capital, and died. Nobody detected it needed relaunching. The bot has no logic to:\n1. Detect when a market becomes unfavorable (high spread, low volume, directional inventory)\n2. Close positions and free capital automatically\n3. Migrate to a better market\n\n## Solution: 3 new modules in runner/\n\n### A. Market Health Monitor (`runner/market_health.py`)\n- Track per-market metrics: spread, volume, fill_rate, invento",
+    "priority": "high"
+  }
+}

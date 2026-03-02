@@ -194,6 +194,8 @@ class QueueConsumer:
             return self._build_respawn_result(data, filename)
         elif item_type == "review":
             return self._build_review_result(data, filename)
+        elif item_type == "qa-review":
+            return self._build_qa_review_result(data, filename)
         elif item_type == "alert":
             return self._build_alert_result(data, filename)
         else:
@@ -378,6 +380,60 @@ Revise your plan and re-submit for authorization (max 2 cycles).
                 "agent": "main",
                 "message": message,
                 "label": f"hb-review-{task_id[:8]}",
+                "mc_task_id": task_id,
+            },
+        }
+
+    def _build_qa_review_result(self, data: dict, filename: str) -> dict:
+        """
+        Build sessions_spawn parameters for a qa-review item.
+
+        Absorbs: mc-stale-task-detector.sh completion-pending logic.
+        Generates a QA action brief for Luna to review a completed task.
+        """
+        task_id = data.get("task_id", "")
+        title = data.get("title", "(sem título)")
+        context = data.get("context", {})
+        session_key = context.get("session_key", "")
+        completion_status = context.get("completion_status", "complete")
+        task_title = context.get("task_title", title)
+
+        message = f"""🔍 QA Review — validate completion do subagente.
+
+## Task
+**Título:** {task_title}
+**MC Task ID:** {task_id}
+**Prioridade:** HIGH
+**Completion Status:** {completion_status}
+
+## Sessão Completada
+**Session Key:** {session_key}
+
+## Checklist de QA Review
+1. Ler completion report da sessão do subagente (session history)
+2. Inspecionar 2+ arquivos criados/modificados
+3. Rodar verification checks (se especificados no completion report)
+4. Verificar se os acceptance criteria foram atendidos
+5. Se APROVADO: fechar MC card como done
+   `mc-client.sh update-task {task_id} --status done --comment "[luna] QA passed"`
+6. Se REPROVADO: mover para in_progress com feedback
+   `mc-client.sh update-task {task_id} --status in_progress --fields '{{"mc_rejection_feedback":"<motivo>"}}'`
+
+## Contexto
+- Subagente completou a task (status: {completion_status}) mas sessão encerrou
+- Este QA review foi gerado automaticamente pelo heartbeat-v3 Phase 5.5
+- Dispatch source: heartbeat-v3 qa-review queue"""
+
+        return {
+            "action": "qa-review",
+            "queue_file": filename,
+            "task_id": task_id,
+            "agent": "main",
+            "priority": "high",
+            "spawn_params": {
+                "agent": "main",
+                "message": message,
+                "label": f"hb-qa-review-{task_id[:8]}",
                 "mc_task_id": task_id,
             },
         }

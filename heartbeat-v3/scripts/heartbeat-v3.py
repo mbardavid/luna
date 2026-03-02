@@ -218,6 +218,16 @@ def ensure_state_fields(state: dict) -> dict:
     cb.setdefault("last_failure_at", 0)
     cb.setdefault("opened_at", 0)
     state.setdefault("review_dispatched", {})
+    # Phase 1 absorbed detectors state
+    state.setdefault("absorbed", {
+        "pmm_restarts": [],             # [{at: ms, pid: int}, ...]
+        "alerted_description_violations": {},  # {task_id: {at: ms}}
+        "completion_pending_notified": {},     # {task_id: {at: ms}}
+    })
+    absorbed = state["absorbed"]
+    absorbed.setdefault("pmm_restarts", [])
+    absorbed.setdefault("alerted_description_violations", {})
+    absorbed.setdefault("completion_pending_notified", {})
     return state
 
 
@@ -608,6 +618,489 @@ def build_review_payload(task: dict) -> dict:
     }
 
 
+# === PMM CONFIG ===
+PMM_CONFIG = V3_CONFIG.get("pmm", {})
+PMM_AUTO_RESTART = PMM_CONFIG.get("auto_restart", True)
+PMM_PID_FILE = os.path.join(WORKSPACE, PMM_CONFIG.get("pid_file", "polymarket-mm/paper/data/production_trading.pid"))
+PMM_RESTART_COOLDOWN_MS = PMM_CONFIG.get("restart_cooldown_minutes", 5) * 60 * 1000
+PMM_MAX_RESTARTS_PER_HOUR = PMM_CONFIG.get("max_restarts_per_hour", 3)
+PMM_ENV_FILE = os.path.join(WORKSPACE, PMM_CONFIG.get("env_file", "polymarket-mm/.env"))
+PMM_DEFAULT_CONFIG = os.path.join(WORKSPACE, PMM_CONFIG.get("default_config", "polymarket-mm/paper/runs/prod-003.yaml"))
+
+# === DESCRIPTION QUALITY CONFIG ===
+DESC_CONFIG = V3_CONFIG.get("description_quality", {})
+DESC_MIN_LENGTH = DESC_CONFIG.get("min_length", 200)
+DESC_MARKERS = DESC_CONFIG.get("required_markers", ["## ", "Objective", "Objetivo", "Context", "Criteria", "Problem", "Approach"])
+DESC_CHECK_STATUSES = set(DESC_CONFIG.get("check_statuses", ["inbox", "in_progress", "review"]))
+
+# === FAILURE CLASSIFICATION CONFIG ===
+FC_CONFIG = V3_CONFIG.get("failure_classification", {})
+FC_LOOP_THRESHOLD = FC_CONFIG.get("loop_threshold", 5)
+FC_KNOWN_PROVIDER_ERRORS = FC_CONFIG.get("known_provider_errors", ["thinking.signature", "RESOURCE_EXHAUSTED", "capacity"])
+
+
+def parse_env_file(env_path: str) -> dict:
+    """Parse a .env file into a dict. Stdlib only (no python-dotenv)."""
+    env = {}
+    if not os.path.exists(env_path):
+        return env
+    try:
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip()
+                # Remove surrounding quotes
+                if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                    value = value[1:-1]
+                env[key] = value
+    except Exception:
+        pass
+    return env
+
+
+def check_pmm_health(state: dict) -> dict:
+    """
+    Check if PMM bot is alive. If dead, auto-restart with cooldown.
+
+    Absorbs: pmm-status-updater.sh PID check logic
+
+    Returns:
+        {"alive": bool, "pid": int|None, "restarted": bool, "error": str|None}
+    """
+    result = {"alive": False, "pid": None, "restarted": False, "error": None}
+
+    if not PMM_AUTO_RESTART:
+        result["error"] = "auto_restart disabled"
+        return result
+
+    # 1. Read PID file
+    if not os.path.exists(PMM_PID_FILE):
+        result["error"] = "no PID file"
+        result["alive"] = None  # Unknown — never started
+        return result
+
+    try:
+        with open(PMM_PID_FILE) as f:
+            pid = int(f.read().strip())
+        result["pid"] = pid
+    except (ValueError, OSError) as e:
+        result["error"] = f"bad PID file: {e}"
+        return result
+
+    # 2. Check if process alive (kill -0)
+    try:
+        os.kill(pid, 0)
+        result["alive"] = True
+        return result  # Running — all good
+    except ProcessLookupError:
+        result["alive"] = False
+    except PermissionError:
+        result["alive"] = True  # Process exists but we can't signal it
+        return result
+
+    # 3. Dead — check restart cooldown
+    now_ms = int(time.time() * 1000)
+    absorbed = state.get("absorbed", {})
+    pmm_restarts = absorbed.get("pmm_restarts", [])
+
+    # Trim to last hour
+    one_hour_ago = now_ms - 3600 * 1000
+    pmm_restarts = [r for r in pmm_restarts if r.get("at", 0) > one_hour_ago]
+
+    # Check max restarts per hour
+    if len(pmm_restarts) >= PMM_MAX_RESTARTS_PER_HOUR:
+        result["error"] = f"max restarts/hour ({PMM_MAX_RESTARTS_PER_HOUR}) exceeded"
+        log(f"PMM: restart suppressed — {len(pmm_restarts)} restarts in last hour")
+        return result
+
+    # Check cooldown from last restart
+    if pmm_restarts:
+        last_restart = max(r.get("at", 0) for r in pmm_restarts)
+        if now_ms - last_restart < PMM_RESTART_COOLDOWN_MS:
+            elapsed_s = (now_ms - last_restart) // 1000
+            cooldown_s = PMM_RESTART_COOLDOWN_MS // 1000
+            result["error"] = f"cooldown ({elapsed_s}s / {cooldown_s}s)"
+            return result
+
+    # 4. Attempt restart
+    if DRY_RUN:
+        log("PMM: DRY-RUN would restart PMM")
+        result["restarted"] = True
+        return result
+
+    try:
+        # Load .env for environment variables
+        pmm_env = parse_env_file(PMM_ENV_FILE)
+        env = {**os.environ, **pmm_env}
+
+        # Find config file
+        config_path = PMM_DEFAULT_CONFIG
+        if not os.path.exists(config_path):
+            result["error"] = f"config not found: {config_path}"
+            return result
+
+        pmm_dir = os.path.dirname(os.path.dirname(PMM_PID_FILE))  # polymarket-mm/paper/
+        cmd = [
+            sys.executable, "-m", "runner",
+            "--mode", "live",
+            "--config", config_path,
+        ]
+
+        proc = subprocess.Popen(
+            cmd,
+            cwd=pmm_dir,
+            env=env,
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        # Write new PID
+        try:
+            with open(PMM_PID_FILE, "w") as f:
+                f.write(str(proc.pid))
+        except Exception as e:
+            log(f"PMM: restarted (PID {proc.pid}) but failed to write PID file: {e}")
+
+        result["restarted"] = True
+        result["pid"] = proc.pid
+        result["alive"] = True
+
+        # Record restart
+        pmm_restarts.append({"at": now_ms, "pid": proc.pid})
+        absorbed["pmm_restarts"] = pmm_restarts
+        state["absorbed"] = absorbed
+
+        log(f"PMM: auto-restarted (new PID {proc.pid})")
+
+    except Exception as e:
+        result["error"] = f"restart failed: {e}"
+        log(f"PMM: restart FAILED: {e}")
+
+    return result
+
+
+def classify_failure(session_key: str) -> tuple:
+    """
+    Enhanced failure classification with 6 categories.
+
+    Absorbs: mc-failure-detector.sh classification logic
+
+    Returns:
+        (failure_type, recommended_adjustment)
+
+    Types:
+        LOOP_DEGENERATIVO   — same tool called N+ times in last messages
+        INCOMPLETE          — stopReason=stop/end_turn but no COMPLETION_STATUS
+        THINKING_SIGNATURE  — "thinking.signature: Field required" error
+        PROVIDER_ERROR      — API/provider level error (400, 429, 500, capacity)
+        TIMEOUT             — session exceeded runTimeoutSeconds
+        GENERIC_ERROR       — unclassifiable
+    """
+    failure_type = "GENERIC_ERROR"
+    adjustments = "re-tentar sem ajustes específicos"
+
+    try:
+        history = gateway_call("chat.history", {
+            "sessionKey": session_key,
+            "limit": 5,
+        })
+    except Exception as e:
+        log(f"WARN: chat.history failed for {session_key}: {e}")
+        return failure_type, adjustments
+
+    messages = []
+    if isinstance(history, dict):
+        messages = history.get("messages", history.get("items", []))
+    elif isinstance(history, list):
+        messages = history
+
+    all_text = ""
+    tool_calls = []
+    for msg in messages:
+        content = str(msg.get("content", "") or msg.get("text", "") or "")
+        all_text += content.lower() + " "
+        tc = msg.get("toolCalls", msg.get("tool_calls", []))
+        if tc:
+            tool_calls.extend(tc if isinstance(tc, list) else [tc])
+
+    stop_reason = ""
+    error_msg = ""
+    for msg in messages:
+        sr = msg.get("stopReason", msg.get("stop_reason", ""))
+        if sr:
+            stop_reason = str(sr).lower()
+        em = msg.get("errorMessage", msg.get("error_message", msg.get("error", "")))
+        if em:
+            error_msg = str(em).lower()
+
+    combined = all_text + " " + stop_reason + " " + error_msg
+
+    # Check for known provider errors first (THINKING_SIGNATURE, RESOURCE_EXHAUSTED, etc.)
+    for known_error in FC_KNOWN_PROVIDER_ERRORS:
+        if known_error.lower() in combined:
+            failure_type = "THINKING_SIGNATURE" if "thinking.signature" in known_error.lower() else "PROVIDER_ERROR"
+            adjustments = f"erro de provider ({known_error}), trocar modelo ou aguardar"
+            return failure_type, adjustments
+
+    # Auth errors
+    if "401" in combined or "unauthorized" in combined or "auth" in combined:
+        failure_type = "PROVIDER_ERROR"
+        adjustments = "verificar credenciais, possivelmente trocar modelo"
+        return failure_type, adjustments
+
+    # Timeout
+    if "timeout" in combined or "timed out" in combined:
+        failure_type = "TIMEOUT"
+        adjustments = "aumentar runTimeoutSeconds (1.5x)"
+        return failure_type, adjustments
+
+    # OOM — classify as PROVIDER_ERROR
+    if "oom" in combined or "out of memory" in combined or "signal 9" in combined or "killed" in combined:
+        failure_type = "PROVIDER_ERROR"
+        adjustments = "reduzir contexto, adicionar constraint de brevidade"
+        return failure_type, adjustments
+
+    # Rate limit — classify as PROVIDER_ERROR
+    if "rate limit" in combined or "429" in combined or "quota" in combined:
+        failure_type = "PROVIDER_ERROR"
+        adjustments = "aguardar cooldown, possivelmente trocar modelo"
+        return failure_type, adjustments
+
+    # Loop degenerativo
+    if len(tool_calls) >= FC_LOOP_THRESHOLD:
+        tool_names = [
+            str(tc.get("name", tc.get("function", {}).get("name", "")))
+            for tc in tool_calls if isinstance(tc, dict)
+        ]
+        if tool_names and len(set(tool_names)) == 1:
+            failure_type = "LOOP_DEGENERATIVO"
+            adjustments = "simplificar task, trocar modelo"
+            return failure_type, adjustments
+
+    # Incomplete — session ended normally but no COMPLETION_STATUS
+    if stop_reason in ("stop", "end_turn"):
+        # Check if there's a COMPLETION_STATUS in the text
+        if "completion_status" in combined:
+            failure_type = "INCOMPLETE"
+            adjustments = "re-spawn com 'continue de onde parou'"
+        else:
+            failure_type = "INCOMPLETE"
+            adjustments = "re-spawn com 'continue de onde parou'"
+        return failure_type, adjustments
+
+    return failure_type, adjustments
+
+
+def check_description_quality(tasks: list, state: dict) -> list:
+    """
+    Audit active task descriptions for quality.
+
+    Absorbs: mc-description-watchdog.sh logic
+
+    Checks:
+        - Length >= MIN_LENGTH chars
+        - Has structural markers (##, Objective, Context, Criteria)
+        - No placeholder text
+
+    Returns list of violations (task_id, title, issues).
+    Dedup via state["absorbed"]["alerted_description_violations"].
+    """
+    absorbed = state.get("absorbed", {})
+    alerted = absorbed.get("alerted_description_violations", {})
+    violations = []
+
+    for task in tasks:
+        status = str(task.get("status", "")).lower()
+        if status not in DESC_CHECK_STATUSES:
+            continue
+
+        task_id = task.get("id", "")
+        if task_id in alerted:
+            continue
+
+        desc = task.get("description", "") or ""
+        title = task.get("title", "?")
+        issues = []
+
+        if len(desc) < DESC_MIN_LENGTH:
+            issues.append(f"short ({len(desc)} chars)")
+
+        if not any(marker in desc for marker in DESC_MARKERS) and len(desc) < 500:
+            issues.append("no structure")
+
+        if issues:
+            violations.append({
+                "task_id": task_id,
+                "title": title[:50],
+                "status": status,
+                "issues": ", ".join(issues),
+            })
+            alerted[task_id] = {"at": int(time.time() * 1000)}
+
+    absorbed["alerted_description_violations"] = alerted
+    state["absorbed"] = absorbed
+    return violations
+
+
+def check_session_completion(session_key: str) -> str:
+    """
+    Check if a dead session completed its task (has COMPLETION_STATUS).
+
+    Returns: "complete", "partial", "blocked", or "" (not found/no completion).
+    """
+    try:
+        history = gateway_call("chat.history", {
+            "sessionKey": session_key,
+            "limit": 5,
+        })
+    except Exception as e:
+        log(f"WARN: chat.history for completion check failed ({session_key}): {e}")
+        return ""
+
+    messages = []
+    if isinstance(history, dict):
+        messages = history.get("messages", history.get("items", []))
+    elif isinstance(history, list):
+        messages = history
+
+    # Search from newest to oldest for COMPLETION_STATUS
+    for msg in reversed(messages):
+        content = str(msg.get("content", "") or msg.get("text", "") or "")
+        if "COMPLETION_STATUS:" in content:
+            # Extract status value
+            for line in content.split("\n"):
+                line = line.strip()
+                if line.startswith("COMPLETION_STATUS:"):
+                    status_val = line.split(":", 1)[1].strip().lower()
+                    if status_val in ("complete", "partial", "blocked"):
+                        return status_val
+        # Also check for structured completion markers
+        if "status:" in content.lower() and ("complete" in content.lower() or "partial" in content.lower()):
+            if "complete" in content.lower():
+                return "complete"
+            if "partial" in content.lower():
+                return "partial"
+
+    return ""
+
+
+def detect_stale_and_completions(tasks: list, sessions_by_key: dict, state: dict) -> list:
+    """
+    Enhanced stale detection that also identifies completions pending QA.
+
+    Absorbs: mc-stale-task-detector.sh logic
+
+    Detects:
+        1. ORPHAN: task in_progress/review with NO session_key
+        2. COMPLETION_PENDING: task with dead session that had COMPLETION_STATUS
+           → generates qa-review queue item
+        3. STALE: task with dead session, no completion → existing respawn behavior
+
+    Returns list of detection results.
+    """
+    absorbed = state.get("absorbed", {})
+    notified_completions = absorbed.get("completion_pending_notified", {})
+    now_ms = int(time.time() * 1000)
+    completion_cooldown_ms = 30 * 60 * 1000  # 30 min cooldown
+
+    results = []
+    live_keys = set(sessions_by_key.keys())
+
+    for task in tasks:
+        status = str(task.get("status", "")).lower()
+        if status not in ("in_progress", "review"):
+            continue
+
+        task_id = task.get("id", "")
+        title = task.get("title", "?")
+        fields = task.get("custom_field_values") or {}
+        session_key = str(fields.get("mc_session_key", "") or "").strip()
+
+        # Skip service tasks
+        if any(str(title).startswith(pfx) for pfx in SERVICE_TITLE_PREFIXES):
+            continue
+
+        if not session_key:
+            # ORPHAN — task without executor
+            results.append({
+                "type": "orphan",
+                "task_id": task_id,
+                "title": title,
+                "status": status,
+            })
+            continue
+
+        # Check if session is alive
+        if session_key in live_keys:
+            sess = sessions_by_key[session_key]
+            s_status = str(sess.get("status", "")).lower()
+            if s_status not in ("failed", "error", "ended"):
+                continue  # Session alive — skip
+
+        # Session is dead — check completion cooldown
+        prev = notified_completions.get(task_id, {})
+        prev_at = prev.get("at", 0) if isinstance(prev, dict) else 0
+        if now_ms - prev_at < completion_cooldown_ms:
+            continue  # Already notified recently
+
+        # Try to determine if completion happened
+        completion_status = check_session_completion(session_key)
+
+        if completion_status in ("complete", "partial"):
+            results.append({
+                "type": "qa-review",
+                "task_id": task_id,
+                "title": title,
+                "session_key": session_key,
+                "completion_status": completion_status,
+                "status": status,
+            })
+            notified_completions[task_id] = {"at": now_ms, "completion": completion_status}
+        else:
+            results.append({
+                "type": "stale",
+                "task_id": task_id,
+                "title": title,
+                "session_key": session_key,
+                "status": status,
+            })
+
+    absorbed["completion_pending_notified"] = notified_completions
+    state["absorbed"] = absorbed
+    return results
+
+
+# Backward compat alias for analyze_session_failure
+analyze_session_failure_legacy = None  # will be set below
+
+
+def build_qa_review_payload(task_id: str, title: str, session_key: str, completion_status: str) -> dict:
+    """Build the queue payload for a qa-review item."""
+    return {
+        "title": title,
+        "agent": "main",  # Luna reviews
+        "priority": "high",
+        "context": {
+            "task_id": task_id,
+            "task_title": title,
+            "session_key": session_key,
+            "completion_status": completion_status,
+            "action": "QA review: ler completion report, inspecionar 2+ arquivos, rodar verification checks",
+        },
+        "constraints": {
+            "max_age_minutes": V3_CONFIG.get("escalation_critical_minutes", 30),
+            "timeout_seconds": 900,
+        },
+    }
+
+
 # ============================================================
 # START
 # ============================================================
@@ -631,7 +1124,7 @@ if RESET_CB:
     sys.exit(0)
 
 # ============================================================
-# PHASE 1: Gateway health check
+# PHASE 1: Gateway health check + PMM health check
 # ============================================================
 try:
     gateway_call("sessions.list", {})
@@ -639,6 +1132,26 @@ except Exception as e:
     log(f"SKIP: gateway unreachable: {e}")
     sys.exit(0)
 log("Phase 1: Gateway OK")
+
+# Phase 1 Enhanced: PMM Health Check
+pmm_result = check_pmm_health(state)
+if pmm_result.get("alive") is True:
+    log(f"Phase 1: PMM alive (PID {pmm_result.get('pid', '?')})")
+elif pmm_result.get("alive") is None:
+    log(f"Phase 1: PMM status unknown ({pmm_result.get('error', 'no info')})")
+elif pmm_result.get("restarted"):
+    log(f"Phase 1: PMM was dead → auto-restarted (PID {pmm_result.get('pid', '?')})")
+    send_discord(NOTIFICATIONS_CHANNEL,
+        f"🔄 **PMM Auto-Restart**: bot was dead, restarted (PID {pmm_result.get('pid', '?')})")
+    save_state(state)
+else:
+    error = pmm_result.get("error", "unknown")
+    log(f"Phase 1: PMM dead, restart skipped ({error})")
+    if "max restarts" in str(error):
+        send_discord(DISCORD_CHANNEL,
+            f"⚠️ **PMM**: dead but max restarts/hour exceeded. Requires manual intervention.")
+        send_discord(NOTIFICATIONS_CHANNEL,
+            f"⚠️ **PMM**: dead but max restarts/hour exceeded. Requires manual intervention.")
 
 # ============================================================
 # PHASE 2: Active hours check (São Paulo)
@@ -729,8 +1242,8 @@ for task in tasks:
 
     title = task.get("title", "(sem título)")
 
-    # Analyze the failure
-    failure_type, adjustments = analyze_session_failure(session_key)
+    # Analyze the failure (enhanced 6-category classification)
+    failure_type, adjustments = classify_failure(session_key)
     retry_count = int(fields.get("mc_retry_count", 0) or 0)
 
     log(f"FAILURE: task {task_id[:8]} — {title} — type={failure_type}, retry={retry_count}")
@@ -835,6 +1348,24 @@ if len(recent_dispatches) >= MAX_DISPATCHES_PER_HOUR:
 log(f"Phase 4.7: Rate limit OK ({len(recent_dispatches)}/{MAX_DISPATCHES_PER_HOUR})")
 
 # ============================================================
+# PHASE 4.8: Description quality audit
+# ============================================================
+desc_violations = check_description_quality(tasks, state)
+if desc_violations:
+    violation_lines = []
+    for v in desc_violations[:5]:  # Cap at 5 to avoid spam
+        violation_lines.append(f"  • `{v['task_id'][:8]}` **{v['title']}** ({v['status']}): {v['issues']}")
+    violation_msg = (
+        f"⚠️ **Description Quality**: {len(desc_violations)} task(s) with poor descriptions\n"
+        + "\n".join(violation_lines)
+    )
+    send_discord(NOTIFICATIONS_CHANNEL, violation_msg)
+    save_state(state)
+    log(f"Phase 4.8: {len(desc_violations)} description violation(s) found")
+else:
+    log("Phase 4.8: Description quality OK")
+
+# ============================================================
 # PHASE 5: Check active subagents + in_progress tasks
 # ============================================================
 # Exclude SERVICE tasks (persistent, never complete — e.g. PMM bot)
@@ -864,8 +1395,9 @@ if len(active_subagents) >= MAX_CONCURRENT_IN_PROGRESS:
 log(f"Phase 5: {len(in_progress)} in_progress, {len(active_subagents)} active subagents")
 
 # ============================================================
-# PHASE 5.5: Stale dispatch detection
+# PHASE 5.5: Stale dispatch detection + Completion pending QA
 # ============================================================
+# First: existing stale dispatch rollback for recently dispatched tasks
 for t in in_progress:
     task_id_check = t.get("id", "")
     fields = t.get("custom_field_values") or {}
@@ -888,7 +1420,48 @@ for t in in_progress:
                 log("Phase 5.5: stale dispatch rolled back — exiting")
                 sys.exit(0)
 
-log("Phase 5.5: No stale dispatches")
+# Second: Enhanced completion/stale detection (absorbs mc-stale-task-detector.sh)
+stale_results = detect_stale_and_completions(tasks, sessions_by_key, state)
+qa_review_count = 0
+orphan_count = 0
+stale_count = 0
+
+for result in stale_results:
+    rtype = result.get("type", "")
+    rtask_id = result.get("task_id", "")
+    rtitle = result.get("title", "?")
+
+    if rtype == "qa-review":
+        # Completion pending QA → write qa-review queue item
+        qa_payload = build_qa_review_payload(
+            rtask_id, rtitle,
+            result.get("session_key", ""),
+            result.get("completion_status", "complete"),
+        )
+        queue_file = write_queue_item("qa-review", rtask_id, qa_payload)
+        if queue_file:
+            send_system_event_nudge(f"🔍 QA Review: {rtitle}", rtask_id)
+            qa_msg = (
+                f"🔍 **Completion Pending QA**: `{rtask_id[:8]}` — **{rtitle}**\n"
+                f"Status: {result.get('completion_status', '?')} | Enfileirado para review."
+            )
+            send_discord(NOTIFICATIONS_CHANNEL, qa_msg)
+        qa_review_count += 1
+
+    elif rtype == "orphan":
+        orphan_msg = (
+            f"🟡 **Orphan Task**: `{rtask_id[:8]}` — **{rtitle}** ({result.get('status', '?')}): sem executor"
+        )
+        send_discord(NOTIFICATIONS_CHANNEL, orphan_msg)
+        orphan_count += 1
+
+    elif rtype == "stale":
+        stale_count += 1
+
+if stale_results:
+    save_state(state)
+
+log(f"Phase 5.5: {qa_review_count} qa-review, {orphan_count} orphan, {stale_count} stale")
 
 # ============================================================
 # PHASE 6: Review dispatcher (HIGH PRIORITY — runs before inbox)

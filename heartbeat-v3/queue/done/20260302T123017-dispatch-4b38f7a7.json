@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "4b38f7a7-442c-4b2a-a398-f5dcb9cfa1c9",
+  "filename": "20260302T123017-dispatch-4b38f7a7.json",
+  "created_at": "2026-03-02T12:30:17.998897+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM-PROD P5: Paper trading com dados live",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "## P5 Paper Trading \u2014 Operational Run\n\nConfig: paper/runs/p5-001.yaml\nDuration: 8h\nCapital: $500 (paper)\nMarket: Iran Regime Jun30\n\n### Pre-requisites (all met \u2705)\n- Balance-aware quoting (Gate 5) \u2705\n- Position recycling \u2705\n- Startup reconciliation \u2705\n- Trade dedup persistence \u2705\n\n### Steps\n1. Start paper runner: `cd polymarket-mm && nohup python3 -m paper.paper_runner --config paper/runs/p5-001.yaml > logs/p5-001.log 2>&1 &`\n2. Monitor via pmm-status-updater cron (every 15min)\n3. After 4h: check PnL, fill rate, inventory drift\n4. After 8h: kill, analyze, report\n\n### Success Criteria\n- PnL positivo em >60% das horas\n- Fill rate >= 5%\n- Balance nunca chega a zero\n- Net inventory < 150\n",
+    "original_agent": "luan",
+    "session_key": "agent:luan:subagent:c2a3c358-65a2-4b8a-bad7-6db9b0d5b8c1",
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "4b38f7a7-442c-4b2a-a398-f5dcb9cfa1c9",
+    "title": "PMM-PROD P5: Paper trading com dados live",
+    "description": "## P5 Paper Trading \u2014 Operational Run\n\nConfig: paper/runs/p5-001.yaml\nDuration: 8h\nCapital: $500 (paper)\nMarket: Iran Regime Jun30\n\n### Pre-requisites (all met \u2705)\n- Balance-aware quoting (Gate 5) \u2705\n- Position recycling \u2705\n- Startup reconciliation \u2705\n- Trade dedup persistence \u2705\n\n### Steps\n1. Start paper runner: `cd polymarket-mm && nohup python3 -m paper.paper_runner --config paper/runs/p5-001.yaml > logs/p5-001.log 2>&1 &`\n2. Monitor via pmm-status-updater cron (every 15min)\n3. After 4h: check PnL, fill rate, inventory drift\n4. After 8h: kill, analyze, report\n\n### Success Criteria\n- PnL positivo em >60% das horas\n- Fill rate >= 5%\n- Balance nunca chega a zero\n- Net inventory < 150\n",
+    "priority": "high"
+  }
+}

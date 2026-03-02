@@ -11,5 +11,22 @@
   "circuit_breaker_cooldown_minutes": 30,
   "review_dispatch_cooldown_minutes": 30,
   "active_hour_start": 0,
-  "active_hour_end": 24
+  "active_hour_end": 24,
+  "pmm": {
+    "auto_restart": true,
+    "pid_file": "polymarket-mm/paper/data/production_trading.pid",
+    "restart_cooldown_minutes": 5,
+    "max_restarts_per_hour": 3,
+    "env_file": "polymarket-mm/.env",
+    "default_config": "polymarket-mm/paper/runs/prod-003.yaml"
+  },
+  "description_quality": {
+    "min_length": 200,
+    "required_markers": ["## ", "Objective", "Objetivo", "Context", "Contexto", "Criteria", "Problem", "Approach", "Plano"],
+    "check_statuses": ["inbox", "in_progress", "review"]
+  },
+  "failure_classification": {
+    "loop_threshold": 5,
+    "known_provider_errors": ["thinking.signature", "RESOURCE_EXHAUSTED", "capacity"]
+  }
 }

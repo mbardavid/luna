@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "017469bb-6cfb-4d08-b8a1-2cabf4d62bcd",
+  "filename": "20260302T204015-respawn-017469bb.json",
+  "created_at": "2026-03-02T20:40:15.598470+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM: Market Rotation + Capital Recovery (auto-reallocation)",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "## Problem\nThe PMM bot accumulated $227 in directional positions, exhausted all free capital, and died. Nobody detected it needed relaunching. The bot has no logic to:\n1. Detect when a market becomes unfavorable (high spread, low volume, directional inventory)\n2. Close positions and free capital aut",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:11258b41-1e47-4290-990c-824de6c4b78d"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}
