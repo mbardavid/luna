@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "last_updated": "2026-03-02T22:30:00Z",
+  "counters_today": {
+    "heartbeat_runs": 0,
+    "opus_triggers": 0,
+    "tasks_completed": 0,
+    "tasks_dispatched": 0,
+    "failures_detected": 0,
+    "qa_reviews_dispatched": 0,
+    "pmm_restarts": 0,
+    "gateway_restarts": 0,
+    "alerts_sent": 0,
+    "duplicate_alerts_suppressed": 0
+  },
+  "latency": {
+    "detect_to_action_samples_ms": [],
+    "avg_detect_to_action_min": null,
+    "p95_detect_to_action_min": null
+  },
+  "slo_status": {
+    "S1_latency": "unknown",
+    "S2_duplicate_alerts": "unknown",
+    "S3_orphan_tasks": "unknown",
+    "S4_completion_qa": "unknown",
+    "S5_gateway_uptime": "unknown",
+    "S6_pmm_uptime": "unknown",
+    "S7_cron_execution": "unknown"
+  },
+  "cron_health": {}
+}
