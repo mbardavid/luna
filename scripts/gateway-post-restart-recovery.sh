@@ -139,13 +139,23 @@ Queue items gerados para respawn com contexto."
         fi
     fi
     
-    # Trigger immediate heartbeat
+    # Run heartbeat-v3 for detection, then wake Luna via agent RPC
     HEARTBEAT_SCRIPT="$WORKSPACE/heartbeat-v3/scripts/heartbeat-v3.sh"
     if [ -f "$HEARTBEAT_SCRIPT" ]; then
-        log "Triggering immediate heartbeat (snapshot-less)..."
-        nohup bash "$HEARTBEAT_SCRIPT" >> "$WORKSPACE/logs/heartbeat-v3.log" 2>&1 &
-        log "Heartbeat triggered (PID $!)"
+        log "Running heartbeat-v3 for detection (snapshot-less)..."
+        bash "$HEARTBEAT_SCRIPT" >> "$WORKSPACE/logs/heartbeat-v3.log" 2>&1 || true
     fi
+    
+    # Wake Luna immediately
+    WAKE_MSG="Gateway reiniciou (snapshot-less recovery). Verificar queue items pendentes e tasks órfãs."
+    timeout 15 "$OPENCLAW_BIN" gateway call agent \
+        --json \
+        --params "{\"message\":\"$WAKE_MSG\",\"idempotencyKey\":\"snapshotless-$(date +%s)\"}" \
+        2>/dev/null && {
+        log "Luna awakened via agent RPC (snapshot-less)"
+    } || {
+        log "Agent RPC failed — Luna will wake on next heartbeat cycle (≤2min)"
+    }
     
     exit 0
 fi
@@ -348,14 +358,30 @@ rm -f "$STATE_FILE"
 
 log "Recovery complete: recovered=$RECOVERED failed=$FAILED"
 
-# ─── 6. Trigger immediate heartbeat ─────────────────────────────────────────
-# Don't wait for next cron cycle (up to 10min). Run heartbeat now.
+# ─── 6. Wake Luna immediately via gateway agent RPC ─────────────────────────
+# Instead of waiting for heartbeat cron or built-in heartbeat interval,
+# directly inject a message into Luna's main session. This wakes her up
+# in seconds, not minutes.
 
+log "Waking Luna via gateway agent RPC..."
+
+# First run bash heartbeat-v3 for detection (generates queue items)
 HEARTBEAT_SCRIPT="$WORKSPACE/heartbeat-v3/scripts/heartbeat-v3.sh"
 if [ -f "$HEARTBEAT_SCRIPT" ]; then
-    log "Triggering immediate heartbeat..."
-    nohup bash "$HEARTBEAT_SCRIPT" >> "$WORKSPACE/logs/heartbeat-v3.log" 2>&1 &
-    log "Heartbeat triggered (PID $!)"
-else
-    log "Heartbeat script not found: $HEARTBEAT_SCRIPT"
+    log "Running heartbeat-v3 for detection..."
+    bash "$HEARTBEAT_SCRIPT" >> "$WORKSPACE/logs/heartbeat-v3.log" 2>&1 || true
+    log "Heartbeat-v3 detection complete"
 fi
+
+# Then wake Luna to process results
+WAKE_MSG="Gateway reiniciou (motivo: ${RESTART_REASON:-unknown}). Recovery executado: ${RECOVERED:-0} recuperados, ${FAILED:-0} falhas. Verificar queue items pendentes e tasks órfãs."
+IDEMPOTENCY_KEY="restart-recovery-$(date +%s)"
+
+timeout 15 "$OPENCLAW_BIN" gateway call agent \
+    --json \
+    --params "{\"message\":\"$WAKE_MSG\",\"idempotencyKey\":\"$IDEMPOTENCY_KEY\"}" \
+    2>/dev/null && {
+    log "Luna awakened via agent RPC (key: $IDEMPOTENCY_KEY)"
+} || {
+    log "Agent RPC failed — Luna will wake on next heartbeat cycle (≤2min)"
+}

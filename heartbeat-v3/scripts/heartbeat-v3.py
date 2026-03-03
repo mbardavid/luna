@@ -453,6 +453,35 @@ def send_system_event_nudge(title: str, task_id: str) -> bool:
         return False
 
 
+def wake_luna_immediate(reason: str) -> bool:
+    """
+    Wake Luna immediately via gateway agent RPC.
+
+    Unlike system-event nudge (which waits for Luna's next interaction),
+    this creates a new agent turn in Luna's main session RIGHT NOW.
+    Use for high-priority events (failures, qa-review, crash loops).
+    """
+    if DRY_RUN:
+        log(f"DRY-RUN: would wake Luna via agent RPC — {reason}")
+        return True
+
+    idempotency_key = f"hb-wake-{int(time.time())}"
+    try:
+        result = run_cmd([
+            OPENCLAW_BIN, "gateway", "call", "agent",
+            "--json",
+            "--params", json.dumps({
+                "message": reason,
+                "idempotencyKey": idempotency_key,
+            }),
+        ], timeout=20)
+        log(f"WAKE: Luna awakened via agent RPC (key: {idempotency_key})")
+        return True
+    except Exception as e:
+        log(f"WARN: agent RPC wake failed (non-fatal): {e}")
+        return False
+
+
 def analyze_session_failure(session_key: str) -> tuple:
     """Analyze a dead session to determine failure type."""
     failure_type = "UNKNOWN"
@@ -1271,6 +1300,11 @@ for task in tasks:
         if queue_file:
             # Send system-event nudge (non-blocking)
             send_system_event_nudge(f"🔄 Respawn: {title}", task_id)
+            # Wake Luna immediately for high-priority failures
+            wake_luna_immediate(
+                f"⚠️ Subagent falhou ({failure_type}): {title[:50]}. "
+                f"Queue item gerado para respawn. Processar agora."
+            )
 
         # Update MC task
         if not DRY_RUN:
@@ -1456,6 +1490,11 @@ for result in stale_results:
         queue_file = write_queue_item("qa-review", rtask_id, qa_payload)
         if queue_file:
             send_system_event_nudge(f"🔍 QA Review: {rtitle}", rtask_id)
+            # Wake Luna immediately for QA reviews
+            wake_luna_immediate(
+                f"🔍 Completion pendente QA: {rtitle[:50]}. "
+                f"Subagent completou, preciso revisar. Queue item gerado."
+            )
             qa_msg = (
                 f"🔍 **Completion Pending QA**: `{rtask_id[:8]}` — **{rtitle}**\n"
                 f"Status: {result.get('completion_status', '?')} | Enfileirado para review."
