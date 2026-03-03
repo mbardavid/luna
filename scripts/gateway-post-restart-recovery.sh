@@ -46,7 +46,107 @@ for i in $(seq 1 $MAX_WAIT); do
 done
 
 if [ ! -f "$STATE_FILE" ]; then
-    log "No pre-restart snapshot found — nothing to recover"
+    log "No pre-restart snapshot found — running snapshot-less recovery via MC API"
+    
+    # ─── SNAPSHOT-LESS RECOVERY ──────────────────────────────────────────
+    # When gateway restarts unexpectedly (OOM, CTO-ops, systemd), there's no
+    # pre-restart snapshot. Query MC API directly for orphaned tasks.
+    
+    if [ -n "$MC_API_TOKEN" ]; then
+        ORPHAN_TASKS=$(curl -sf -H "Authorization: Bearer $MC_API_TOKEN" \
+          "$MC_API_URL/api/v1/boards/$MC_BOARD_ID/tasks" | \
+        python3 -c "
+import json, sys, time
+tasks = json.load(sys.stdin).get('items', [])
+results = []
+for t in tasks:
+    if t['status'] in ('in_progress', 'review'):
+        fields = t.get('custom_field_values') or {}
+        sk = fields.get('mc_session_key', '')
+        if sk:
+            results.append({
+                'task_id': t['id'],
+                'title': t.get('title', '?')[:60],
+                'session_key': sk,
+                'status': t['status']
+            })
+for r in results:
+    print(json.dumps(r))
+" 2>/dev/null)
+
+        ORPHAN_COUNT=$(echo "$ORPHAN_TASKS" | grep -c '{' 2>/dev/null || echo "0")
+        
+        if [ "$ORPHAN_COUNT" -gt 0 ]; then
+            log "Snapshot-less recovery: found $ORPHAN_COUNT tasks with dead sessions"
+            SUMMARY=""
+            RECOVERED=0
+            
+            echo "$ORPHAN_TASKS" | while read -r task_json; do
+                [ -z "$task_json" ] && continue
+                
+                TASK_ID=$(echo "$task_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['task_id'])")
+                TITLE=$(echo "$task_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['title'])")
+                SESSION_KEY=$(echo "$task_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['session_key'])")
+                
+                # Generate respawn-with-context queue item for heartbeat-v3
+                QUEUE_DIR="$WORKSPACE/heartbeat-v3/queue/pending"
+                mkdir -p "$QUEUE_DIR"
+                QUEUE_FILE="$QUEUE_DIR/$(date -u '+%Y%m%dT%H%M%S')-respawn-context-${TASK_ID:0:8}.json"
+                
+                cat > "$QUEUE_FILE" << QEOF
+{
+  "type": "respawn",
+  "task_id": "$TASK_ID",
+  "title": "$TITLE",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "$SESSION_KEY",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  }
+}
+QEOF
+                log "Generated respawn-with-context queue item for $TASK_ID: $TITLE"
+                RECOVERED=$((RECOVERED + 1))
+            done
+            
+            # Notify Discord
+            NOTIFY_MSG="🔄 **Snapshot-less Recovery** (gateway restart sem snapshot)
+Encontradas $ORPHAN_COUNT tasks com sessões mortas.
+Queue items gerados para respawn com contexto."
+            
+            timeout 8 "$OPENCLAW_BIN" message send \
+                --channel discord \
+                --target "$DISCORD_CHANNEL" \
+                --message "$NOTIFY_MSG" \
+                --json 2>/dev/null || log "Discord notification failed"
+        else
+            log "Snapshot-less recovery: no orphaned tasks found"
+        fi
+    else
+        log "No MC_API_TOKEN — cannot do snapshot-less recovery"
+    fi
+    
+    # Still check PMM and trigger heartbeat even without snapshot
+    # ─── PMM check (snapshot-less) ───
+    PMM_DIR="$WORKSPACE/polymarket-mm"
+    PMM_PID_FILE="$PMM_DIR/paper/data/production_trading.pid"
+    if [ -f "$PMM_PID_FILE" ]; then
+        PMM_PID=$(cat "$PMM_PID_FILE" 2>/dev/null)
+        if [ -n "$PMM_PID" ] && ! kill -0 "$PMM_PID" 2>/dev/null; then
+            log "PMM dead (PID $PMM_PID) — heartbeat-v3 will auto-restart"
+        fi
+    fi
+    
+    # Trigger immediate heartbeat
+    HEARTBEAT_SCRIPT="$WORKSPACE/heartbeat-v3/scripts/heartbeat-v3.sh"
+    if [ -f "$HEARTBEAT_SCRIPT" ]; then
+        log "Triggering immediate heartbeat (snapshot-less)..."
+        nohup bash "$HEARTBEAT_SCRIPT" >> "$WORKSPACE/logs/heartbeat-v3.log" 2>&1 &
+        log "Heartbeat triggered (PID $!)"
+    fi
+    
     exit 0
 fi
 
@@ -83,27 +183,53 @@ if pmm:
 " 2>/dev/null)
 
     # Check if PMM is already running (survived restart since it's nohup)
-    if pgrep -f "production_runner" > /dev/null 2>&1; then
+    if pgrep -f "runner.*--mode" > /dev/null 2>&1 || pgrep -f "production_runner" > /dev/null 2>&1; then
         log "PMM already running (survived restart)"
         SUMMARY="${SUMMARY}\n✅ PMM: já rodando (sobreviveu ao restart)"
     else
-        log "PMM was running but died — relaunching..."
-        # Find the config file from the command
-        CONFIG_FILE=$(echo "$PMM_CMD" | grep -oP '(?<=--config )\S+' || echo "paper/runs/prod-002.yaml")
+        log "PMM was running but died — relaunching via unified runner..."
+        # Find latest prod config
+        LATEST_CONFIG=$(ls -t "$WORKSPACE/polymarket-mm/paper/runs/prod-"*.yaml 2>/dev/null | head -1)
+        if [ -z "$LATEST_CONFIG" ]; then
+            LATEST_CONFIG="paper/runs/prod-003.yaml"
+        fi
         
-        cd "$PMM_CWD" 2>/dev/null || cd "$WORKSPACE/polymarket-mm"
+        cd "$WORKSPACE/polymarket-mm" 2>/dev/null || cd "$WORKSPACE/polymarket-mm"
         mkdir -p logs
         
-        nohup python3 -m paper.production_runner --config "$CONFIG_FILE" \
-            >> logs/prod-002.log 2>&1 &
+        # Load .env and launch with unified runner
+        python3 -c "
+import subprocess, sys, os
+from pathlib import Path
+
+env = os.environ.copy()
+dotenv = Path('.env')
+if dotenv.exists():
+    for line in dotenv.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith('#') and '=' in line:
+            k, v = line.split('=', 1)
+            env[k.strip()] = v.strip()
+
+proc = subprocess.Popen(
+    [sys.executable, '-m', 'runner', '--mode', 'live', '--config', '$LATEST_CONFIG'],
+    stdout=open('logs/production.log', 'a'),
+    stderr=subprocess.STDOUT,
+    start_new_session=True,
+    cwd='$WORKSPACE/polymarket-mm',
+    env=env,
+)
+with open('paper/data/production_trading.pid', 'w') as f:
+    f.write(str(proc.pid))
+print(proc.pid)
+" 2>/dev/null
         
-        NEW_PID=$!
-        echo "$NEW_PID" > paper/data/production_trading.pid
+        NEW_PID=$(cat paper/data/production_trading.pid 2>/dev/null)
         sleep 3
         
-        if kill -0 "$NEW_PID" 2>/dev/null; then
-            log "PMM relaunched with PID $NEW_PID"
-            SUMMARY="${SUMMARY}\n🔄 PMM: relançado (PID $NEW_PID)"
+        if [ -n "$NEW_PID" ] && kill -0 "$NEW_PID" 2>/dev/null; then
+            log "PMM relaunched with PID $NEW_PID (unified runner)"
+            SUMMARY="${SUMMARY}\n🔄 PMM: relançado (PID $NEW_PID, unified runner)"
             RECOVERED=$((RECOVERED + 1))
         else
             log "PMM relaunch FAILED"
