@@ -697,6 +697,11 @@ def check_pmm_health(state: dict) -> dict:
     try:
         os.kill(pid, 0)
         result["alive"] = True
+        # Clear crash loop alert flag when PMM is healthy again
+        absorbed = state.get("absorbed", {})
+        if absorbed.get("pmm_crash_loop_alerted"):
+            del absorbed["pmm_crash_loop_alerted"]
+            state["absorbed"] = absorbed
         return result  # Running — all good
     except ProcessLookupError:
         result["alive"] = False
@@ -717,6 +722,16 @@ def check_pmm_health(state: dict) -> dict:
     if len(pmm_restarts) >= PMM_MAX_RESTARTS_PER_HOUR:
         result["error"] = f"max restarts/hour ({PMM_MAX_RESTARTS_PER_HOUR}) exceeded"
         log(f"PMM: restart suppressed — {len(pmm_restarts)} restarts in last hour")
+        # Alert once when rate limit first triggers (crash loop detected)
+        crash_loop_key = "pmm_crash_loop_alerted"
+        if not absorbed.get(crash_loop_key):
+            discord_alert(
+                "⚠️ **PMM Crash Loop**: bot reiniciou "
+                f"{len(pmm_restarts)}x na última hora e continua morrendo. "
+                "Rate limit ativo — verificar kill switch / config.",
+            )
+            absorbed[crash_loop_key] = {"at": now_ms}
+            state["absorbed"] = absorbed
         return result
 
     # Check cooldown from last restart
