@@ -398,3 +398,63 @@
   1. **Completion pendente:** session_key exists + session dead + status ∈ {in_progress, review} → "QA review pendente"
   2. **Task órfã:** status ∈ {in_progress, review} + NO session_key → "task sem executor"
 - **Regra reforçada:** Post-Completion Dispatch NÃO É OPCIONAL. Quando subagent result chega, processar imediatamente — mesmo que isso signifique interromper o que estiver fazendo.
+
+## 2026-03-03: PMM Kill Switch Crash Loop — 8+ Hours Undetected
+
+### Incident
+PMM (prod-003) entered an infinite crash-restart loop. `pmm-status-updater.sh` restarted it every 15min, but the kill switch immediately halted it each time. Loop ran for 8+ hours before Matheus noticed Luna was unresponsive (separate issue: context overflow).
+
+### Root Causes
+1. **`prod-003.yaml` missing `initial_balance`** — `RunConfig.from_yaml()` defaulted to 500 — drawdown computed as 55.57% (actual balance $222 vs phantom $500) — kill switch fires instantly
+2. **Config selection bug**: `ls -t *.yaml | head -1` picked `p5-001.yaml` (paper config, wrong markets) because all files had same mtime from git checkout
+3. **Runner command outdated**: `pmm-status-updater.sh` used `paper.production_runner` instead of `runner --mode live` (unified runner)
+4. **pgrep pattern outdated**: didn't match the unified runner process, so status check couldn't detect alive PMM launched by heartbeat-v3
+
+### Fixes
+1. `prod-003.yaml`: Added `initial_balance: 222`
+2. `pmm-status-updater.sh`: Hardcoded `prod-003.yaml`, fixed runner command to `runner --mode live`, fixed pgrep pattern
+3. PMM restarted successfully — quoting and posting orders, zero kill switch triggers
+
+### Rules (permanent)
+- **Every production YAML MUST have explicit `initial_balance`**. Default of 500 is a trap.
+- **Config selection must be deterministic** — never `ls -t` for critical paths. Hardcode or use env var.
+- **Auto-recovery and kill switch need coordination** — if kill switch fired, don't blindly restart. Check WHY.
+- **When two systems compete (kill switch halts, recovery restarts), the safer system must win** — kill switch is safety, recovery should respect it.
+- **Runner commands must stay in sync** across all scripts: `pmm-status-updater.sh`, `heartbeat-v3.py`, `gateway-post-restart-recovery.sh`. When runner module changes, update ALL references.
+
+---
+
+## L15 — Cláusula Pétrea: Wakeup Instantâneo via `gateway call agent` (2026-03-03)
+
+### Descoberta
+O comando `openclaw gateway call agent --json --params '{"message":"...","idempotencyKey":"..."}'` injeta uma mensagem na sessão principal do agente e **cria um turno AI imediatamente**. Isso permite que scripts bash despertem agentes AI em segundos, sem depender de heartbeat intervals.
+
+### Antes
+- Bash detectava problema → gerava queue item → esperava heartbeat built-in (30min) ou nudge via system-event (que só funciona se sessão já existe)
+- Gap de detecção-a-ação: 10-30 minutos
+- Agente AI era passivo entre heartbeats
+
+### Depois
+- Bash detecta → gera queue item → `gateway call agent` → agente acorda em ~3 segundos
+- Gap de detecção-a-ação: tempo do cron + 3 segundos
+- Heartbeat built-in (2min) é safety net, não caminho principal
+
+### Arquitetura de 3 Camadas (permanente)
+1. **Wakeup instantâneo** — `gateway call agent` nos pontos críticos (failures, completions, post-restart)
+2. **Heartbeat built-in** (2min) — safety net se agent RPC falhar
+3. **Bash detection engine** (*/5) — detecção independente, gera queue items, dispara camada 1
+
+### Regras Permanentes
+- **Todo script bash que detecta evento crítico DEVE chamar `gateway call agent`** após gerar queue item. System-event nudge sozinho não é suficiente.
+- **`idempotencyKey` DEVE ser único** por evento (usar timestamp ou task_id). Gateway rejeita duplicatas.
+- **Timeout de 15-20s** no RPC call. Se falhar, log e segue (non-fatal — heartbeat built-in é backup).
+- **Nunca depender apenas de polling/heartbeat para eventos urgentes.** Push via agent RPC é o padrão.
+- **Esta arquitetura se aplica a TODOS os agentes futuros**, não só Luna. Qualquer sistema de detecção bash deve usar este padrão.
+
+### Onde foi aplicado
+- `heartbeat-v3/scripts/heartbeat-v3.py` — `wake_luna_immediate()` para failures e qa-reviews
+- `scripts/gateway-post-restart-recovery.sh` — wakeup pós-restart (tanto com snapshot quanto snapshot-less)
+- Heartbeat built-in reduzido de 30min para 2min (safety net)
+
+### Por que é cláusula pétrea
+Este padrão resolve o problema fundamental de "bash detecta mas não age". É o bridge entre o mundo determinístico (bash/cron) e o mundo inteligente (AI agent). Sem ele, qualquer sistema de automação tem um gap inerente. Com ele, o gap é virtualmente zero para eventos críticos.
