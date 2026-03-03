@@ -292,6 +292,8 @@ Call: `bash scripts/mc-fail.sh --task-id <id> --error "What went wrong" --retry`
 - Detects stalled tasks (no activity > 60min) → moves to review
 - Handles missing session keys → flags for manual linking
 
+**Note:** Legacy detectors (`mc-failure-detector.sh`, `mc-stale-task-detector.sh`, `mc-description-watchdog.sh`) have been absorbed by `heartbeat-v3`. See `docs/cron-inventory.md`.
+
 ### Agent ID lookup
 
 `config/mc-agent-ids.json` maps agent names to short IDs:

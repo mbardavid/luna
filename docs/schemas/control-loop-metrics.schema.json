@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Control Loop Metrics",
+  "type": "object",
+  "properties": {
+    "last_run": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "runs_today": {
+      "type": "integer"
+    },
+    "opus_triggers_today": {
+      "type": "integer"
+    },
+    "tasks_completed_today": {
+      "type": "integer"
+    },
+    "failures_detected_today": {
+      "type": "integer"
+    },
+    "qa_reviews_dispatched": {
+      "type": "integer"
+    },
+    "avg_latency_detect_to_action_min": {
+      "type": "number"
+    },
+    "cron_health": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["ok", "degraded", "failed"]
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": { "type": "string", "format": "date-time" },
+          "latency_min": { "type": "number" },
+          "event_type": { "type": "string" }
+        },
+        "required": ["timestamp", "latency_min", "event_type"]
+      }
+    }
+  },
+  "required": ["last_run", "runs_today", "avg_latency_detect_to_action_min", "cron_health"]
+}

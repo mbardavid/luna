@@ -59,7 +59,6 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 ### Healthcheck Automation
 
 - script: `scripts/healthcheck.sh`
-- daily cron job: `daily-setup-healthcheck-summary`
 
 ### OpenClaw Gateway — Operational Rules (2026-02-26)
 

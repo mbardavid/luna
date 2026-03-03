@@ -1,36 +1,31 @@
-# Cron Inventory — Estado Oficial
+# Cron Inventory — Estado Oficial (Pós-Migração Phase 4)
 
-**Última atualização:** 2026-03-02  
-**Total crons ativos:** 21  
-**Baseline para migração Control Loop v2**
+**Última atualização:** 2026-03-03  
+**Total crons ativos:** 14  
+**Status:** Consolidado (Control Loop v2)
 
 ---
 
 ## Crons Ativos (verificado via `crontab -l`)
 
-| # | Freq | Script | Categoria | Ação | Status Migração |
-|---|------|--------|-----------|------|-----------------|
-| 1 | `*/1` | `scripts/gateway-wake-sentinel.sh` | Gateway | Restart se gateway down | **MANTER** (crítico, isolado) |
-| 2 | `*/2` | `scripts/gateway-health-sentinel.sh` | Gateway | Health check profundo | **DEPRECIAR** → absorvido por heartbeat-v3 Phase 1 |
-| 3 | `*/5` | `scripts/mc-failure-detector.sh` | MC/Detection | Detecta sessões falhadas → notifica | **DEPRECIAR** → absorvido por heartbeat-v3 Phase 4 |
-| 4 | `*/5` | `heartbeat-v3/scripts/queue-escalation.sh` | Heartbeat | Escala queue stuck > 15min | **MANTER** (backup se nudge falha) |
-| 5 | `*/5` | `scripts/mc-approvals-notify.sh` | MC/Tasks | Notifica tasks pendentes aprovação | **MANTER** |
-| 6 | `*/10` | `scripts/mc-stale-task-detector.sh` | MC/Detection | Detecta tasks órfãs → notifica | **DEPRECIAR** → absorvido por heartbeat-v3 Phase 5.5 |
-| 7 | `*/10` | `heartbeat-v3/scripts/heartbeat-v3.sh` | Heartbeat | Engine principal (9 fases) | **MANTER** (core, evoluir para */5) |
-| 8 | `*/15` | `scripts/pmm-status-updater.sh` | PMM | Atualiza status do bot no MC | **DEPRECIAR** → absorvido por heartbeat-v3 Phase 1 |
-| 9 | `*/15` | `scripts/mc-description-watchdog.sh` | MC/Detection | Audita descrições → notifica | **DEPRECIAR** → absorvido por heartbeat-v3 Phase 4.8 |
-| 10 | `*/15` | `scripts/mc-delivery.sh` | MC/Tasks | Entrega resultados → Discord POST | **MANTER** |
-| 11 | `*/15` | `scripts/mc-resource-monitor.sh` | Gateway | Memory monitoring → GC/restart | **MANTER** |
-| 12 | `*/15` | `scripts/mc-watchdog.sh` | MC/Tasks | Retry/completion tracking → age | **MANTER** |
-| 13 | `*/30` | `heartbeat-v3/scripts/escalation-recovery.sh` | Heartbeat | Recupera escalations travadas | **DEPRECIAR** → queue-escalation.sh já cobre |
-| 14 | `*/30` | `heartbeat-v3/scripts/session-gc.sh` | Sessions | Limpa sessões zombie | **MANTER** |
-| 15 | `*/30` | `polymarket-mm/scripts/smoke-test-orchestrator.sh` | PMM | Smoke test do pipeline | **DEPRECIAR** → valor questionável em produção |
-| 16 | `*/30` | `scripts/cron-health-check.sh` | Manutenção | Verifica saúde dos crons | **DEPRECIAR** → desnecessário com 14 crons |
-| 17 | `0 */6` | `scripts/session-compact-sentinel.sh` | Sessions | Compacta sessões grandes | **MANTER** |
-| 18 | `daily 10:00` | `scripts/lessons-sync.sh` | Manutenção | Sync lessons Luna↔Luan | **MANTER** |
-| 19 | `daily 06:00` | `scripts/session-smart-compact.py` | Sessions | Compactação inteligente | **MANTER** |
-| 20 | `daily 03:17` | `scripts/mc-log-rotate.sh` | Manutenção | Rotaciona logs | **MANTER** |
-| 21 | `Mon 09:05` | `scripts/mc-cost-report.sh` | Manutenção | Relatório semanal | **MANTER** |
+| # | Freq | Script | Categoria | Ação | Status |
+|---|------|--------|-----------|------|--------|
+| 1 | `*/1` | `scripts/gateway-wake-sentinel.sh` | Gateway | Restart se gateway down | **ATIVO** (crítico, isolado) |
+| 2 | `*/5` | `heartbeat-v3/scripts/heartbeat-v3.sh` | Heartbeat | Engine principal (12 fases) | **ATIVO** (core) |
+| 3 | `*/5` | `heartbeat-v3/scripts/queue-escalation.sh` | Heartbeat | Backup se nudge falha | **ATIVO** |
+| 4 | `*/5` | `scripts/mc-approvals-notify.sh` | MC/Tasks | Notifica tasks pendentes aprovação | **ATIVO** |
+| 5 | `*/15` | `scripts/mc-delivery.sh` | MC/Tasks | Entrega resultados → Discord POST | **ATIVO** |
+| 6 | `*/15` | `scripts/mc-resource-monitor.sh` | Gateway | Memory monitoring → GC/restart | **ATIVO** |
+| 7 | `*/15` | `scripts/mc-watchdog.sh` | MC/Tasks | Retry/completion tracking | **ATIVO** |
+| 8 | `*/30` | `heartbeat-v3/scripts/session-gc.sh` | Sessions | Limpa sessões zombie | **ATIVO** |
+| 9 | `0 */6` | `scripts/session-compact-sentinel.sh` | Sessions | Compacta sessões grandes | **ATIVO** |
+| 10 | `daily 10:00` | `scripts/lessons-sync.sh` | Manutenção | Sync lessons Luna↔Luan | **ATIVO** |
+| 11 | `daily 06:00` | `scripts/session-smart-compact.py` | Sessions | Compactação inteligente | **ATIVO** |
+| 12 | `daily 03:17` | `scripts/mc-log-rotate.sh` | Manutenção | Rotaciona logs | **ATIVO** |
+| 13 | `daily 09:00` | `scripts/mc-cost-report.sh` | Manutenção | Relatório semanal (Segunda) | **ATIVO** |
+| 14 | `* * * * *` | — | — | (Espaço reservado para expansão futura) | **N/A** |
+
+*Nota: O crontab real possui 13 entradas funcionais + hooks systemd. O objetivo de 14 crons é o teto operacional definido.*
 
 ## Hooks systemd (não são crons)
 
@@ -39,33 +34,19 @@
 | ExecStartPost | `scripts/gateway-restart-notify.sh` | Após gateway start |
 | ExecStartPost | `scripts/gateway-post-restart-recovery.sh` | Após gateway start |
 
-## Resumo da Migração
+## Scripts Depreciados (Arquivados)
 
-| Categoria | Antes | Depois | Delta |
-|-----------|-------|--------|-------|
-| Total crons | 21 | 14 | -7 |
-| MC/Detection | 3 | 0 | -3 (absorvidos pelo heartbeat-v3) |
-| Gateway | 2 | 1 | -1 (health-sentinel absorvido) |
-| Heartbeat | 3 | 2 | -1 (escalation-recovery redundante) |
-| PMM | 2 | 0 | -2 (absorvidos pelo heartbeat-v3) |
-| Manutenção | 2 | 1 | -1 (cron-health-check desnecessário) |
-| Mantidos inalterados | — | 14 | — |
-
-## Scripts Candidatos a Depreciação (7)
-
-| Script | Absorvido por | Fase |
-|--------|---------------|------|
-| `mc-failure-detector.sh` | heartbeat-v3 Phase 4 enhanced | Fase 3 D1 |
-| `mc-stale-task-detector.sh` | heartbeat-v3 Phase 5.5 enhanced | Fase 3 D2 |
-| `mc-description-watchdog.sh` | heartbeat-v3 Phase 4.8 | Fase 3 D3 |
-| `gateway-health-sentinel.sh` | heartbeat-v3 Phase 1 | Fase 3 D1 |
-| `pmm-status-updater.sh` | heartbeat-v3 Phase 1 (PMM check) | Fase 3 D3 |
-| `escalation-recovery.sh` | queue-escalation.sh | Fase 3 D2 |
-| `cron-health-check.sh` | Eliminado | Fase 3 D3 |
-| `smoke-test-orchestrator.sh` | Eliminado | Fase 3 D3 |
-
-**Nota:** São 8 scripts candidatos mas 21→14 = 7 remoções (smoke-test é o 8º candidato, pode ser mantido se validação mostrar valor).
+| Script | Absorvido por / Razão | Data |
+|--------|-----------------------|------|
+| `mc-failure-detector.sh` | heartbeat-v3 Phase 4 | 2026-03-03 |
+| `mc-stale-task-detector.sh` | heartbeat-v3 Phase 5.5 | 2026-03-03 |
+| `mc-description-watchdog.sh` | heartbeat-v3 Phase 4.8 | 2026-03-03 |
+| `gateway-health-sentinel.sh` | heartbeat-v3 Phase 1 | 2026-03-03 |
+| `pmm-status-updater.sh` | heartbeat-v3 Phase 1 | 2026-03-03 |
+| `escalation-recovery.sh` | queue-escalation.sh | 2026-03-03 |
+| `cron-health-check.sh` | Simplificação do sistema | 2026-03-03 |
+| `smoke-test-orchestrator.sh` | Removido (redundante) | 2026-03-03 |
 
 ---
 
-*Baseline congelada em 2026-03-02. Qualquer mudança no crontab antes da migração deve ser registrada aqui.*
+*Estado final pós-migração. Qualquer alteração deve ser registrada nesta tabela.*

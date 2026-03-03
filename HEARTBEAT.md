@@ -44,8 +44,14 @@ echo '{"inbox": N, "failed": ["label1","label2"]}' > /tmp/.heartbeat-last-notify
 Onde N = count atual de inbox, e failed = array de labels de subagents falhados já notificados.
 
 ## ⚠️ REGRAS CRÍTICAS
-- Crons de manutenção (watchdog, delivery, resource-monitor, failure-detector) NÃO contam como "trabalho ativo"
+- Crons de manutenção (watchdog, delivery, resource-monitor) NÃO contam como "trabalho ativo"
 - Apenas subagents do `subagents list` contam
 - **NUNCA notificar duas vezes para o mesmo estado** — checar state file ANTES
 - **SEMPRE especificar `channel: discord`** no message tool — sem isso o gateway crasheia
 - Se state file não existe, tratar como inbox=0 e failed=[] (primeiro run)
+
+## 🔄 Operação Contínua (Regra Permanente)
+Antes de criar um NOVO script de detecção/automação:
+1. Verificar se `heartbeat-v3` já cobre o caso.
+2. Se sim → evoluir a Phase correspondente no `heartbeat-v3.py`.
+3. Se não → justificar a exceção e documentar em `docs/ownership-matrix.md`.
