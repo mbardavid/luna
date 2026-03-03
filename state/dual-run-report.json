@@ -1,0 +1,73 @@
+{
+  "generated_at": "2026-03-03T01:06:24.637256+00:00",
+  "hours_analyzed": 2,
+  "summary": {
+    "match": 0,
+    "enhanced": 4,
+    "gap": 1,
+    "none": 0,
+    "safe_to_deprecate": false
+  },
+  "categories": [
+    {
+      "name": "failure",
+      "classification": "ENHANCED",
+      "old_script": {
+        "runs": 0,
+        "detections": 0
+      },
+      "heartbeat_v3": {
+        "runs": 28,
+        "detections": 0
+      }
+    },
+    {
+      "name": "stale",
+      "classification": "ENHANCED",
+      "old_script": {
+        "runs": 0,
+        "detections": 0
+      },
+      "heartbeat_v3": {
+        "runs": 25,
+        "detections": 0
+      }
+    },
+    {
+      "name": "description",
+      "classification": "ENHANCED",
+      "old_script": {
+        "runs": 0,
+        "detections": 0
+      },
+      "heartbeat_v3": {
+        "runs": 21,
+        "detections": 21
+      }
+    },
+    {
+      "name": "gateway",
+      "classification": "GAP",
+      "old_script": {
+        "runs": 5,
+        "detections": 2
+      },
+      "heartbeat_v3": {
+        "runs": 28,
+        "detections": 1
+      }
+    },
+    {
+      "name": "pmm",
+      "classification": "ENHANCED",
+      "old_script": {
+        "runs": 16,
+        "detections": 8
+      },
+      "heartbeat_v3": {
+        "runs": 33,
+        "detections": 24
+      }
+    }
+  ]
+}
