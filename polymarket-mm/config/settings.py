@@ -51,6 +51,18 @@ class Settings(BaseSettings):
     # NOTE: GAS_PRICE_ABORT_GWEI removed — gas management is now
     # handled by Crypto-Sage via A2A delegation (see a2a/ package).
 
+    # ── Rewards Farming ─────────────────────────────────────
+    # Estimated daily reward rate per $1 of resting liquidity
+    # within the reward zone (in USD, annualised-equivalent for
+    # per-trade offset). This is a rough calibration parameter.
+    REWARDS_ESTIMATED_RATE: Decimal = Field(default=Decimal("0.0005"))
+
+    # Minimum order size (USDC) to qualify for rewards.
+    REWARDS_MIN_SIZE_USD: Decimal = Field(default=Decimal("50"))
+
+    # Maximum spread (price units) to qualify for rewards.
+    REWARDS_MAX_SPREAD: Decimal = Field(default=Decimal("0.02"))
+
     # ── Timing / Heartbeat ──────────────────────────────────────
     HEARTBEAT_INTERVAL_SECONDS: int = 5
     ENGINE_RESTART_TOLERANCE_SECONDS: int = 30

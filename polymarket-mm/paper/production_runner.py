@@ -516,6 +516,11 @@ class ProductionTradingPipeline:
             volatility_window=60,
             imbalance_window=30,
         ))
+        
+        # Determine rewards mode
+        params = run_config.params if run_config else {}
+        rewards_mode = params.get("rewards_optimized_mode", False)
+        
         self.quote_engine = QuoteEngine(
             spread_model=SpreadModel(SpreadModelConfig(
                 min_half_spread_bps=Decimal(str(half_spread_bps)),
@@ -523,11 +528,18 @@ class ProductionTradingPipeline:
             inventory_skew=InventorySkew(InventorySkewConfig(
                 gamma=Decimal(str(gamma)),
             )),
+            rewards_farming=RewardsFarming(RewardsFarmingConfig(
+                aggressiveness=Decimal("0.8") if rewards_mode else Decimal("0.5"),
+                max_tighten_pct=Decimal("0.8") if rewards_mode else Decimal("0.6"),
+                reward_distance_threshold=settings.REWARDS_MAX_SPREAD,
+                estimated_reward_per_dollar=settings.REWARDS_ESTIMATED_RATE,
+            )),
             config=QuoteEngineConfig(
                 default_order_size=order_size,
                 num_levels=1,
                 default_ttl_ms=30_000,
                 max_balance_fraction_per_order=Decimal("0.15"),  # 15% for small capital
+                rewards_optimized_mode=rewards_mode,
             ),
         )
 
@@ -550,6 +562,9 @@ class ProductionTradingPipeline:
 
         # Trade logger (production-specific)
         self.trade_logger = ProductionTradeLogger(run_id=self._run_id)
+
+        # Rewards tracking
+        self._cumulative_rewards: dict[str, Decimal] = {m.market_id: Decimal("0") for m in market_configs}
 
         # Supabase logger (fire-and-forget, never blocks trading loop)
         self.supabase_logger = SupabaseLogger(
@@ -821,6 +836,65 @@ class ProductionTradingPipeline:
 
     # ── Event Processing Loops ──────────────────────────────────
 
+    async def _track_rewards(self):
+        """Estimate rewards based on current open orders and update metrics."""
+        try:
+            from config.settings import settings
+            # We estimate rewards every cycle. Daily rewards are distributed
+            # based on time-weighted resting liquidity.
+            # Cycles per day = 86400 / quote_interval
+            cycles_per_day = Decimal("86400") / Decimal(str(self.quote_interval))
+            
+            # Fetch current open orders from execution tracker if available,
+            # but simpler is to use the last generated plan or poll.
+            # Here we poll for accuracy.
+            open_orders = await self.execution.get_open_orders()
+            
+            # Organize by market
+            market_to_orders = {}
+            for oo in open_orders:
+                market_to_orders.setdefault(oo.market_id, []).append(oo)
+                
+            for market_cfg in self.market_configs:
+                m_id = market_cfg.market_id
+                ms = self.book_tracker.get_market_state(market_cfg)
+                if not ms or ms.mid_price <= 0:
+                    continue
+                
+                m_orders = market_to_orders.get(m_id, [])
+                cycle_reward = Decimal("0")
+                
+                # Use strategy.rewards_farming to calculate edge for each order
+                for oo in m_orders:
+                    # Dist from mid
+                    dist = abs(oo.price - ms.mid_price)
+                    if oo.token_id == market_cfg.token_id_no:
+                        no_mid = Decimal("1") - ms.mid_price
+                        dist = abs(oo.price - no_mid)
+                    
+                    # Reward edge = dollar_value * daily_rate / cycles_per_day
+                    # We use compute_reward_edge which returns USD per fill (proxy for daily rate)
+                    order_reward = self.quote_engine.rewards_farming.compute_reward_edge(
+                        half_spread=dist,
+                        order_size=oo.size,
+                        mid_price=ms.mid_price if oo.token_id == market_cfg.token_id_yes else (Decimal("1") - ms.mid_price)
+                    )
+                    # compute_reward_edge uses c.estimated_reward_per_dollar (daily rate)
+                    # so we divide by cycles_per_day to get this cycle's contribution
+                    cycle_reward += order_reward / cycles_per_day
+                
+                self._cumulative_rewards[m_id] += cycle_reward
+                
+                # Update Prometheus metrics
+                self.metrics.set_rewards(
+                    market_id=m_id,
+                    cumulative_usd=float(self._cumulative_rewards[m_id]),
+                    rate_per_dollar=float(self.quote_engine.rewards_farming.config.estimated_reward_per_dollar)
+                )
+                
+        except Exception as e:
+            logger.warning("production.track_rewards.error", error=str(e))
+
     async def _ws_event_loop(self):
         """Subscribe to book events and update tracker."""
         try:
@@ -897,6 +971,9 @@ class ProductionTradingPipeline:
                     if market_cfg.market_id in self.kill_switch.paused_markets:
                         continue
                     await self._process_market(market_cfg, elapsed_hours)
+
+                # Track and record rewards (every cycle, approx 5-10s)
+                await self._track_rewards()
 
                 await asyncio.sleep(self.quote_interval)
 
@@ -1542,6 +1619,59 @@ async def auto_select_markets(
     return selected
 
 
+async def auto_select_rewards_markets(
+    rest_client: CLOBRestClient,
+    max_markets: int = 1,
+) -> list[ProdMarketConfig]:
+    """Auto-select markets based on rewards criteria."""
+    logger.info("production.auto_selecting_rewards_markets")
+    # Fetch all reward-eligible markets from Polymarket
+    # Polymarket API doesn't have a direct "rewards" filter in the CLOB client,
+    # but we can look for "Sports" or "Crypto" which are usually incentivized.
+    raw_markets = await rest_client.get_active_markets(max_pages=5)
+    
+    candidates = []
+    for m in raw_markets:
+        if not m.get("active") or m.get("closed"):
+            continue
+        if not m.get("token_id_yes") or not m.get("token_id_no"):
+            continue
+            
+        # Prioritize Sports/Crypto (short duration, lower risk)
+        question = m.get("question", "").lower()
+        cat = m.get("category", "").lower()
+        if any(kw in question or kw in cat for kw in ["nba", "nhl", "soccer", "crypto", "btc", "eth", "iran"]):
+            # Filter for markets with min_order_size ≤ $100 for better rewards/capital
+            min_size = Decimal(str(m.get("min_order_size", "100")))
+            if min_size <= 100:
+                candidates.append(m)
+                
+    # Sort by min_order_size (lowest first) to maximize rewards per capital
+    candidates.sort(key=lambda x: float(x.get("min_order_size", 100)))
+    
+    selected = []
+    for m in candidates[:max_markets]:
+        selected.append(ProdMarketConfig(
+            market_id=m["condition_id"],
+            condition_id=m["condition_id"],
+            token_id_yes=m["token_id_yes"],
+            token_id_no=m["token_id_no"],
+            description=m.get("question", m["condition_id"])[:80],
+            market_type=MarketType.OTHER,
+            tick_size=m.get("tick_size", Decimal("0.01")),
+            min_order_size=m.get("min_order_size", Decimal("5")),
+            neg_risk=m.get("neg_risk", False),
+            # Tighten min spread for rewards
+            spread_min_bps=int(settings.REWARDS_MAX_SPREAD * 10000),
+        ))
+        logger.info("production.rewards_market_selected",
+                     market_id=m["condition_id"],
+                     question=m.get("question", "")[:60],
+                     min_size=m.get("min_order_size"))
+                     
+    return selected
+
+
 # ── Main ────────────────────────────────────────────────────────────
 
 async def async_main(args):
@@ -1640,10 +1770,17 @@ async def async_main(args):
     # Connect and select markets
     await rest_client.connect()
 
-    # Get markets from config or auto-select
+    # Select markets from config or auto-select
     market_ids = []
     if run_config and run_config.params.get("markets"):
         market_ids = run_config.params["markets"]
+
+    # In rewards-optimized mode, we may want to prioritize markets
+    # with high rewards/capital ratio.
+    rewards_mode = False
+    if run_config and run_config.params.get("rewards_optimized_mode"):
+        rewards_mode = True
+        logger.info("production.rewards_optimized_mode_active")
 
     if market_ids:
         # Fetch specific markets
@@ -1661,11 +1798,18 @@ async def async_main(args):
                     tick_size=info.get("tick_size", Decimal("0.01")),
                     min_order_size=info.get("min_order_size", Decimal("5")),
                     neg_risk=info.get("neg_risk", False),
+                    # Inherit reward-specific min spread from settings
+                    spread_min_bps=int(settings.REWARDS_MAX_SPREAD * 10000) if rewards_mode else 50,
                 ))
             except Exception as e:
                 logger.warning("production.market_fetch_failed", market_id=mid, error=str(e))
     else:
-        markets = await auto_select_markets(rest_client, max_markets=1)
+        # If rewards_mode, we should auto-select based on rewards criteria
+        if rewards_mode:
+             # Fetch all rewards-eligible markets and pick one with low min_size
+             markets = await auto_select_rewards_markets(rest_client, max_markets=1)
+        else:
+             markets = await auto_select_markets(rest_client, max_markets=1)
 
     if not markets:
         logger.error("production.no_markets_found")

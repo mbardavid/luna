@@ -23,7 +23,7 @@ log() { echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"; }
 
 # ─── 1. Check if PMM is running ─────────────────────────────────────────────
 
-PMM_PID=$(pgrep -f "production_runner\|paper_runner\|paper.production_runner" 2>/dev/null | head -1 || true)
+PMM_PID=$(pgrep -f "runner --mode live\|production_runner\|paper_runner\|paper.production_runner" 2>/dev/null | head -1 || true)
 PMM_RUNNING=false
 PMM_CONFIG=""
 UPTIME_HOURS="0"
@@ -167,13 +167,13 @@ if [ "$PMM_RUNNING" = "false" ]; then
         if ! kill -0 "$EXPECTED_PID" 2>/dev/null; then
             log "PMM crashed! PID $EXPECTED_PID not running. Attempting recovery..."
             
-            # Find the config from PID file's associated run
-            LAST_CONFIG=$(ls -t "$PMM_DIR/paper/runs/"*.yaml 2>/dev/null | head -1)
-            
-            if [ -n "$LAST_CONFIG" ]; then
+            # Use the production config (fixed — ls -t picked wrong config when mtimes are equal)
+            LAST_CONFIG="$PMM_DIR/paper/runs/prod-003.yaml"
+
+            if [ -f "$LAST_CONFIG" ]; then
                 cd "$PMM_DIR"
-                nohup python3 -m paper.production_runner --config "$LAST_CONFIG" \
-                    >> "logs/$(basename "$LAST_CONFIG" .yaml).log" 2>&1 &
+                nohup python3 -m runner --mode live --config "$LAST_CONFIG" \
+                    >> "logs/production.log" 2>&1 &
                 NEW_PID=$!
                 echo "$NEW_PID" > "$PID_FILE"
                 

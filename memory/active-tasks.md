@@ -2,6 +2,13 @@
 *Agent reads this FIRST on restart. Resume autonomously.*
 
 ## In Progress
+- **[auto-compact]** **PMM prod-003 running** (PID 2905224): 2 markets, $222 USDC, market rotation + capital recovery active, Supabase logging. Waiting for fills
+- **[auto-compact]** **OpenClaw built-in heartbeat interval change pending**: Currently 30min, recommended 2min for ~100% uptime. Awaiting Matheus's confirmation to configure
+- **[auto-compact]** Still researching session spawn via bash — docs fetched so far don't show a spawn command
+- **[auto-compact]** Still need to configure heartbeat to 2min
+- **[auto-compact]** Still need to check if update `2026.3.1` introduces session spawn capability
+- **[auto-compact]** 1. **Configure OpenClaw built-in heartbeat to 2min** (pending Matheus approval) via `openclaw configure --section health`
+- **[auto-compact]** 1. Fetch heartbeat-specific docs: `https://docs.openclaw.ai/gateway/heartbeat.md`
 - **[auto-compact]** **prod-001 running**: Market Hormuz, ~105 YES shares + 5 NO shares held. Portfolio ~$225.86, Real PnL -$6.25. Kill switch using test_capital=$25, 20% drawdown=$5 max loss. Dashboard at `http://142.93.
 - **[auto-compact]** **Luan analyzing Heartbeat V3 design**: Spawned with full design doc. Session: `agent:luan:subagent:94965961-67cb-4a39-8453-35d846201f15`
 - **[auto-compact]** Creating the improvement plan based on article insights and user's pain points

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "329da2f7-f37b-42e8-a0b7-d6906469c9c9",
+  "filename": "20260303T073048-dispatch-329da2f7.json",
+  "created_at": "2026-03-03T07:30:48.245547+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Infra: SOL Liquid Staking Script (Jito/Marinade)",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nCriar script para liquid staking de SOL via Jito (JitoSOL) ou Marinade (mSOL). M\u00f3dulos: (1) swap SOL\u2192JitoSOL via Jupiter, (2) unstake JitoSOL\u2192SOL, (3) yield tracking no Supabase, (4) integra\u00e7\u00e3o com crypto-sage /saldo. N\u00c3O executar stake \u2014 apenas a infra.\n\n## Context\nPortfolio tem 2.03 SOL (~$173) na wallet Solana BYzZUKToZbkfe1snHFHSsTKMTb1SNmyCf8tGYTUgnbr. SOL staking APY ~7%. Crypto-sage j\u00e1 tem Solana connector (src/connectors/solana.mjs) e Jupiter connector (src/connectors/jupiter.mjs). JitoSOL mint: J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn. mSOL mint: mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So.\n\n## Acceptance Criteria\n- [ ] Script sol-staking/ com: stake.py (SOL\u2192JitoSOL via Jupiter), unstake.py (JitoSOL\u2192SOL), tracker.py (yield calculation). Supabase table staking_posi",
+    "original_agent": "luan",
+    "session_key": null,
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "329da2f7-f37b-42e8-a0b7-d6906469c9c9",
+    "title": "Infra: SOL Liquid Staking Script (Jito/Marinade)",
+    "description": "## Objective\nCriar script para liquid staking de SOL via Jito (JitoSOL) ou Marinade (mSOL). M\u00f3dulos: (1) swap SOL\u2192JitoSOL via Jupiter, (2) unstake JitoSOL\u2192SOL, (3) yield tracking no Supabase, (4) integra\u00e7\u00e3o com crypto-sage /saldo. N\u00c3O executar stake \u2014 apenas a infra.\n\n## Context\nPortfolio tem 2.03 SOL (~$173) na wallet Solana BYzZUKToZbkfe1snHFHSsTKMTb1SNmyCf8tGYTUgnbr. SOL staking APY ~7%. Crypto-sage j\u00e1 tem Solana connector (src/connectors/solana.mjs) e Jupiter connector (src/connectors/jupiter.mjs). JitoSOL mint: J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn. mSOL mint: mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So.\n\n## Acceptance Criteria\n- [ ] Script sol-staking/ com: stake.py (SOL\u2192JitoSOL via Jupiter), unstake.py (JitoSOL\u2192SOL), tracker.py (yield calculation). Supabase table staking_posi",
+    "priority": "high"
+  }
+}

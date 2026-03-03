@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "ac876705-46e3-47de-b271-2d42ee44764b",
+  "filename": "20260303T042034-respawn-ac876705.json",
+  "created_at": "2026-03-03T04:20:34.084592+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research Deep Dive: Polymarket Rewards Farming Mechanics",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nAprofundar a mec\u00e2nica exata do programa de rewards do Polymarket para market makers: como elegibilidade \u00e9 calculada, como rewards s\u00e3o distribu\u00eddos, quais par\u00e2metros importam (rewardsMinSize, rewardsMaxSpread, time-at-best, queue position), e como estimar reward/capital ratio.\n\n## Contex",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:quant-strategist:subagent:de3c83ce-dec0-4581-980d-5224d89e8366"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

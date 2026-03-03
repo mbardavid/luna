@@ -1,53 +1,66 @@
 {
-  "timestamp": "2026-02-28T04:11:43.502608+00:00",
-  "run_id": "run-007",
+  "timestamp": "2026-03-02T12:34:36.480602+00:00",
+  "run_id": "p5-001",
   "status": "FINISHED",
-  "uptime_seconds": 28810.0,
+  "uptime_seconds": 749.1,
   "duration_target_hours": 8.0,
-  "progress_pct": 100.0,
+  "progress_pct": 2.6,
   "pnl": {
-    "cumulative": 150.9078,
-    "realized": 139.7752,
-    "unrealized": 4.5298,
-    "per_hour_avg": 18.8569,
-    "max_drawdown": -2.2871,
-    "sharpe_estimate": 0.14
+    "cumulative": 0.0,
+    "realized": 0.0,
+    "unrealized": 0.0,
+    "per_hour_avg": 0.0,
+    "max_drawdown": -0.0,
+    "sharpe_estimate": 0
   },
   "markets": {
-    "us-strikes-iran-by-march-31-2026": {
-      "description": "US strikes Iran by March 31, 2026?",
-      "mid_price": 0.685,
-      "spread_bps": 145,
+    "will-axiom-be-accused-of-insider-trading": {
+      "description": "Will Axiom be accused of insider trading?",
+      "mid_price": 0,
+      "spread_bps": 0,
       "our_bid": 0,
       "our_ask": 0,
-      "position_net": 103.0,
-      "pnl": 139.77518099609964,
+      "position_net": 0.0,
+      "pnl": 0.0,
       "fills_count": 0,
       "last_fill_ago_s": 0,
       "kill_switch": "RUNNING",
-      "data_gap_s": 1.0
+      "data_gap_s": 0
+    },
+    "us-strikes-iran-by-march-31-2026": {
+      "description": "US strikes Iran by March 31, 2026?",
+      "mid_price": 0,
+      "spread_bps": 0,
+      "our_bid": 0,
+      "our_ask": 0,
+      "position_net": 0.0,
+      "pnl": 0.0,
+      "fills_count": 0,
+      "last_fill_ago_s": 0,
+      "kill_switch": "RUNNING",
+      "data_gap_s": 0
     }
   },
   "totals": {
-    "quotes_generated": 48373,
-    "orders_submitted": 48373,
-    "fills": 600,
-    "fill_rate_pct": 1.24,
-    "ws_messages": 104524,
+    "quotes_generated": 0,
+    "orders_submitted": 0,
+    "fills": 0,
+    "fill_rate_pct": 0,
+    "ws_messages": 2948,
     "errors": 0
   },
   "system": {
-    "memory_mb": 52.9,
+    "memory_mb": 49.0,
     "ws_connected": true
   },
-  "hypothesis_under_test": "H1-adversarial",
-  "run_config_path": "/home/openclaw/.openclaw/workspace/polymarket-mm/paper/runs/run-007.yaml",
+  "hypothesis_under_test": "H3-capital-efficiency",
+  "run_config_path": "/home/openclaw/.openclaw/workspace/polymarket-mm/paper/runs/p5-001.yaml",
   "wallet": {
     "initial_balance": 500.0,
-    "available_balance": 521.38258,
-    "locked_balance": 24.5,
-    "total_equity": 585.91258,
-    "pnl_pct": 17.18,
-    "exposure_pct": 11.0
+    "available_balance": 500.0,
+    "locked_balance": 0.0,
+    "total_equity": 500.0,
+    "pnl_pct": 0.0,
+    "exposure_pct": 0.0
   }
 }

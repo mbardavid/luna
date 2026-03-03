@@ -1,0 +1,40 @@
+run_id: "rewards-001"
+duration_hours: 48
+hypothesis: "H5-rewards-farming-optimized"
+initial_balance: 222  # matches actual on-chain balance to avoid kill switch bug
+
+params:
+  quote_interval_s: 10.0  # slightly slower to reduce noise, rewards are daily
+  rewards_optimized_mode: true
+  default_order_size: 50  # higher size to hit reward thresholds if needed
+  default_half_spread_bps: 20  # tighter base for rewards
+  gamma_risk_aversion: 0.1  # less risk aversion to keep orders in the book
+  max_position_per_side: 200
+  complement_routing: true
+  maker_fee_bps: -30
+  kill_switch_max_drawdown_pct: 15.0
+  kill_switch_alert_pct: 8.0
+  balance_aware_quoting: true
+  min_balance_to_quote: 10.0
+  position_recycling: true
+  supabase_logging: true
+
+  # Override global settings for this specific rewards run
+  rewards_config:
+    aggressiveness: 0.9
+    max_tighten_pct: 0.9
+    estimated_reward_per_dollar: 0.0007 # slightly higher for sports
+    reward_distance_threshold: 0.002 # 0.2c for NBA
+
+  rotation:
+    market_rotation: true
+    rotation_cooldown_hours: 4
+    min_market_health_score: 0.6
+    max_spread_bps: 200
+    min_fill_rate_pct: 0.5
+    fill_rate_window_hours: 4.0
+    max_inventory_skew_pct: 70.0
+    capital_recovery: true
+
+  # If markets is empty, auto_select_rewards_markets will run
+  markets: []

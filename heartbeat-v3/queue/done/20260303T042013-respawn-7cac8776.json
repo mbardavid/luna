@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "7cac8776-5ebb-474d-b8b1-187a6c451583",
+  "filename": "20260303T042013-respawn-7cac8776.json",
+  "created_at": "2026-03-03T04:20:13.333372+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research Deep Dive: Polymarket Power Users & Top Market Makers",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nMapear intelig\u00eancia competitiva no Polymarket: power users lucrativos, top market makers, como ganham (rewards vs spreads vs arb), e quais mercados/categorias concentram a edge. Objetivo: copiar o que funciona e evitar o que \u00e9 competitivo demais.\n\n## Context\nPrecisamos de fontes atuais ",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:quant-strategist:subagent:ba369b73-f329-4034-bec5-2d68d1ba9bce"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

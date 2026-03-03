@@ -56,6 +56,11 @@ class RewardsFarmingConfig:
     # Hard floor to prevent negative-EV fills.
     min_post_reward_spread_bps: Decimal = Decimal("5")
 
+    # Mode to prioritize rewards over spread. When True, the bot
+    # will optimize order sizing and placement specifically for
+    # Polymarket's daily rewards program.
+    rewards_optimized_mode: bool = False
+
 
 # ── RewardsFarming ───────────────────────────────────────────────────
 

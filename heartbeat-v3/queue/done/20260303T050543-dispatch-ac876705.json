@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "ac876705-46e3-47de-b271-2d42ee44764b",
+  "filename": "20260303T050543-dispatch-ac876705.json",
+  "created_at": "2026-03-03T05:05:43.668987+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research Deep Dive: Polymarket Rewards Farming Mechanics",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nAprofundar a mec\u00e2nica exata do programa de rewards do Polymarket para market makers: como elegibilidade \u00e9 calculada, como rewards s\u00e3o distribu\u00eddos, quais par\u00e2metros importam (rewardsMinSize, rewardsMaxSpread, time-at-best, queue position), e como estimar reward/capital ratio.\n\n## Context\nContexto: temos ~20 USDC.e l\u00edquido na Polygon, PMM bot pronto (runner/), usamos Tor SOCKS5. Objetivo: retorno est\u00e1vel. Precisamos de dados atuais (mar/2026) com fontes (docs oficiais, threads X/Reddit, Dune, etc.) e como obter params por mercado via endpoints Gamma/CLOB. Sa\u00edda deve gerar recomenda\u00e7\u00f5es acion\u00e1veis para prod-004 (sizing + sele\u00e7\u00e3o de mercados).\n\n## Acceptance Criteria\n- [ ] Relat\u00f3rio com: (1) regras/f\u00f3rmula pr\u00e1tica de rewards; (2) endpoints e como obter params por mercado; (3) top",
+    "original_agent": "luan",
+    "session_key": "agent:quant-strategist:subagent:de3c83ce-dec0-4581-980d-5224d89e8366",
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "ac876705-46e3-47de-b271-2d42ee44764b",
+    "title": "Research Deep Dive: Polymarket Rewards Farming Mechanics",
+    "description": "## Objective\nAprofundar a mec\u00e2nica exata do programa de rewards do Polymarket para market makers: como elegibilidade \u00e9 calculada, como rewards s\u00e3o distribu\u00eddos, quais par\u00e2metros importam (rewardsMinSize, rewardsMaxSpread, time-at-best, queue position), e como estimar reward/capital ratio.\n\n## Context\nContexto: temos ~20 USDC.e l\u00edquido na Polygon, PMM bot pronto (runner/), usamos Tor SOCKS5. Objetivo: retorno est\u00e1vel. Precisamos de dados atuais (mar/2026) com fontes (docs oficiais, threads X/Reddit, Dune, etc.) e como obter params por mercado via endpoints Gamma/CLOB. Sa\u00edda deve gerar recomenda\u00e7\u00f5es acion\u00e1veis para prod-004 (sizing + sele\u00e7\u00e3o de mercados).\n\n## Acceptance Criteria\n- [ ] Relat\u00f3rio com: (1) regras/f\u00f3rmula pr\u00e1tica de rewards; (2) endpoints e como obter params por mercado; (3) top",
+    "priority": "high"
+  }
+}

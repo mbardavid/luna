@@ -144,6 +144,21 @@ class MetricsRegistry:
             registry=self._registry,
         )
 
+        # ── Rewards Farming ─────────────────────────────────────
+        self.rewards_cumulative = Gauge(
+            "pmm_rewards_cumulative_usd",
+            "Cumulative estimated USDC rewards",
+            labelnames=["market_id"],
+            registry=self._registry,
+        )
+
+        self.reward_rate_per_dollar = Gauge(
+            "pmm_reward_rate_per_dollar",
+            "Expected daily reward per $1 of resting liquidity",
+            labelnames=["market_id"],
+            registry=self._registry,
+        )
+
         # ── Kill switch ─────────────────────────────────────────
         self.kill_switch_trips = Counter(
             "pmm_kill_switch_trips_total",
@@ -232,6 +247,12 @@ class MetricsRegistry:
     def record_order_reject(self, market_id: str) -> None:
         """Record a venue rejection."""
         self.orders_rejected.labels(market_id=market_id).inc()
+
+    def set_rewards(self, market_id: str, cumulative_usd: float, rate_per_dollar: float | None = None) -> None:
+        """Update rewards metrics for a market."""
+        self.rewards_cumulative.labels(market_id=market_id).set(cumulative_usd)
+        if rate_per_dollar is not None:
+            self.reward_rate_per_dollar.labels(market_id=market_id).set(rate_per_dollar)
 
     def record_kill_switch(self, trigger: str) -> None:
         """Record a kill switch trip."""

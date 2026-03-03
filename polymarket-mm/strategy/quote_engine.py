@@ -87,6 +87,11 @@ class QuoteEngineConfig:
     # E.g. 0.05 = max 5% of available balance per order.
     max_balance_fraction_per_order: Decimal = Decimal("0.05")
 
+    # Mode to prioritize rewards over spread. When True, the bot
+    # will optimize order sizing and placement specifically for
+    # Polymarket's daily rewards program.
+    rewards_optimized_mode: bool = False
+
     # Inventory saturation threshold — when position for a token side
     # exceeds this fraction of max_position_size, BID generation for
     # that side is suppressed to prevent further accumulation.
@@ -323,26 +328,50 @@ class QuoteEngine:
         # Adjusted mid: shift towards offloading inventory
         adjusted_mid = mid_price - skew
 
-        # ── Step 5: Build YES slices ─────────────────────────────
+        # ── Step 5: Mode-specific adjustments ─────────────────────
+        # In rewards-optimized mode, we prioritize being within the
+        # reward threshold over capturing spread or mean-reversion.
+        if c.rewards_optimized_mode:
+            # Shift adjusted mid closer to mid if we are skewed too far
+            # to stay within rewards spread threshold.
+            rewards_thresh = self._rewards.config.reward_distance_threshold
+            if abs(adjusted_mid - mid_price) > rewards_thresh:
+                old_adj = adjusted_mid
+                if adjusted_mid > mid_price:
+                    adjusted_mid = mid_price + rewards_thresh
+                else:
+                    adjusted_mid = mid_price - rewards_thresh
+                logger.debug(
+                    "quote_engine.rewards_mid_clamping",
+                    market_id=mkt,
+                    old_adj=str(old_adj),
+                    new_adj=str(adjusted_mid),
+                )
+
+        # ── Step 6: Build YES slices ─────────────────────────────
         yes_slices = self._build_slices(
             adjusted_mid=adjusted_mid,
             half_spread=half_spread,
             token=TokenSide.YES,
             tick_size=state.tick_size,
             min_order_size=state.min_order_size,
+            rewards_optimized=c.rewards_optimized_mode,
+            mid_price=mid_price,
         )
         plan.slices.extend(yes_slices)
 
-        # ── Step 6: Build NO slices (complement pricing) ─────────
+        # ── Step 7: Build NO slices (complement pricing) ─────────
         no_slices = self._build_no_slices(
             adjusted_mid=adjusted_mid,
             half_spread=half_spread,
             tick_size=state.tick_size,
             min_order_size=state.min_order_size,
+            rewards_optimized=c.rewards_optimized_mode,
+            mid_price=mid_price,
         )
         plan.slices.extend(no_slices)
 
-        # ── Step 7: Position-aware filtering ─────────────────────
+        # ── Step 8: Position-aware filtering ─────────────────────
         # Filter out ASK slices when we don't have enough tokens to
         # sell, and suppress BID slices when position is saturated.
         plan.slices = self._filter_by_position(
@@ -414,10 +443,16 @@ class QuoteEngine:
         token: TokenSide,
         tick_size: Decimal,
         min_order_size: Decimal,
+        rewards_optimized: bool = False,
+        mid_price: Decimal | None = None,
     ) -> list[QuoteSlice]:
         """Build bid and ask slices for a given token side."""
         c = self._config
         slices: list[QuoteSlice] = []
+
+        # Rewards threshold: if distance from mid > threshold, rewards decrease.
+        rewards_thresh = self._rewards.config.reward_distance_threshold
+        rwd_min_size = self._rewards.config.estimated_reward_per_dollar # Re-using as proxy or use settings
 
         for level in range(c.num_levels):
             level_offset = c.level_spacing * Decimal(str(level))
@@ -429,6 +464,23 @@ class QuoteEngine:
 
             if bid_price is not None and bid_price > _ZERO:
                 size = max(c.default_order_size, min_order_size)
+
+                # ── Rewards optimization: ensure size ≥ min_size ─────
+                if rewards_optimized and mid_price is not None:
+                    # In settings we added REWARDS_MIN_SIZE_USD
+                    from config.settings import settings
+                    min_shares = (settings.REWARDS_MIN_SIZE_USD / mid_price).quantize(
+                        Decimal("1"), rounding=ROUND_HALF_UP
+                    )
+                    if size < min_shares:
+                        size = min_shares
+                        logger.debug(
+                            "quote_engine.rewards_sizing",
+                            token=token.value,
+                            side="BID",
+                            new_size=str(size),
+                        )
+
                 slices.append(
                     QuoteSlice(
                         side=QuoteSide.BID,
@@ -446,6 +498,22 @@ class QuoteEngine:
 
             if ask_price is not None and ask_price > _ZERO:
                 size = max(c.default_order_size, min_order_size)
+
+                # ── Rewards optimization: ensure size ≥ min_size ─────
+                if rewards_optimized and mid_price is not None:
+                    from config.settings import settings
+                    min_shares = (settings.REWARDS_MIN_SIZE_USD / mid_price).quantize(
+                        Decimal("1"), rounding=ROUND_HALF_UP
+                    )
+                    if size < min_shares:
+                        size = min_shares
+                        logger.debug(
+                            "quote_engine.rewards_sizing",
+                            token=token.value,
+                            side="ASK",
+                            new_size=str(size),
+                        )
+
                 slices.append(
                     QuoteSlice(
                         side=QuoteSide.ASK,
@@ -464,19 +532,15 @@ class QuoteEngine:
         half_spread: Decimal,
         tick_size: Decimal,
         min_order_size: Decimal,
+        rewards_optimized: bool = False,
+        mid_price: Decimal | None = None,
     ) -> list[QuoteSlice]:
-        """Build NO token slices using complement pricing.
-
-        For binary markets: price_YES + price_NO ≈ 1.0
-        So:
-            no_mid = 1 - yes_mid
-            no_bid = 1 - yes_ask  (buy NO when YES is expensive)
-            no_ask = 1 - yes_bid  (sell NO when YES is cheap)
-        """
+        """Build NO token slices using complement pricing."""
         c = self._config
         slices: list[QuoteSlice] = []
 
         no_mid = _ONE - adjusted_mid
+        mid_p = mid_price if mid_price is not None else adjusted_mid # approximation for sizing
 
         for level in range(c.num_levels):
             level_offset = c.level_spacing * Decimal(str(level))
@@ -488,6 +552,18 @@ class QuoteEngine:
 
             if no_bid is not None and no_bid > _ZERO:
                 size = max(c.default_order_size, min_order_size)
+
+                # ── Rewards optimization: ensure size ≥ min_size ─────
+                if rewards_optimized:
+                    from config.settings import settings
+                    # For NO, use (1-mid) as price proxy for sizing
+                    eff_price = (_ONE - mid_p) if mid_p < _ONE else Decimal("0.5")
+                    min_shares = (settings.REWARDS_MIN_SIZE_USD / eff_price).quantize(
+                        Decimal("1"), rounding=ROUND_HALF_UP
+                    )
+                    if size < min_shares:
+                        size = min_shares
+
                 slices.append(
                     QuoteSlice(
                         side=QuoteSide.BID,
@@ -505,6 +581,17 @@ class QuoteEngine:
 
             if no_ask is not None and no_ask > _ZERO:
                 size = max(c.default_order_size, min_order_size)
+
+                # ── Rewards optimization: ensure size ≥ min_size ─────
+                if rewards_optimized:
+                    from config.settings import settings
+                    eff_price = (_ONE - mid_p) if mid_p < _ONE else Decimal("0.5")
+                    min_shares = (settings.REWARDS_MIN_SIZE_USD / eff_price).quantize(
+                        Decimal("1"), rounding=ROUND_HALF_UP
+                    )
+                    if size < min_shares:
+                        size = min_shares
+
                 slices.append(
                     QuoteSlice(
                         side=QuoteSide.ASK,

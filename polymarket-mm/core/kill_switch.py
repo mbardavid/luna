@@ -99,7 +99,10 @@ class KillSwitch:
         self._cancel_market = market_cancel_callback
 
         # Configuration with defaults from settings
-        self._max_daily_loss = max_daily_loss_usd or settings.MAX_DAILY_LOSS_USD
+        self._max_daily_loss = max_daily_loss_usd
+        if self._max_daily_loss is None:
+            self._max_daily_loss = settings.MAX_DAILY_LOSS_USD
+
         self._restart_base = engine_restart_base_seconds or settings.ENGINE_RESTART_BACKOFF_BASE_SECONDS
         self._restart_max = engine_restart_max_seconds or settings.ENGINE_RESTART_BACKOFF_MAX_SECONDS
         self._data_gap_tolerance = data_gap_tolerance_seconds or settings.DATA_GAP_TOLERANCE_SECONDS

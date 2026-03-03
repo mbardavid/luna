@@ -1,0 +1,82 @@
+# Production Run 004 — Rewards-farming MM (Sports + short duration)
+# Goal: maximize Polymarket liquidity rewards eligibility, not pure spread capture.
+# Selected by Quant Strategist (market-selection-prod004.md, 2026-03-03).
+
+run_id: "prod-004"
+mode: "production"
+duration_hours: 48
+hypothesis: "rewards-farming-optimized"
+
+# Critical: must match real deployable USDC to avoid false kill switch drawdown.
+# Current wallet USDC.e after liquidating all CTF positions: ~$220.97
+initial_balance: 220.97
+
+params:
+  # Rewards farming cares more about time-on-book than hyper-fast requotes.
+  quote_interval_s: 10.0
+
+  # Aim to meet rewardsMinSize per market (min is 20 in one market, others 50).
+  # We'll use 50 global default; per-market overrides may be added later.
+  default_order_size: 50
+
+  # Keep spreads tight enough to qualify for rewardsMaxSpread.
+  # (Some markets have rewardsMaxSpread=3.5c/4.5c; our half-spread needs to respect that.)
+  default_half_spread_bps: 20
+
+  gamma_risk_aversion: 0.1
+  max_position_per_side: 200
+  complement_routing: true
+  maker_fee_bps: -30
+
+  # Risk controls
+  kill_switch_max_drawdown_pct: 15.0
+  kill_switch_alert_pct: 8.0
+
+  # Capital safety
+  balance_aware_quoting: true
+  min_balance_to_quote: 10.0
+  position_recycling: true
+
+  # Logging
+  supabase_logging: true
+
+  # Market health / rotation
+  rotation:
+    market_rotation: true
+    rotation_cooldown_hours: 4
+    min_market_health_score: 0.6
+    max_spread_bps: 900
+    min_fill_rate_pct: 0.2
+    fill_rate_window_hours: 4.0
+    max_inventory_skew_pct: 70.0
+    capital_recovery: true
+    min_balance_for_recovery: 10
+
+  # Selected markets (condition IDs)
+  markets:
+    - "0xfa4ea5b78e44fe46b1cca9e1452293e3d4def76af29a7628905be72606d5763f"  # India T20 win (market_id 956344)
+    - "0xf6447769c6c2a6931470176868cfa58162dd72f1028d7df7f2dcc0f260c0668c"  # UFC Oliveira vs Holloway (1378736)
+    - "0x495777e33fccba546f9014a64e8458c4f4d5e7f5d352240aec4cc3ab5cbce746"  # LoL AL vs iG BO5 (1475920)
+    - "0x0503e6d6db91af814aa9918cf6e4ae7656cef96cb321bffcccaea22fd3643402"  # BTC 66k-68k Mar3 (1428025)
+    - "0x3205072a9cd4b1f753af22c124b6bce288bf8363797cb4d47d842c4c4a1afc3e"  # US/Israel strike Iran Mar6 (1465971)
+
+success_criteria:
+  pnl_positive: false
+  max_drawdown_pct: 15.0
+  min_fill_rate_pct: 0.2
+  data_collection_hours: 12
+
+unwind:
+  enabled: true
+  max_time_seconds: 90
+  strategies:
+    normal_shutdown: aggressive
+    kill_switch: sweep
+    crash_recovery: hold
+  dust_threshold_shares: 1
+  merge_enabled: true
+  progressive_pricing:
+    attempt_1_offset_pct: 0
+    attempt_2_offset_pct: 2
+    attempt_3_offset_pct: 5
+  alert_on_orphan: true

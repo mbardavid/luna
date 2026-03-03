@@ -279,5 +279,65 @@
     "fill_rate": 0.0,
     "max_drawdown": 0,
     "timestamp": "2026-03-02T02:52:38.027492+00:00"
+  },
+  {
+    "run_id": "p5-001",
+    "hypothesis": "H3-capital-efficiency",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0,
+    "duration_h": 0.01,
+    "fill_rate": 1.56,
+    "max_drawdown": 0.0,
+    "timestamp": "2026-03-02T12:21:34.734551+00:00"
+  },
+  {
+    "run_id": "p5-001",
+    "hypothesis": "H3-capital-efficiency",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.21,
+    "fill_rate": 0,
+    "max_drawdown": 0.0,
+    "timestamp": "2026-03-02T12:34:36.482537+00:00"
+  },
+  {
+    "run_id": "prod-003",
+    "hypothesis": "H4-auto-select-liquid-markets",
+    "result": "FAIL",
+    "pnl_per_hour": 0.0,
+    "duration_h": 3.09,
+    "fill_rate": 0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-02T20:41:39.539756+00:00"
+  },
+  {
+    "run_id": "prod-003",
+    "hypothesis": "H4-auto-select-liquid-markets",
+    "result": "FAIL",
+    "pnl_per_hour": 0.0,
+    "duration_h": 1.71,
+    "fill_rate": 0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-02T22:25:37.617993+00:00"
+  },
+  {
+    "run_id": "prod-003",
+    "hypothesis": "H4-auto-select-liquid-markets",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.23,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-03T00:49:49.263507+00:00"
+  },
+  {
+    "run_id": "prod-003",
+    "hypothesis": "H4-auto-select-liquid-markets",
+    "result": "FAIL",
+    "pnl_per_hour": 0.0,
+    "duration_h": 1.01,
+    "fill_rate": 0.38,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-03T01:50:47.972420+00:00"
   }
 ]

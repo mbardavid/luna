@@ -143,3 +143,5 @@
 - **Control Loop v2 completo:** 5 fases executadas (F0 baseline, F1 absorver detectores, F2 latência, F3 dual-run, F4 cleanup). 21→13 crons, 130 testes, heartbeat-v3 como engine único de detecção (1758 LOC).
 - **Heartbeat built-in reduzido de 30min para 2min** via `openclaw config set`. Flash tokens ilimitados = sem custo relevante.
 - **Arquitetura de uptime 3 camadas:** (1) agent RPC instantâneo, (2) heartbeat built-in 2min, (3) bash cron */5.
+- **Risco novo (03/mar): dispatcher gemini-flash pode falhar com 403 (serviço desabilitado/ToS).** Precisa de plano de fallback (trocar provider/modelo do dispatcher ou usar caminho alternativo de dispatch) para não quebrar autonomia/latência.
+- **Sinal de observabilidade a validar:** divergência entre contagem de inbox do heartbeat (10) e watchdog (0) sugere possível problema de auth/board alvo/filtros em scripts de MC; investigar para não perder backlog real.
