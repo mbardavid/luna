@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "5d78b559-d3a3-4620-b741-6b9151719231",
+  "filename": "20260303T114040-dispatch-5d78b559.json",
+  "created_at": "2026-03-03T11:40:40.169325+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Infra: PMM Rewards-Optimized Mode + Scale-up Roadmap",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nEvoluir o PMM runner para modo rewards-optimized e documentar roadmap de scale-up. Mudan\u00e7as: (1) config flag rewards_mode: true que prioriza tempo-no-book sobre fills, (2) auto-select markets por rewardsMinSize/rewardsMaxSpread, (3) rewards tracking (monitorar ganhos de rewards vs trading PnL separadamente), (4) documento de roadmap $500\u2192$10K com milestones.\n\n## Context\nO quant identificou que rewards farming \u00e9 o income principal pra MMs pequenos, n\u00e3o spread capture. Polymarket paga rewards di\u00e1rios pra ordens dentro de rewardsMaxSpread do mid. Para qualificar: ordem \u2265 rewardsMinSize, dentro do spread threshold. O bot atual (runner/) funciona mas foca em spread capture. Precisa: mudar prioridade pra maximizar tempo-no-book, selecionar mercados por reward params, trackear reward",
+    "original_agent": "luan",
+    "session_key": null,
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "5d78b559-d3a3-4620-b741-6b9151719231",
+    "title": "Infra: PMM Rewards-Optimized Mode + Scale-up Roadmap",
+    "description": "## Objective\nEvoluir o PMM runner para modo rewards-optimized e documentar roadmap de scale-up. Mudan\u00e7as: (1) config flag rewards_mode: true que prioriza tempo-no-book sobre fills, (2) auto-select markets por rewardsMinSize/rewardsMaxSpread, (3) rewards tracking (monitorar ganhos de rewards vs trading PnL separadamente), (4) documento de roadmap $500\u2192$10K com milestones.\n\n## Context\nO quant identificou que rewards farming \u00e9 o income principal pra MMs pequenos, n\u00e3o spread capture. Polymarket paga rewards di\u00e1rios pra ordens dentro de rewardsMaxSpread do mid. Para qualificar: ordem \u2265 rewardsMinSize, dentro do spread threshold. O bot atual (runner/) funciona mas foca em spread capture. Precisa: mudar prioridade pra maximizar tempo-no-book, selecionar mercados por reward params, trackear reward",
+    "priority": "high"
+  }
+}

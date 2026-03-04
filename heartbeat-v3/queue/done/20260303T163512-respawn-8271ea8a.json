@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "8271ea8a-7a3d-4c40-990e-0954fa8e258a",
+  "filename": "20260303T163512-respawn-8271ea8a.json",
+  "created_at": "2026-03-03T16:35:12.765674+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Strategy: Polymarket Rewards Farming",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nImplementar modo rewards-optimized no PMM bot. Foco em ganhar USDC rewards do programa de incentivos do Polymarket, n\u00e3o em spread capture. Trocar de mercados de spread para mercados com melhor rewards/capital ratio.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 2026):\n- Polymarket paga rewards di\u00e1r",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:a5fad6cf-dade-40d2-892f-35719eef957a"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

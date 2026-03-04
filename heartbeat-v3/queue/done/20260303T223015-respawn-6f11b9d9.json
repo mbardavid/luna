@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "6f11b9d9-95f2-47cf-9f93-4da3cf2b89b3",
+  "filename": "20260303T223015-respawn-6f11b9d9.json",
+  "created_at": "2026-03-03T22:30:15.426591+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Audit: Crypto-sage balance discrepancy (missing positions/open orders)",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "Objetivo: investigar por que o crypto-sage reportou saldo muito abaixo do esperado ap\u00f3s comando de balan\u00e7o. Hip\u00f3teses: (1) posi\u00e7\u00f5es/ordens abertas n\u00e3o contabilizadas (Polymarket CTF ERC-1155, HL open orders, perps margin, etc), (2) tokens em redes diferentes (USDC vs USDC.e) n\u00e3o somados, (3) falha d",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 1,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:crypto-sage:subagent:fd58172b-97d7-43b8-9fb7-d50a9215ff75"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

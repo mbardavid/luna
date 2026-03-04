@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "8271ea8a-7a3d-4c40-990e-0954fa8e258a",
+  "filename": "20260303T145822-dispatch-8271ea8a.json",
+  "created_at": "2026-03-03T14:58:22.168494+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Strategy: Polymarket Rewards Farming",
+  "agent": "luan",
+  "priority": "medium",
+  "context": {
+    "description": "## Objective\nImplementar modo rewards-optimized no PMM bot. Foco em ganhar USDC rewards do programa de incentivos do Polymarket, n\u00e3o em spread capture. Trocar de mercados de spread para mercados com melhor rewards/capital ratio.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 2026):\n- Polymarket paga rewards di\u00e1rios em USDC para MMs que mant\u00eam ordens competitivas\n- Requisitos: ordem \u2265 rewardsMinSize ($20-200), dentro de rewardsMaxSpread do mid\n- NBA/sports: rwdMin=$50, rwdSpd=0.2c. Iran: rwdMin=$200, rwdSpd=3",
+    "eligible_count": 5,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "8271ea8a-7a3d-4c40-990e-0954fa8e258a",
+    "title": "Strategy: Polymarket Rewards Farming",
+    "description": "## Objective\nImplementar modo rewards-optimized no PMM bot. Foco em ganhar USDC rewards do programa de incentivos do Polymarket, n\u00e3o em spread capture. Trocar de mercados de spread para mercados com melhor rewards/capital ratio.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 2026):\n- Polymarket paga rewards di\u00e1rios em USDC para MMs que mant\u00eam ordens competitivas\n- Requisitos: ordem \u2265 rewardsMinSize ($20-200), dentro de rewardsMaxSpread do mid\n- NBA/sports: rwdMin=$50, rwdSpd=0.2c. Iran: rwdMin=$200, rwdSpd=3",
+    "priority": "medium"
+  }
+}

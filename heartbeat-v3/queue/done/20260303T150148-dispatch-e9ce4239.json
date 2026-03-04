@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "e9ce4239-1a44-40d9-b531-43090a28ec02",
+  "filename": "20260303T150148-dispatch-e9ce4239.json",
+  "created_at": "2026-03-03T15:01:48.054175+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research: Polymarket bot setup (tweet) \u2014 critique & recommendations",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "Objetivo: analisar o setup/arquitetura do bot Polymarket descrito no tweet do dunik_7 e produzir uma opini\u00e3o t\u00e9cnica franca considerando nosso contexto atual (PMM prod runs, rewards-farming research, Tor/geoblock, kill-switch, reconciliation, logging) + lessons aprendidas (crash loops, tokens/loops, QA, startup reconciliation, MC workflow).\n\nEscopo: (1) resumir o setup do tweet; (2) identificar pontos fortes/fracos e riscos operacionais (lat\u00eancia, fila, stale quotes, fees, gas, rate limits, failure modes); (3) comparar com nossa stack (runner/, reconciler, unwind, supabase logging, /order-scoring probes); (4) sugerir mudan\u00e7as concretas e um plano de experimentos/valida\u00e7\u00e3o.\n\nEntrada: https://x.com/dunik_7/status/2028776579183116652\nSa\u00edda: nota em  + checklist de a\u00e7\u00f5es e poss\u00edvel MC follow-u",
+    "original_agent": "luan",
+    "session_key": "agent:quant-strategist:subagent:937c1d6e-3d02-40f9-a00c-59712283dd17",
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "e9ce4239-1a44-40d9-b531-43090a28ec02",
+    "title": "Research: Polymarket bot setup (tweet) \u2014 critique & recommendations",
+    "description": "Objetivo: analisar o setup/arquitetura do bot Polymarket descrito no tweet do dunik_7 e produzir uma opini\u00e3o t\u00e9cnica franca considerando nosso contexto atual (PMM prod runs, rewards-farming research, Tor/geoblock, kill-switch, reconciliation, logging) + lessons aprendidas (crash loops, tokens/loops, QA, startup reconciliation, MC workflow).\n\nEscopo: (1) resumir o setup do tweet; (2) identificar pontos fortes/fracos e riscos operacionais (lat\u00eancia, fila, stale quotes, fees, gas, rate limits, failure modes); (3) comparar com nossa stack (runner/, reconciler, unwind, supabase logging, /order-scoring probes); (4) sugerir mudan\u00e7as concretas e um plano de experimentos/valida\u00e7\u00e3o.\n\nEntrada: https://x.com/dunik_7/status/2028776579183116652\nSa\u00edda: nota em  + checklist de a\u00e7\u00f5es e poss\u00edvel MC follow-u",
+    "priority": "high"
+  }
+}

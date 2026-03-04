@@ -1,12 +1,7 @@
 {
-  "description": "Tasks que NUNCA devem ser auto-dispatched pelo heartbeat. Requerem interven\u00e7\u00e3o humana expl\u00edcita.",
+  "description": "Tasks que NUNCA devem ser auto-dispatched pelo heartbeat. Requerem intervenção humana explícita.",
   "blocked_task_ids": {
-    "34e8907c-2a39-41f0-b066-3bef7510fdf4": "PMM-PROD P6: Deploy production \u2014 requer aprova\u00e7\u00e3o expl\u00edcita do Matheus ap\u00f3s P5 validado (pode levar semanas)",
-    "8271ea8a-7a3d-4c40-990e-0954fa8e258a": "Strategy: Polymarket Rewards Farming \u2014 discuss\u00e3o com Matheus",
-    "1ef02339-7b96-4796-8e20-0039c8ea75f0": "Strategy: Polymarket Event-Driven Trading \u2014 discuss\u00e3o com Matheus",
-    "4c977ef9-c658-475f-8f27-a7836c6507ee": "Strategy: DeFi Yield Farming (Base/Aerodrome) \u2014 discuss\u00e3o com Matheus",
-    "12e76255-fc43-4e47-b01f-1dcc41d7283f": "Strategy: Polymarket MM Spread Capture (Scale-up Plan) \u2014 discuss\u00e3o com Matheus",
-    "8cc49d51-4946-403a-bba7-ef6c9c820d7d": "Strategy: SOL Liquid Staking (Jito/Marinade) \u2014 discuss\u00e3o com Matheus"
+    "34e8907c-2a39-41f0-b066-3bef7510fdf4": "PMM-PROD P6: Deploy production — requer aprovação explícita do Matheus após P5 validado (pode levar semanas)"
   },
   "dependency_chain": {
     "051146d7-113d-4980-b659-53a05fbbeb83": [],
@@ -17,5 +12,5 @@
       "4b38f7a7-442c-4b2a-a398-f5dcb9cfa1c9"
     ]
   },
-  "notes": "dependency_chain: task_id \u2192 [lista de task_ids que precisam estar done antes]. Se qualquer dep n\u00e3o estiver done, task \u00e9 pulada no FIFO."
+  "notes": "dependency_chain: task_id → [lista de task_ids que precisam estar done antes]. Se qualquer dep não estiver done, task é pulada no FIFO."
 }

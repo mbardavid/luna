@@ -111,13 +111,15 @@ def _normalize_status(value: str) -> str:
         "failed": "failed",
         "error": "failed",
         "blocked": "blocked",
-        "needs_approval": "needs_approval",
-        "needsapproval": "needs_approval",
+        "needs_approval": "awaiting_human",
+        "needsapproval": "awaiting_human",
+        "awaiting_human": "awaiting_human",
+        "awaitinghuman": "awaiting_human",
         "review": "review",
         "stalled": "stalled",
         "retry": "retry",
     }
-    result = mapping.get(normalized, normalized if normalized in {"in_progress", "done", "failed", "blocked", "needs_approval", "review", "stalled", "retry"} else value)
+    result = mapping.get(normalized, normalized if normalized in {"in_progress", "done", "failed", "blocked", "awaiting_human", "review", "stalled", "retry"} else value)
     return result
 
 

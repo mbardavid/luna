@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "fe69b371-09f7-48ee-9c56-c3e6e72dfbd5",
+  "filename": "20260304T014013-respawn-fe69b371.json",
+  "created_at": "2026-03-04T01:40:13.802513+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Heartbeat v3: Health-gated dispatch (CTO-ops checkpoints) replacing blind rate limit",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "Objetivo: desenhar um plano (N\u00c3O implementar ainda) para substituir o rate limit cego (MAX_DISPATCHES_PER_HOUR) por um modelo de *health-gated dispatch*: a cada N dispatches, rodar um checkpoint de sa\u00fade (CTO-ops) e s\u00f3 liberar mais dispatches se o sistema estiver saud\u00e1vel. Restart apenas como \u00faltimo",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:c4bc441c-1a00-4cd0-bf1e-f52d9434aef9"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

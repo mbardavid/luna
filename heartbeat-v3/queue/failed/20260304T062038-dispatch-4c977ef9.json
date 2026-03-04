@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "4c977ef9-c658-475f-8f27-a7836c6507ee",
+  "filename": "20260304T062038-dispatch-4c977ef9.json",
+  "created_at": "2026-03-04T06:20:38.719795+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Strategy: DeFi Yield Farming (Base/Aerodrome)",
+  "agent": "luan",
+  "priority": "medium",
+  "context": {
+    "description": "## Objective\nImplementar yield farming automatizado em stablecoins na Base. Depositar USDC em vaults de baixo risco (Yearn, MaxAPY) para gerar yield passivo de 20-27% APY. Automa\u00e7\u00e3o: monitorar APYs, rebalancear se necess\u00e1rio, tracking no Supabase.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 2026):\n- Aerodrome EURC-USDC (Base): 320% APY mas alto IL risk em EUR/USD\n- Yearn USDC vault (Base): 26.9% APY, single-sided, baixo risco \u2014 MELHOR OP\u00c7\u00c3O\n- MaxAPY USDC (Base): 20.9% APY, agregador\n- Stablecoin yields su",
+    "eligible_count": 7,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "4c977ef9-c658-475f-8f27-a7836c6507ee",
+    "title": "Strategy: DeFi Yield Farming (Base/Aerodrome)",
+    "description": "## Objective\nImplementar yield farming automatizado em stablecoins na Base. Depositar USDC em vaults de baixo risco (Yearn, MaxAPY) para gerar yield passivo de 20-27% APY. Automa\u00e7\u00e3o: monitorar APYs, rebalancear se necess\u00e1rio, tracking no Supabase.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 2026):\n- Aerodrome EURC-USDC (Base): 320% APY mas alto IL risk em EUR/USD\n- Yearn USDC vault (Base): 26.9% APY, single-sided, baixo risco \u2014 MELHOR OP\u00c7\u00c3O\n- MaxAPY USDC (Base): 20.9% APY, agregador\n- Stablecoin yields su",
+    "priority": "medium"
+  }
+}

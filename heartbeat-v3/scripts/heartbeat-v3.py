@@ -117,6 +117,7 @@ MC_CONFIG_FILE = os.path.join(WORKSPACE, "config", "mission-control-ids.local.js
 ACTIVE_HOUR_START = V3_CONFIG.get("active_hour_start", 6)   # São Paulo local time
 ACTIVE_HOUR_END = V3_CONFIG.get("active_hour_end", 24)      # 00:00 (midnight)
 MAX_DISPATCHES_PER_HOUR = V3_CONFIG.get("max_dispatches_per_hour", 3)
+DISABLE_FAST_DISPATCH = bool(V3_CONFIG.get("disable_fast_dispatch", False))
 MAX_CONCURRENT_IN_PROGRESS = V3_CONFIG.get("max_concurrent_in_progress", 2)
 MIN_DISPATCH_INTERVAL_MS = 5 * 60 * 1000   # 5min between dispatches
 DISPATCH_TIMEOUT_MS = 2 * 60 * 60 * 1000   # 2h — re-dispatch if task still inbox
@@ -438,7 +439,7 @@ def send_system_event_nudge(title: str, task_id: str) -> bool:
         # Use openclaw cron add with --system-event for a lightweight nudge
         result = run_cmd([
             OPENCLAW_BIN, "cron", "add",
-            "--at", "+10s",
+            "--at", "10s",
             "--agent", "main",
             "--system-event", nudge_msg,
             "--delete-after-run",
@@ -1306,20 +1307,24 @@ for task in tasks:
                 f"Queue item gerado para respawn. Processar agora."
             )
 
-        # Update MC task
+        # Update MC task — only notify if update succeeds (prevents notification storms)
+        mc_ok = True
         if not DRY_RUN:
-            mc_update_task(task_id,
-                fields={"mc_retry_count": str(retry_count + 1)},
+            mc_ok = mc_update_task(task_id,
+                fields={"mc_retry_count": retry_count + 1},
                 status="in_progress",
                 comment=f"[heartbeat-v3] failure detected ({failure_type}), queued for respawn")
 
-        notif_msg = (
-            f"⚠️ **Heartbeat V3** task falhou: `{task_id[:8]}` — **{title}**\n"
-            f"Erro: {failure_type} | Retry #{retry_count + 1}/{MAX_RETRIES}\n"
-            f"Enfileirado para respawn automático via queue."
-        )
-        send_discord(DISCORD_CHANNEL, notif_msg)
-        send_discord(NOTIFICATIONS_CHANNEL, notif_msg)
+        if mc_ok:
+            notif_msg = (
+                f"⚠️ **Heartbeat V3** task falhou: `{task_id[:8]}` — **{title}**\n"
+                f"Erro: {failure_type} | Retry #{retry_count + 1}/{MAX_RETRIES}\n"
+                f"Enfileirado para respawn automático via queue."
+            )
+            send_discord(DISCORD_CHANNEL, notif_msg)
+            send_discord(NOTIFICATIONS_CHANNEL, notif_msg)
+        else:
+            log(f"WARNING: MC update failed for {task_id[:8]}, skipping Discord notification to prevent storm")
 
     else:
         # Max retries exceeded — move to review
@@ -1503,10 +1508,18 @@ for result in stale_results:
         qa_review_count += 1
 
     elif rtype == "orphan":
-        orphan_msg = (
-            f"🟡 **Orphan Task**: `{rtask_id[:8]}` — **{rtitle}** ({result.get('status', '?')}): sem executor"
-        )
-        send_discord(NOTIFICATIONS_CHANNEL, orphan_msg)
+        # NOTE: "review" without executor is expected (QA is performed by Luna),
+        # so label it as QA pending to avoid false-alarm wording.
+        status = str(result.get("status", "?")).lower()
+        if status == "review":
+            msg = (
+                f"🟡 **QA Pending**: `{rtask_id[:8]}` — **{rtitle}** (review): aguardando QA"
+            )
+        else:
+            msg = (
+                f"🟡 **Orphan Task**: `{rtask_id[:8]}` — **{rtitle}** ({result.get('status', '?')}): sem executor"
+            )
+        send_discord(NOTIFICATIONS_CHANNEL, msg)
         orphan_count += 1
 
     elif rtype == "stale":
@@ -1559,9 +1572,19 @@ for t in review_tasks:
 
     eligible_reviews.append(t)
 
-# Decision: if review tasks found, they take priority over inbox
+# Decision: enforce priority review > inbox.
+# When review backlog is large, block inbox dispatch entirely.
+REVIEW_BACKLOG_BLOCK_INBOX = 3
+
 next_task = None
 dispatch_type = "inbox"  # default
+
+# Filter out reviews that were already dispatched recently (from history)
+try:
+    recent_ids = {d.get("task_id") for d in recent_dispatches if d.get("task_id")}
+    eligible_reviews = [t for t in eligible_reviews if t.get("id", "") not in recent_ids]
+except Exception:
+    pass
 
 if eligible_reviews:
     next_task = eligible_reviews[0]
@@ -1570,12 +1593,19 @@ if eligible_reviews:
     title = next_task.get("title", "(sem título)")
     description = next_task.get("description", "")[:500]
     log(f"Phase 6: Review task FOUND (priority=high): {task_id[:8]} — {title}")
-    log(f"Phase 6: {len(eligible_reviews)} eligible review(s), skipping inbox")
+    log(f"Phase 6: {len(eligible_reviews)} eligible review(s) — dispatching review")
 else:
-    log(f"Phase 6: No eligible review tasks ({len(review_tasks)} total)")
+    # No eligible review this cycle.
+    # If backlog is high, we intentionally do NOT drain inbox.
+    if len(review_tasks) >= REVIEW_BACKLOG_BLOCK_INBOX:
+        log(
+            f"Phase 6: review backlog={len(review_tasks)} >= {REVIEW_BACKLOG_BLOCK_INBOX} — blocking inbox dispatch"
+        )
+        sys.exit(0)
+    log(f"Phase 6: No eligible review tasks ({len(review_tasks)} total) or all recently dispatched")
 
 # ============================================================
-# PHASE 7: Pull oldest inbox task (FIFO) — ONLY if Phase 6 found nothing
+# PHASE 7: Pull oldest inbox task (FIFO) — runs if we didn't pick a review
 # ============================================================
 if next_task is None:
     inbox = [t for t in tasks if str(t.get("status", "")).lower() == "inbox"]
@@ -1689,84 +1719,135 @@ else:
 
 log(f"Phase 9: Dispatching {task_id[:8]} → {agent_name} (type={dispatch_type})")
 
-# Step 9a: Mark task in_progress (for inbox) or add comment (for review — keep status)
+# Step 9a: Status update policy
+# - review: keep status=review (QA is handled by Luna)
+# - inbox:
+#   - if using fast-dispatch, it's okay to mark in_progress immediately
+#   - if fast-dispatch is disabled (queue-only mode), DO NOT mark in_progress here
+#     to avoid creating "in_progress without mc_session_key" false states.
 if dispatch_type == "review":
-    # Don't change status — task stays in review. Just add a comment.
-    mc_update_task(task_id,
-        comment=f"[heartbeat-v3] dispatching review to Luna for validation")
+    mc_update_task(
+        task_id,
+        comment=f"[heartbeat-v3] dispatching review to Luna for validation",
+    )
 else:
-    if not mc_update_task(task_id,
-        status="in_progress",
-        comment=f"[heartbeat-v3] dispatching to {agent_name} via queue"):
-        log("ERROR: failed to mark task in_progress")
-        record_cb_failure(state)
-        sys.exit(1)
+    if DISABLE_FAST_DISPATCH:
+        mc_update_task(
+            task_id,
+            comment=f"[heartbeat-v3] queued dispatch to {agent_name} (fast-dispatch disabled)",
+        )
+    else:
+        if not mc_update_task(
+            task_id,
+            status="in_progress",
+            comment=f"[heartbeat-v3] dispatching to {agent_name} via fast-dispatch/queue",
+        ):
+            log("ERROR: failed to mark task in_progress")
+            record_cb_failure(state)
+            sys.exit(1)
 
-# Step 9b: Fast dispatch via openclaw agent (replaces queue + nudge)
-if dispatch_type == "review":
-    dispatch_payload = build_review_payload(next_task)
-else:
-    dispatch_payload = build_dispatch_payload(next_task, agent_name, len(eligible) if "eligible" in dir() else 0, len(in_progress))
-fast_dispatch_script = os.path.join(WORKSPACE, "scripts", "mc-fast-dispatch.sh")
-
+# Step 9b: Dispatch — DIFFERENT paths for review vs inbox
 dispatch_ok = False
-dispatch_method = "queue"  # fallback
+dispatch_method = "none"
 
-if os.path.isfile(fast_dispatch_script) and os.access(fast_dispatch_script, os.X_OK):
-    # Try fast dispatch first (direct openclaw agent call)
-    try:
-        description = next_task.get("description", "")[:2000]
-        if dispatch_type == "review":
-            task_msg = (
-                f"## Review Task (HIGH PRIORITY)\n\n"
-                f"**Título:** {title}\n"
-                f"**MC Task ID:** {task_id}\n\n"
-                f"Luan completou esta task e moveu para review. "
-                f"Valide o trabalho do Luan:\n"
-                f"1. Verifique workspace-luan/memory/active-tasks.md para status\n"
-                f"2. Revise os arquivos criados/modificados\n"
-                f"3. Rode testes se aplicável\n"
-                f"4. Se aprovado, feche o MC card como done via mc-client.sh update-task {task_id} --status done\n"
-                f"5. Se reprovado, mova de volta para in_progress com comentário explicando o que ajustar\n\n"
-                f"## Descrição Original\n{description}"
-            )
-        else:
-            task_msg = f"## MC Task: {title}\n\n{description}"
-        
-        fd_result = run_cmd([
-            fast_dispatch_script,
-            "--agent", agent_name,
-            "--task", task_msg,
-            "--title", title,
-            "--from-mc", task_id,
-            "--timeout", "600",
-        ], timeout=620)
-        
-        log(f"FAST DISPATCH: {task_id[:8]} → {agent_name} (direct)")
+if dispatch_type == "review":
+    # ── REVIEW PATH: Wake Luna's MAIN session directly ──────────────
+    # Reviews CANNOT use mc-fast-dispatch.sh because:
+    #   1) The dispatcher agent can't spawn "main" (not in allowAgents)
+    #   2) mc-fast-dispatch.sh moves tasks to in_progress (wrong for reviews)
+    #   3) Review QA requires Luna's main session with full tool access
+    # Instead: wake Luna via agent RPC with actionable QA instructions.
+    description = next_task.get("description", "")[:1500]
+    qa_msg = (
+        f"🔍 **QA REVIEW OBRIGATÓRIO** — executar AGORA, não apenas registrar.\n\n"
+        f"**Task:** {title}\n"
+        f"**MC Task ID:** {task_id}\n\n"
+        f"Luan completou esta task e moveu para review. Você DEVE:\n"
+        f"1. Verificar workspace-luan/memory/active-tasks.md para status desta task\n"
+        f"2. Revisar os arquivos criados/modificados pelo Luan\n"
+        f"3. **Garantir que os artifacts estejam no workspace principal** (copiar de workspace-luan se necessário)\n"
+        f"4. Rodar testes se aplicável\n"
+        f"5. **Se aprovado:** fechar o MC card como done:\n"
+        f"   `bash /home/openclaw/.openclaw/workspace/scripts/mc-client.sh update-task {task_id} --status done --comment 'QA passed'`\n"
+        f"5. **Se reprovado:** mover de volta para inbox com feedback:\n"
+        f"   `bash /home/openclaw/.openclaw/workspace/scripts/mc-client.sh update-task {task_id} --status inbox --comment 'MOTIVO'`\n\n"
+        f"**IMPORTANTE:** Não responda apenas 'vou verificar'. EXECUTE a verificação e o update do MC NESTE TURNO.\n\n"
+        f"## Descrição Original\n{description}"
+    )
+
+    wake_ok = wake_luna_immediate(qa_msg)
+    if wake_ok:
+        log(f"REVIEW WAKE: {task_id[:8]} → Luna main session (direct RPC)")
         dispatch_ok = True
-        dispatch_method = "fast"
-    except Exception as e:
-        log(f"WARN: fast dispatch failed ({e}), falling back to queue")
+        dispatch_method = "wake"
+    else:
+        # Fallback: write queue file for escalation script to pick up
+        log(f"WARN: review wake failed for {task_id[:8]}, writing queue item as fallback")
+        dispatch_payload = build_review_payload(next_task)
+        queue_filename = write_queue_item("qa-review", task_id, dispatch_payload)
+        if queue_filename:
+            send_system_event_nudge(title, task_id)
+            dispatch_ok = True
+            dispatch_method = "queue"
+        else:
+            log("ERROR: queue write also failed for review — giving up this cycle")
 
-if not dispatch_ok:
-    # Fallback: write queue file + nudge (old method)
-    queue_filename = write_queue_item("dispatch", task_id, dispatch_payload)
-    
-    if not queue_filename:
-        log("ERROR: queue write failed — rolling back")
-        mc_update_task(task_id,
-            status="inbox",
-            comment="[heartbeat-v3] rollback — queue write failed")
-        record_cb_failure(state)
-        sys.exit(1)
-    
-    send_system_event_nudge(title, task_id)
-    dispatch_method = "queue"
-    dispatch_ok = True
+else:
+    # ── INBOX PATH ────────────────────────────────────────────────
+    # TEMP MODE: disable fast-dispatch to avoid missing_session_key / orphan in_progress.
+    # We force queue+wake so Luna can orchestrate safely.
+    dispatch_payload = build_dispatch_payload(next_task, agent_name, len(eligible) if "eligible" in dir() else 0, len(in_progress))
+
+    if not DISABLE_FAST_DISPATCH:
+        # Fast dispatch via mc-fast-dispatch.sh
+        fast_dispatch_script = os.path.join(WORKSPACE, "scripts", "mc-fast-dispatch.sh")
+
+        if os.path.isfile(fast_dispatch_script) and os.access(fast_dispatch_script, os.X_OK):
+            try:
+                task_msg = f"## MC Task: {title}\n\n{next_task.get('description', '')[:2000]}"
+                run_cmd([
+                    fast_dispatch_script,
+                    "--agent", agent_name,
+                    "--task", task_msg,
+                    "--title", title,
+                    "--from-mc", task_id,
+                    "--timeout", "600",
+                ], timeout=620)
+
+                log(f"FAST DISPATCH: {task_id[:8]} → {agent_name} (direct)")
+                dispatch_ok = True
+                dispatch_method = "fast"
+            except Exception as e:
+                log(f"WARN: fast dispatch failed ({e}), falling back to queue")
+
+    if not dispatch_ok:
+        # Queue dispatch (primary when fast-dispatch disabled)
+        queue_filename = write_queue_item("dispatch", task_id, dispatch_payload)
+
+        if not queue_filename:
+            log("ERROR: queue write failed")
+            if not DISABLE_FAST_DISPATCH:
+                # we may have already marked in_progress above; rollback status
+                mc_update_task(
+                    task_id,
+                    status="inbox",
+                    comment="[heartbeat-v3] rollback — queue write failed",
+                )
+            record_cb_failure(state)
+            sys.exit(1)
+
+        send_system_event_nudge(title, task_id)
+        wake_luna_immediate(
+            f"📋 Task dispatched: {title[:50]} ({task_id[:8]}). "
+            f"Queue item gerado — processar agora."
+        )
+        dispatch_method = "queue"
+        dispatch_ok = True
 
 # Step 9d: Update state
 state["last_dispatched_id"] = task_id
 state["dispatched_at"] = now_ms
+state["last_dispatch_type"] = dispatch_type
 
 # Track review dispatch for cooldown dedup
 if dispatch_type == "review":

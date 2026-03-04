@@ -1,0 +1,12 @@
+{
+  "type": "respawn",
+  "task_id": "f5d6003b-1e45-412d-8587-051f4496286a",
+  "title": "PMM Position Tracker: Real-time CTF Position Visibility",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "agent:luan:subagent:fd5746da-4861-416a-a580-3d9070857fdc",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  }
+}

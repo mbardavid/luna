@@ -1,0 +1,12 @@
+{
+  "type": "respawn",
+  "task_id": "7cac8776-5ebb-474d-b8b1-187a6c451583",
+  "title": "Research Deep Dive: Polymarket Power Users & Top Market Make",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "agent:quant-strategist:subagent:ba369b73-f329-4034-bec5-2d68d1ba9bce",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  }
+}

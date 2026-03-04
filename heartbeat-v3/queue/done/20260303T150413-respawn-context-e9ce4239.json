@@ -1,0 +1,12 @@
+{
+  "type": "respawn",
+  "task_id": "e9ce4239-1a44-40d9-b531-43090a28ec02",
+  "title": "Research: Polymarket bot setup (tweet) — critique & recommen",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "agent:quant-strategist:subagent:937c1d6e-3d02-40f9-a00c-59712283dd17",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  }
+}

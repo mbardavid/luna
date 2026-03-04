@@ -61,20 +61,28 @@ MC_API_TOKEN="${MC_API_TOKEN:-}"
 
 if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
     log "Loading task from MC: $MC_TASK_ID"
+    # Save CLI values — MC data only fills gaps, never overwrites CLI args
+    CLI_AGENT="$AGENT"
+    CLI_TASK="$TASK"
+    CLI_TITLE="$TITLE"
     MC_DATA=$(curl -s "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \
         -H "Authorization: Bearer $MC_API_TOKEN" 2>/dev/null)
-    
+
     if [ -n "$MC_DATA" ]; then
-        AGENT=$(echo "$MC_DATA" | python3 -c "
+        _MC_AGENT=$(echo "$MC_DATA" | python3 -c "
 import json,sys
 t = json.load(sys.stdin)
 # Map agent IDs to openclaw agent names
 agent_map = {'ccd2e6d0': 'luan', 'ad3cf364': 'crypto-sage', '70bd8378': 'main', 'b66bda98': 'quant-strategist'}
 aid = t.get('assigned_agent_id', '')
 print(agent_map.get(aid, aid))
-" 2>/dev/null)
-        TITLE=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('title',''))" 2>/dev/null)
-        TASK=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('description',''))" 2>/dev/null)
+" 2>/dev/null) || _MC_AGENT=""
+        _MC_TITLE=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('title',''))" 2>/dev/null) || _MC_TITLE=""
+        _MC_TASK=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('description',''))" 2>/dev/null) || _MC_TASK=""
+        # CLI args take priority over MC data
+        [ -z "$CLI_AGENT" ] && AGENT="${_MC_AGENT}"
+        [ -z "$CLI_TITLE" ] && TITLE="${_MC_TITLE}"
+        [ -z "$CLI_TASK" ]  && TASK="${_MC_TASK}"
 
         # Extract rejection feedback and authorization status
         MC_REJECTION_FEEDBACK=$(echo "$MC_DATA" | python3 -c "
@@ -180,14 +188,25 @@ if [ "$DRY_RUN" -eq 1 ]; then
     exit 0
 fi
 
-# ─── Update MC status to in_progress ─────────────────────────────────────────
+# ─── Update MC status to in_progress (only for non-review tasks) ─────────────
+# Review tasks must stay in "review" status — QA is handled by Luna's main session.
+# Moving reviews to in_progress creates orphan tasks with no executor.
 
 if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
-    curl -s -X PATCH "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \
-        -H "Authorization: Bearer $MC_API_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d '{"status":"in_progress"}' > /dev/null 2>&1 || true
-    log "MC task $MC_TASK_ID → in_progress"
+    # Check current task status before changing it
+    _CURRENT_STATUS=$(curl -s "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \
+        -H "Authorization: Bearer $MC_API_TOKEN" 2>/dev/null \
+        | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null) || _CURRENT_STATUS=""
+
+    if [ "$_CURRENT_STATUS" = "review" ]; then
+        log "MC task $MC_TASK_ID stays in review (review tasks are not moved to in_progress)"
+    else
+        curl -s -X PATCH "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \
+            -H "Authorization: Bearer $MC_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"status":"in_progress"}' > /dev/null 2>&1 || true
+        log "MC task $MC_TASK_ID → in_progress"
+    fi
 fi
 
 # ─── Dispatch via openclaw agent ─────────────────────────────────────────────
@@ -228,7 +247,8 @@ if [ -n "$MC_TASK_ID" ] && [ -n "$SESSION_ID" ] && [ -n "$MC_API_TOKEN" ]; then
     curl -s -X PATCH "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \
         -H "Authorization: Bearer $MC_API_TOKEN" \
         -H "Content-Type: application/json" \
-        -d "{\"mc_session_key\":\"$SESSION_ID\"}" > /dev/null 2>&1 || true
+        -d "{\"custom_field_values\":{\"mc_session_key\":\"$SESSION_ID\"}}" > /dev/null 2>&1 || true
+    log "MC task $MC_TASK_ID linked session_key=$SESSION_ID"
 fi
 
 # ─── Update rate limit state ─────────────────────────────────────────────────

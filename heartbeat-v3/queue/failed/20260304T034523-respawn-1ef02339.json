@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "1ef02339-7b96-4796-8e20-0039c8ea75f0",
+  "filename": "20260304T034523-respawn-1ef02339.json",
+  "created_at": "2026-03-04T03:45:23.617232+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Strategy: Polymarket Event-Driven Trading",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nConstruir m\u00f3dulo de trading direcional no Polymarket usando an\u00e1lise AI/LLM para identificar mercados mispriced. Foco em nichos onde informa\u00e7\u00e3o assim\u00e9trica d\u00e1 edge: Fed decisions, sports lines (cross-ref com sportsbooks), mercados pol\u00edticos de nicho.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 202",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 1,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:bcda57cf-7c9e-409e-84f6-ebbd0cf594e0"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

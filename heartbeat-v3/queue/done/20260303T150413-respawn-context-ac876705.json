@@ -1,0 +1,12 @@
+{
+  "type": "respawn",
+  "task_id": "ac876705-46e3-47de-b271-2d42ee44764b",
+  "title": "Research Deep Dive: Polymarket Rewards Farming Mechanics",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "agent:quant-strategist:subagent:de3c83ce-dec0-4581-980d-5224d89e8366",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  }
+}

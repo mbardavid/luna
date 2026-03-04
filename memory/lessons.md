@@ -458,3 +458,155 @@ O comando `openclaw gateway call agent --json --params '{"message":"...","idempo
 
 ### Por que é cláusula pétrea
 Este padrão resolve o problema fundamental de "bash detecta mas não age". É o bridge entre o mundo determinístico (bash/cron) e o mundo inteligente (AI agent). Sem ele, qualquer sistema de automação tem um gap inerente. Com ele, o gap é virtualmente zero para eventos críticos.
+
+## L14 — Cláusula Pétrea: Wakeup Instantâneo via `gateway call agent` (2026-03-03) (cross-pollinated 2026-03-03)
+
+### Descoberta
+`openclaw gateway call agent --json --params '{"message":"...","idempotencyKey":"..."}' ` cria um turno AI imediatamente na sessão principal. Scripts bash podem despertar agentes em segundos.
+
+### Arquitetura de 3 Camadas
+1. **Wakeup instantâneo** — `gateway call agent` nos pontos críticos
+2. **Heartbeat built-in** (2min) — safety net
+3. **Bash detection engine** (*/5) — detecção + dispara camada 1
+
+### Regras para implementação
+- Ao criar scripts de detecção: SEMPRE incluir `gateway call agent` após gerar queue item
+- `idempotencyKey` único por evento (timestamp ou task_id)
+- Timeout 15-20s, non-fatal se falhar (heartbeat é backup)
+- Aplicável a qualquer agente, não só Luna
+
+### Contexto
+Antes desta descoberta, detecção bash → ação AI tinha gap de 10-30min. Agora: ~3 segundos. É o bridge entre bash (determinístico) e AI (inteligente). Padrão obrigatório para toda automação futura.
+
+## 2026-03-03: Phase 6 Review Deadlock — 11h Zero Dispatches
+
+### Incidente
+Heartbeat-v3 ficou 11+ horas (04:05 → 15:00) sem despachar NENHUMA task. 8 reviews acumuladas, 10 inbox estagnadas.
+
+### Mecanismo do Deadlock
+1. **Phase 6** selecionava uma review task como `next_task` e logava "skipping inbox" → inbox completamente bloqueado
+2. **Phase 8** (dedup) rejeitava a review selecionada porque já tinha sido dispatched recentemente (janela de 2h)
+3. **Resultado:** Review bloqueia inbox, dedup bloqueia review → NADA é dispatched
+
+### Código Problemático (Phase 6 v1)
+```python
+if eligible_reviews:
+    next_task = eligible_reviews[0]
+    dispatch_type = "review"
+    log("Phase 6: skipping inbox — review task found")
+    # ← inbox NUNCA roda porque next_task != None
+```
+
+### Fix Aplicado
+Phase 6 reescrito para pré-filtrar reviews já dispatched recentemente:
+```python
+recent_ids = {d.get("task_id") for d in recent_dispatches}
+eligible_reviews = [t for t in eligible_reviews if t.get("id") not in recent_ids]
+if eligible_reviews:
+    next_task = eligible_reviews[0]  # dispatch review
+else:
+    pass  # fall through to Phase 7 (inbox drain)
+```
+
+### Regras Permanentes
+- **Phase 6 NUNCA deve bloquear Phase 7.** Se review não é elegível, DEVE cair pro inbox.
+- **Janelas de cooldown devem ser consistentes.** Phase 6 usava 1h, Phase 8 usava 2h → conflito. Unificar.
+- **Testar interação entre phases, não phases isoladas.** O deadlock só ocorre quando Phase 6 + Phase 8 interagem.
+- **"skipping inbox" é um anti-pattern.** Inbox drain SEMPRE deve ser fallback se não há review elegível.
+
+### Detecção
+O heartbeat logava normalmente ("Phase 6: skipping inbox"), não gerava erro nem alerta. O deadlock era silencioso. Precisamos de alerta automático quando 0 dispatches em N horas.
+
+## 2026-03-04: Watchdog Stall Loop — artifacts fora do workspace principal
+
+- **Sintoma:** task plan-only cai em `review` e o watchdog marca como `stalled` repetidamente.
+- **Causa raiz:** artifact/arquivo do deliverable ficou apenas no `workspace-luan/` (ou outro workspace de subagent). A Luna/MC não consegue validar/fechar e o sistema fica acordando/stallando.
+- **Correção padrão:** antes de mover card para `awaiting_human`/`done`, **copiar artifacts para o workspace principal** (`/home/openclaw/.openclaw/workspace/docs|research|artifacts`) e referenciar o path no comentário do card.
+- **Mitigação estrutural:** adicionar um checklist obrigatório no Judge QA + (futuro) mirror upstream-docs e/ou automação que detecta artifact ausente e copia automaticamente.
+
+## 2026-03-04: Auditabilidade — nunca apagar histórico, só append
+
+- **Regra:** para manter trilha auditável em Mission Control, **nunca sobrescrever/apagar histórico**. Atualizações sempre via:
+  - `comment` para timeline (o que foi feito + referência de artifacts)
+  - `fields` para estado atual (progress/summary/last_error)
+  - `status` apenas para refletir a fase atual
+- **Descrição do card:** manter “Next Steps” e contexto atual, mas **preservar estados anteriores em comentários**.
+
+## 2026-03-03: QA Autopilot — Wake exige execução no mesmo turno
+
+- **Regra:** ao receber wake com **"QA REVIEW OBRIGATÓRIO"**, executar QA **no mesmo turno** e atualizar o MC (done ou inbox com feedback). Não basta responder "vou verificar".
+- **Mínimo:** fechar 1 review por wake (até 2 se possível). Se faltar artifact/checagem, retornar a task pro inbox explicando exatamente o que falta.
+
+## 2026-03-03: UX de Operação — Não Perguntar no Fluxo Normal
+
+- **Regra:** quando o caminho é o fluxo normal (MC → heartbeat → dispatch/review → QA → done), **não perguntar ao Matheus o que fazer**. Só perguntar quando algo **fugir do script** (falha, gate humano real, risco alto/disruptivo, ambiguidade de objetivo, inconsistência de dados).
+- **Motivo:** reduzir necessidade de “provocação” humana; manter autonomia operacional.
+
+## 2026-03-03: mc-fast-dispatch.sh — Bug de Overwrite de Args
+
+### Bug
+Quando `--from-mc` é passado junto com `--agent`/`--task`, o bloco de load da MC API (linhas 62-130) SOBRESCREVE os valores CLI. Se a MC API retorna dados vazios (token inválido, task não encontrada), AGENT e TASK ficam vazios → validação falha com "ERROR: --agent and --task are required".
+
+### Impacto
+O heartbeat-v3 Phase 9 chama `mc-fast-dispatch.sh --from-mc <task_id> --agent <agent> --task <desc>`. Se MC_API_TOKEN está set no env (crontab), o bloco --from-mc sobrescreve --agent/--task. Se API retorna erro, dispatch falha silenciosamente.
+
+### Fix Necessário
+Não sobrescrever AGENT/TASK se já foram passados via CLI. Lógica: `[ -z "$AGENT" ] && AGENT=$(...)` em vez de `AGENT=$(...)`.
+
+## 2026-03-03: Dispatcher Agent Ainda no Antigravity (Dead Provider)
+
+### Descoberta
+Após migração dos agentes principais para `openai-codex/gpt-5.2`:
+- Luna (main): `openai-codex/gpt-5.2` ✅
+- Luan: `openai-codex/gpt-5.3-codex-spark` ✅
+- **Dispatcher: `google-antigravity/gemini-3-flash`** ← NÃO MIGRADO
+
+### Impacto
+`mc-fast-dispatch.sh` usa `openclaw agent --agent "dispatcher"` → roteia para `gemini-3-flash` via Antigravity. Se Antigravity API cai (como em 02/03), TODOS os fast dispatches falham. O heartbeat-v3 Phase 9 também usa fast-dispatch → dispatch via dispatcher também falha.
+
+### Fix Necessário
+Migrar dispatcher para provider funcional. Opções:
+1. `openai-codex/gpt-5.2` (match com Luna — mais caro, mais capaz)
+2. Outro modelo leve funcional no openai-codex
+3. Eliminar o agente dispatcher e fazer dispatch direto (sem intermediário)
+
+### Regra
+**Ao migrar providers, verificar TODOS os agentes.** A migração de Luna/Luan para openai-codex esqueceu o dispatcher. Manter checklist: `grep -c "google-antigravity" openclaw.json` deve retornar 0 após migração completa.
+
+## 2026-03-03: Review QA Fake Dispatch — 3 Bugs Encadeados
+
+### Incidente
+Reviews eram "dispatched" a cada 30min pelo heartbeat, logs mostravam "FAST DISPATCH success", mas nenhum QA era executado. Tasks ficavam em loop infinito de fake dispatches.
+
+### Cadeia de 3 Bugs
+1. **mc-fast-dispatch.sh movia reviews para `in_progress`** (linha 193-197) — incondicional. O heartbeat Phase 9 dizia "keep in review", mas fast-dispatch sobrescrevia.
+2. **Dispatcher não pode spawnar "main"** — `allowAgents: ["luan", "crypto-sage", "quant-strategist"]` no openclaw.json. Luna não estava na lista. O dispatcher recebia "DISPATCH agent=main", não podia spawnar, e respondia em 2-20s sem fazer nada.
+3. **Reviews usavam mc-fast-dispatch.sh** — que é projetado para inbox tasks (spawn via dispatcher). Reviews precisam da sessão PRINCIPAL da Luna, não de uma sessão isolada.
+
+### Evidência
+Todos os fast dispatches de review usavam a MESMA session ID do dispatcher (f1631aec) e duravam 2-20s. QA real (ler files, rodar checks, update MC) leva minutos, não segundos.
+
+### Fix Aplicado
+- **Phase 9 reescrito**: reviews agora usam `wake_luna_immediate()` direto na sessão principal da Luna, com mensagem QA acionável. mc-fast-dispatch.sh só é usado para inbox tasks.
+- **mc-fast-dispatch.sh protegido**: checa status antes de mover para in_progress. Tasks em `review` não são movidas.
+
+### Regras Permanentes
+- **Review QA NUNCA deve usar mc-fast-dispatch.sh.** Dispatcher não pode spawnar Luna, e sessões isoladas não têm contexto para QA.
+- **Review QA usa `wake_luna_immediate()` com mensagem acionável** que inclui os 5 passos de QA + comandos exatos de mc-client.sh.
+- **mc-fast-dispatch.sh NUNCA deve mover tasks de `review` para `in_progress`.** Verificar status atual antes de alterar.
+- **O dispatcher é para subagentes (luan, crypto-sage, quant), NUNCA para o agente principal.**
+
+## Lesson 18: COMPLETION_STATUS Obrigatório em Todo Task Output (2026-03-03)
+**Domain:** Task Lifecycle / Automation
+**Pattern:** Agentes completavam tasks mas não emitiam o bloco `COMPLETION_STATUS:` no final. Sem esse marcador, o `auto-qa-reviewer` e o `heartbeat-v3.check_session_completion()` não conseguem verificar objetivamente se a task foi concluída. Resultado: tasks ficam presas em `review` indefinidamente, gerando retry storms e notification loops.
+**Root Cause:** Bugs sistêmicos no pipeline (mc_retry_count como string → 422, mc_session_key fora de custom_field_values, queue-consumer ausente no cron) combinados com a ausência do marcador de conclusão criaram um ciclo onde nada era fechado automaticamente.
+**Action:** TODO agente (Luan, Crypto-Sage, Quant-Strategist) DEVE terminar cada task com o bloco estruturado:
+```
+---
+COMPLETION_STATUS: complete|partial|blocked|failed|plan_submitted
+FILES_CHANGED: <N>
+CRITERIA_MET: <met>/<total>
+BLOCKERS: <none|desc>
+---
+```
+Sem esse bloco, o `auto-qa-reviewer.sh` cai no fallback (WAKE Luna), que por sua vez pode não fechar o loop — criando o mesmo padrão de task zombi. O bloco é a chave para fechamento automático do ciclo detectar→agir→atualizar→parar.

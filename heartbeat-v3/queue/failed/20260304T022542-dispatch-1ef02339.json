@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "1ef02339-7b96-4796-8e20-0039c8ea75f0",
+  "filename": "20260304T022542-dispatch-1ef02339.json",
+  "created_at": "2026-03-04T02:25:42.801067+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Strategy: Polymarket Event-Driven Trading",
+  "agent": "luan",
+  "priority": "medium",
+  "context": {
+    "description": "## Objective\nConstruir m\u00f3dulo de trading direcional no Polymarket usando an\u00e1lise AI/LLM para identificar mercados mispriced. Foco em nichos onde informa\u00e7\u00e3o assim\u00e9trica d\u00e1 edge: Fed decisions, sports lines (cross-ref com sportsbooks), mercados pol\u00edticos de nicho.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 2026):\n- Mercados grandes (Khamenei/Iran): $14M volume di\u00e1rio, pre\u00e7os 99.8-99.9c \u2014 extremamente eficientes, SEM edge\n- Sports: Explor\u00e1veis via cross-ref com DraftKings/FanDuel odds. rwdMin=$50\n- Crypto p",
+    "eligible_count": 8,
+    "in_progress_count": 2,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "1ef02339-7b96-4796-8e20-0039c8ea75f0",
+    "title": "Strategy: Polymarket Event-Driven Trading",
+    "description": "## Objective\nConstruir m\u00f3dulo de trading direcional no Polymarket usando an\u00e1lise AI/LLM para identificar mercados mispriced. Foco em nichos onde informa\u00e7\u00e3o assim\u00e9trica d\u00e1 edge: Fed decisions, sports lines (cross-ref com sportsbooks), mercados pol\u00edticos de nicho.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 2026):\n- Mercados grandes (Khamenei/Iran): $14M volume di\u00e1rio, pre\u00e7os 99.8-99.9c \u2014 extremamente eficientes, SEM edge\n- Sports: Explor\u00e1veis via cross-ref com DraftKings/FanDuel odds. rwdMin=$50\n- Crypto p",
+    "priority": "medium"
+  }
+}

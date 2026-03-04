@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "7cac8776-5ebb-474d-b8b1-187a6c451583",
+  "filename": "20260303T125042-dispatch-7cac8776.json",
+  "created_at": "2026-03-03T12:50:42.730531+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research Deep Dive: Polymarket Power Users & Top Market Makers",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nMapear intelig\u00eancia competitiva no Polymarket: power users lucrativos, top market makers, como ganham (rewards vs spreads vs arb), e quais mercados/categorias concentram a edge. Objetivo: copiar o que funciona e evitar o que \u00e9 competitivo demais.\n\n## Context\nPrecisamos de fontes atuais (mar/2026): threads no X/Reddit, posts/Medium, Dune dashboards, e quaisquer dados p\u00fablicos sobre rewards/lp. Entregar heur\u00edsticas pr\u00e1ticas: como identificar mercados onde pequenos MMs conseguem rewards; sinais de book super competitivo; e quais comportamentos de MMs s\u00e3o comuns.\n\n## Acceptance Criteria\n- [ ] Relat\u00f3rio com: (1) lista de 10+ fontes/links relevantes; (2) padr\u00f5es extra\u00eddos (rewards farming tactics, order refresh cadence, sizing); (3) exemplos concretos de wallets/power users se dispo",
+    "original_agent": "luan",
+    "session_key": "agent:quant-strategist:subagent:ba369b73-f329-4034-bec5-2d68d1ba9bce",
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "7cac8776-5ebb-474d-b8b1-187a6c451583",
+    "title": "Research Deep Dive: Polymarket Power Users & Top Market Makers",
+    "description": "## Objective\nMapear intelig\u00eancia competitiva no Polymarket: power users lucrativos, top market makers, como ganham (rewards vs spreads vs arb), e quais mercados/categorias concentram a edge. Objetivo: copiar o que funciona e evitar o que \u00e9 competitivo demais.\n\n## Context\nPrecisamos de fontes atuais (mar/2026): threads no X/Reddit, posts/Medium, Dune dashboards, e quaisquer dados p\u00fablicos sobre rewards/lp. Entregar heur\u00edsticas pr\u00e1ticas: como identificar mercados onde pequenos MMs conseguem rewards; sinais de book super competitivo; e quais comportamentos de MMs s\u00e3o comuns.\n\n## Acceptance Criteria\n- [ ] Relat\u00f3rio com: (1) lista de 10+ fontes/links relevantes; (2) padr\u00f5es extra\u00eddos (rewards farming tactics, order refresh cadence, sizing); (3) exemplos concretos de wallets/power users se dispo",
+    "priority": "high"
+  }
+}

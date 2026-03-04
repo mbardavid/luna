@@ -145,3 +145,11 @@
 - **Arquitetura de uptime 3 camadas:** (1) agent RPC instantâneo, (2) heartbeat built-in 2min, (3) bash cron */5.
 - **Risco novo (03/mar): dispatcher gemini-flash pode falhar com 403 (serviço desabilitado/ToS).** Precisa de plano de fallback (trocar provider/modelo do dispatcher ou usar caminho alternativo de dispatch) para não quebrar autonomia/latência.
 - **Sinal de observabilidade a validar:** divergência entre contagem de inbox do heartbeat (10) e watchdog (0) sugere possível problema de auth/board alvo/filtros em scripts de MC; investigar para não perder backlog real.
+
+## 2026-03-04
+
+- **Upgrade para OpenClaw 2026.3.2 concluído** e verificado (rotina pós-upgrade executada; runbooks criados para snapshot pré/pós).
+- **Judge Loop virou regra dura:** qualquer wake contendo “QA REVIEW OBRIGATÓRIO” deve executar QA + atualizar Mission Control no mesmo turno.
+- **Mission Control auditável (diretriz do Matheus):** preservar timeline em comments, não apagar contexto, e sempre manter “Next Steps” na descrição.
+- **Padronização de status MC:** backend aceita `awaiting_human` (não `needs_approval`); scripts foram ajustados para normalizar e evitar drift.
+- **Direção operacional:** migrar de rate limit “cego” para **health-gated dispatch** (checkpoints + remediation + safe-restart só por threshold).

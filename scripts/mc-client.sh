@@ -47,7 +47,7 @@ MC_TOKEN="${MC_AUTH_TOKEN:-}"
 if [ -z "$MC_TOKEN" ]; then
   MC_TOKEN="$(mc_cfg auth_token)"
 fi
-MC_STATUS_ALLOWLIST="${MC_STATUS_ALLOWLIST:-inbox,in_progress,review,blocked,stalled,retry,needs_approval,done,failed}"
+MC_STATUS_ALLOWLIST="${MC_STATUS_ALLOWLIST:-inbox,in_progress,review,awaiting_human,blocked,stalled,retry,done,failed}"
 MC_STATUS_ALLOWLIST="${MC_STATUS_ALLOWLIST,,}"
 MC_STATUS_ALLOWLIST="${MC_STATUS_ALLOWLIST//[[:space:]]/}"
 

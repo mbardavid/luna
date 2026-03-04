@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "f5d6003b-1e45-412d-8587-051f4496286a",
+  "filename": "20260303T125542-dispatch-f5d6003b.json",
+  "created_at": "2026-03-03T12:55:42.631964+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM Position Tracker: Real-time CTF Position Visibility",
+  "agent": "main",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nCriar m\u00f3dulo de tracking de posi\u00e7\u00f5es CTF on-chain para o PMM. Deve consultar Blockscout/RPC para listar todas as ERC-1155 positions do wallet, com pre\u00e7o atual via CLOB API, valor em USD, e PnL. Integrar no startup do runner e no /saldo do crypto-sage.\n\n## Context\nProblema: posi\u00e7\u00f5es CTF ficaram 'escondidas' por semanas porque o RPC polygon-rpc.com retornava dados errados. Blockscout API funciona: GET polygon.blockscout.com/api/v2/addresses/{wallet}/tokens?type=ERC-1155. Prices via: GET clob.polymarket.com/price?token_id={id}&side=sell (precisa Tor proxy). Wallet: 0xa1464EB4f86958823b0f24B3CF5Ac2b8134D6bb1. CTF contract: 0x4D97DCd97eC945f40cF65F87097ACe5EA0476045. Runner path: polymarket-mm/runner/. Crypto-sage portfolio: workspace-crypto-sage/src/connectors/portfolio.mjs.\n\n## A",
+    "original_agent": "luan",
+    "session_key": "agent:luan:subagent:fd5746da-4861-416a-a580-3d9070857fdc",
+    "review_depth": 2,
+    "risk_profile": "medium",
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 900
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "f5d6003b-1e45-412d-8587-051f4496286a",
+    "title": "PMM Position Tracker: Real-time CTF Position Visibility",
+    "description": "## Objective\nCriar m\u00f3dulo de tracking de posi\u00e7\u00f5es CTF on-chain para o PMM. Deve consultar Blockscout/RPC para listar todas as ERC-1155 positions do wallet, com pre\u00e7o atual via CLOB API, valor em USD, e PnL. Integrar no startup do runner e no /saldo do crypto-sage.\n\n## Context\nProblema: posi\u00e7\u00f5es CTF ficaram 'escondidas' por semanas porque o RPC polygon-rpc.com retornava dados errados. Blockscout API funciona: GET polygon.blockscout.com/api/v2/addresses/{wallet}/tokens?type=ERC-1155. Prices via: GET clob.polymarket.com/price?token_id={id}&side=sell (precisa Tor proxy). Wallet: 0xa1464EB4f86958823b0f24B3CF5Ac2b8134D6bb1. CTF contract: 0x4D97DCd97eC945f40cF65F87097ACe5EA0476045. Runner path: polymarket-mm/runner/. Crypto-sage portfolio: workspace-crypto-sage/src/connectors/portfolio.mjs.\n\n## A",
+    "priority": "high"
+  }
+}

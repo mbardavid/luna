@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "42c6cc59-853d-43bf-82cb-42a0b3b0e8ac",
+  "filename": "20260303T174014-respawn-42c6cc59.json",
+  "created_at": "2026-03-03T17:40:14.498775+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Strategy: Polymarket Rewards Farming (respawn)",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "## Objective\nImplementar modo rewards-optimized no Polymarket-MM (PMM) para priorizar captura de rewards (USDC) do programa de incentivos do Polymarket em vez de spread-capture.\n\n## Approach\n- Adicionar estrat\u00e9gia/flag  (configur\u00e1vel) que seleciona e rotaciona mercados por rewards/capital ratio.\n- D",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:4b58a1bf-f785-490a-9160-2541edde7bca"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

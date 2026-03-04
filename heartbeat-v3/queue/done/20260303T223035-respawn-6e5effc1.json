@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "6e5effc1-a6bf-4d73-9079-74ba9dc52069",
+  "filename": "20260303T223035-respawn-6e5effc1.json",
+  "created_at": "2026-03-03T22:30:35.342573+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Autonomy v1: Scheduler + QA runner + Project Epics (Roadmap + Implementation Plan)",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "Objetivo: desenhar e implementar (em fases) a arquitetura para a Luna operar um backlog grande de tasks (research + dev + ops) de forma aut\u00f4noma, com controle de capacidade/WIP, QA autom\u00e1tico, e suporte a projetos (\u00e9picos) que geram subtasks. Entrega principal nesta task: **PLANO COMPLETO** (n\u00e3o imp",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 1,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:65aad2ed-4111-4b91-8628-edca1972460d"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}
