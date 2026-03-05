@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "5f024ae4-9cb3-42ed-8e64-3a16e1ae6586",
+  "filename": "20260305T014521-respawn-5f024ae4.json",
+  "created_at": "2026-03-05T01:45:21.255629+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Phase 2C: Implement health-gated dispatch (CTO-ops checkpoints)",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "PHASE: implementation\n\n# Phase 2C \u2014 Implementar health-gated dispatch (CTO-ops checkpoints)\n\nRefer\u00eancia: docs/health-gated-dispatch-plan.md\n\nPr\u00e9-requisito:\n- Phase 2A completo (dispatch transacional).\n\nObjetivo:\n- substituir rate limit cego por gate por sa\u00fade (checkpoints + remediation + safe-restar",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 1,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:ed25f456-b19c-490f-9616-cb4964f34bd4"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

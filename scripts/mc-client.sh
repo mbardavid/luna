@@ -221,6 +221,11 @@ mc_get_task() {
   mc_request GET "/boards/$MC_BOARD_ID/tasks/$task_id"
 }
 
+mc_list_task_comments() {
+  local task_id="$1"
+  mc_request GET "/boards/$MC_BOARD_ID/tasks/$task_id/comments"
+}
+
 mc_update_task() {
   local task_id="$1"
   shift
@@ -363,6 +368,9 @@ Commands:
   update-task <task_id> [--status <status>] [--comment <msg>] [--fields <json>]
     Update task.
 
+  list-task-comments <task_id>
+    List task comments.
+
   create-comment <task_id> <message>
     Add task comment.
 
@@ -388,6 +396,10 @@ case "$command" in
   get-task|get_task)
     [ -n "${2:-}" ] || { echo "task_id required" >&2; exit 1; }
     mc_get_task "$2"
+    ;;
+  list-task-comments|list_comments|list-comments)
+    [ -n "${2:-}" ] || { echo "task_id required" >&2; exit 1; }
+    mc_list_task_comments "$2"
     ;;
   create-task|create_task|create-task-id)
     [ $# -ge 3 ] || { echo "usage: create-task <title> <description> [assignee] [priority] [status] [fields]" >&2; exit 1; }

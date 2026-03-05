@@ -217,14 +217,36 @@ class QueueConsumer:
 
         rejection_feedback = context.get("rejection_feedback", "")
         authorization_status = context.get("authorization_status", "")
-
-        feedback_section = ""
+        qa_handoff_comment = context.get("qa_hand_off_comment", "") or context.get("qa_handoff_comment", "")
+        auth_section = ""
         if rejection_feedback:
             feedback_section = f"""
 ## ⚠️ PREVIOUS REVIEW FEEDBACK (MUST ADDRESS)
 {rejection_feedback}
 
 **You MUST address all points above before reporting done.**
+"""
+        else:
+            feedback_section = ""
+
+        qa_section = ""
+        if qa_handoff_comment:
+            qa_section = f"""
+## QA_HANDOFF
+```markdown
+{qa_handoff_comment}
+```
+
+**Use this block as authoritative context before making changes.**
+"""
+        elif context.get("qa_last_error") == "qa_rejected":
+            qa_section = f"""
+## QA_HANDOFF
+- Resultado QA anterior: REJECTED
+- Retry: {context.get('qa_retry_count', 0)}
+- Motivo: {context.get('qa_output_summary', '(não informado)')}
+
+**Use this block as authoritative context before making changes.**
 """
 
         auth_section = ""
@@ -241,7 +263,7 @@ Revise your plan and re-submit for authorization (max 2 cycles).
 """
 
         message = f"""📋 Heartbeat V3 dispatch — execute a task abaixo.
-{feedback_section}{auth_section}
+{feedback_section}{qa_section}{auth_section}
 ## Task
 **Título:** {title}
 **MC Task ID:** {task_id}

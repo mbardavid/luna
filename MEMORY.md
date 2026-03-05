@@ -153,3 +153,8 @@
 - **Mission Control auditável (diretriz do Matheus):** preservar timeline em comments, não apagar contexto, e sempre manter “Next Steps” na descrição.
 - **Padronização de status MC:** backend aceita `awaiting_human` (não `needs_approval`); scripts foram ajustados para normalizar e evitar drift.
 - **Direção operacional:** migrar de rate limit “cego” para **health-gated dispatch** (checkpoints + remediation + safe-restart só por threshold).
+
+## 2026-03-05
+
+- **Infra event-driven (Polymarket) entregue em modo paper-only:** pacote `research/polymarket_event_driven_infra/` com ingestion/scoring (mispricing), sizing (Kelly), execução paper com idempotência/dedupe e tracking de PnL (payloads p/ Supabase), com suíte de testes passando.
+- **PMM rewards-optimized plan documentado:** `docs/pmm-rewards-optimized-plan.md` define objetivo (compliance de thresholds/tempo no book), métricas e guardrails fortes de “no live por default”, além de roadmap de escala.

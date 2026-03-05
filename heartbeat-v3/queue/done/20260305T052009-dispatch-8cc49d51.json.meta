@@ -1,0 +1,6 @@
+{
+  "handled_at": "2026-03-05T05:20:30Z",
+  "handler": "main",
+  "result": "duplicate_suppressed",
+  "note": "Task 8cc49d51 already processed earlier (plan produced). See research/sol-liquid-staking-plan.md in main workspace."
+}

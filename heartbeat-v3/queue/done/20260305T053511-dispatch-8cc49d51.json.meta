@@ -1,0 +1,8 @@
+{
+  "handled_by": "luna",
+  "handled_at": "2026-03-05T05:35:40Z",
+  "result": "dedup_noop",
+  "reason": "Task already completed earlier; plan exists at research/sol-liquid-staking-plan.md",
+  "artifacts": ["research/sol-liquid-staking-plan.md"],
+  "original_task_id": "8cc49d51-4946-403a-bba7-ef6c9c820d7d"
+}

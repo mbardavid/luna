@@ -186,19 +186,20 @@
   4. Iniciar: `sudo systemctl start openclaw-gateway`
   5. Verificar logs: `journalctl -u openclaw-gateway --since '1 minute ago'`
 
-### [CRÍTICO] Restrição de versão: openclaw máximo 2026.2.22-2 enquanto usar Antigravity
+### [HISTÓRICO — OBSOLETO] Restrição de versão: openclaw máximo 2026.2.22-2 enquanto usar Antigravity
 - O provider `google-antigravity` e o plugin `google-antigravity-auth` foram **permanentemente removidos** a partir da versão `2026.2.23`
-- A partir de `2026.2.25` isso é um BREAKING CHANGE explícito: *"removed Google Antigravity provider support and the bundled google-antigravity-auth plugin. Existing google-antigravity/* model/profile configs no longer work"*
-- **`2026.2.22-2` é a versão máxima** compatível com o modelo `google-antigravity/claude-opus-4-6-thinking` da Luna
+- A partir de `2026.2.25` isso é um BREAKING CHANGE explícito: *"removed Google Antigravity provider support and the bundled google-antigravity-auth plugin. Existing google-antigravity/* model/profile configs no longer work"*.
+- **Estado atual (2026-03-04):** já estamos rodando OpenClaw **2026.3.2**. Qualquer referência a “pinned 2026.2.22-2” é histórica e não descreve mais o runtime atual.
+- (Histórico) `2026.2.22-2` era a versão máxima compatível com o modelo `google-antigravity/claude-opus-4-6-thinking` da Luna
 - Qualquer update para `2026.2.23+` quebra todos os modelos da Luna silenciosamente (gateway sobe mas não processa nada)
 - **Antes de sugerir ou executar qualquer update do openclaw**, verificar se a versão alvo ainda suporta `google-antigravity` no changelog
 - Quando quiser migrar para versão nova, será necessário primeiro trocar o provider dos modelos (provavelmente para `google-gemini-cli` com auth Anthropic direta) — essa decisão é do Matheus
-- **Versão atual pinada:** `2026.2.22-2` — NÃO atualizar sem autorização explícita do Matheus
+- (Histórico) **Versão pinada na época:** `2026.2.22-2` — regra válida naquele período.
 
 ### Procedimento de update do OpenClaw — BLOQUEADO
 - **Updates do OpenClaw são responsabilidade EXCLUSIVA do Matheus.** Luna NÃO tem permissão para atualizar.
 - **3 camadas de proteção:** (1) Lessons.md — saber que não deve, (2) sudoers — `sudo npm` exige senha, (3) wrapper `npm-safe` — bloqueia pacote `openclaw` por lógica.
-- **Versão pinada:** `2026.2.22-2`. Só o Matheus altera.
+- (Histórico) **Versão pinada:** `2026.2.22-2`.
 - **Se versão nova for publicada:** informar Matheus e deixar ELE decidir quando/se atualizar.
 - **Script `gateway-update.sh` existe** mas só deve ser usado pelo Matheus manualmente.
 

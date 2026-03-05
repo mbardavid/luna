@@ -65,6 +65,9 @@ import subprocess
 import time
 import fcntl
 import tempfile
+import glob
+import hashlib
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -131,6 +134,10 @@ CB_COOLDOWN_MS = V3_CONFIG.get("circuit_breaker_cooldown_minutes", 30) * 60 * 10
 # Failure detection
 FAILURE_COOLDOWN_MS = 30 * 60 * 1000     # 30min cooldown per failure notification
 MAX_RETRIES = 2
+
+# QA handoff loop
+MAX_QA_RETRY = 3
+QA_HANDOFF_PREFIX = "QA_HANDOFF v1 fp="
 
 # Review dispatcher tuning
 REVIEW_DISPATCH_COOLDOWN_MS = V3_CONFIG.get("review_dispatch_cooldown_minutes", 30) * 60 * 1000  # 30min default
@@ -291,12 +298,28 @@ def mc_list_tasks() -> list:
     return []
 
 
+def mc_list_task_comments(task_id: str) -> list:
+    """List MC comments for a task."""
+    if not task_id:
+        return []
+    try:
+        raw = run_cmd([MC_CLIENT, "list-task-comments", task_id], timeout=20)
+        data = json.loads(raw or "{}")
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("items", []) or data.get("comments", [])
+    except Exception as e:
+        log(f"WARN: failed to fetch comments for {task_id[:8]}: {e}")
+    return []
+
+
 def mc_update_task(task_id: str, **kwargs) -> bool:
     """Update a task via mc-client.sh."""
     cmd = [MC_CLIENT, "update-task", task_id]
     if "status" in kwargs:
         cmd.extend(["--status", kwargs["status"]])
-    if "comment" in kwargs:
+    if kwargs.get("comment"):
         cmd.extend(["--comment", kwargs["comment"]])
     if "fields" in kwargs:
         fields_val = kwargs["fields"]
@@ -310,6 +333,127 @@ def mc_update_task(task_id: str, **kwargs) -> bool:
     except Exception as e:
         log(f"ERROR: mc-update failed: {e}")
         return False
+
+
+def _hash_qa_handoff(task_id: str, reason: str, evidence: str) -> str:
+    """Deterministic fingerprint for a QA handoff."""
+    material = f"{task_id}\n{reason or ''}\n{evidence or ''}".strip().lower()
+    return hashlib.sha1(material.encode("utf-8")).hexdigest()
+
+
+def _normalize_comment_text(raw_text: str) -> str:
+    return str(raw_text or "").replace("\r", "").strip()
+
+
+def _extract_task_comments_for_handoff(task_id: str) -> list:
+    comments = mc_list_task_comments(task_id)
+    normalized = []
+    for item in comments:
+        if not isinstance(item, dict):
+            continue
+        text = item.get("message", "") or item.get("content", "") or item.get("body", "")
+        text = _normalize_comment_text(text)
+        if not text:
+            continue
+        normalized.append(text)
+    return normalized
+
+
+def _extract_latest_qa_handoff_fp(comments: list) -> str:
+    pattern = re.compile(r"QA_HANDOFF\s+v1\s+fp=([a-f0-9]{40})", re.IGNORECASE)
+    for text in reversed(comments):
+        match = pattern.search(text)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _extract_qa_rejection_feedback(task: dict, comments: list) -> dict:
+    """Extract QA rejection signal and reason from task fields/comments.
+
+    Accepted signals:
+      - mc_last_error == 'qa_rejected'
+      - non-empty mc_rejection_feedback with status review
+      - comment marker '[luna-review-reject]' on recent comments
+    """
+    task_id = task.get("id", "")
+    status = str(task.get("status", "")).lower()
+    if status != "review":
+        return {}
+
+    fields = task.get("custom_field_values") or {}
+    last_error = str(fields.get("mc_last_error", "") or "").strip().lower()
+    reason = str(fields.get("mc_rejection_feedback", "") or "").strip()
+
+    if not reason:
+        # pull reason from comments if available
+        for text in comments or _extract_task_comments_for_handoff(task_id):
+            lower = text.lower()
+            if "[luna-review-reject]" in lower or "qa rejected" in lower or "needs changes" in lower:
+                reason = text.split("\n", 1)[-1].strip() or text
+                break
+
+    if last_error == "qa_rejected" or reason:
+        return {
+            "reason": reason,
+            "last_error": last_error,
+            "fields_fp": str(fields.get("mc_qa_handoff_fp", "") or "").strip(),
+        }
+
+    return {}
+
+
+def _build_qa_handoff_block(task: dict, rejection: dict, retry_count: int) -> tuple:
+    """Build QA handoff comment + context.
+
+    Returns:
+      (fingerprint, comment_text, context_dict)
+    """
+    task_id = task.get("id", "")
+    title = task.get("title", "(sem título)")
+    fields = task.get("custom_field_values") or {}
+
+    reason = str(rejection.get("reason", "") or "").strip()
+    artifacts = str(fields.get("mc_output_summary", "") or "").strip() or "(não informado)"
+    failures = str(reason) if reason else "(não informado)"
+    next_steps = (
+        "Corrigir os pontos abaixo, reexecutar e validar novamente contra QA."
+    )
+    acceptance_criteria = str(fields.get("mc_acceptance_criteria", "") or "").strip() or "(critérios da task)"
+    checks = str(fields.get("mc_qa_checks", "") or "").strip() or "pytest / validação manual conforme critérios"
+
+    fp = _hash_qa_handoff(task_id, reason, artifacts)
+
+    comment = (
+        f"{QA_HANDOFF_PREFIX}{fp}\n"
+        f"- **Task ID:** {task_id}\n"
+        f"- **Título:** {title}\n"
+        f"- **Retry:** {retry_count}\n"
+        f"- **Resultado QA:** REJECTED\n"
+        f"- **Reviewer:** Luna\n\n"
+        f"## Motivos e falhas\n"
+        f"{failures}\n\n"
+        f"## Artefatos\n"
+        f"- {artifacts}\n\n"
+        f"## Next steps\n"
+        f"- {next_steps}\n\n"
+        f"## AC\n"
+        f"- {acceptance_criteria}\n\n"
+        f"## Checks\n"
+        f"- {checks}\n"
+    )
+
+    context = {
+        "retry_count": retry_count,
+        "result": "rejected",
+        "fingerprint": fp,
+        "failure_reason": reason,
+        "artifacts": artifacts,
+        "next_steps": next_steps,
+        "acceptance_criteria": acceptance_criteria,
+        "checks": checks,
+    }
+    return fp, comment, context
 
 
 def send_discord(channel: str, message: str) -> bool:
@@ -417,6 +561,40 @@ def write_queue_item(item_type: str, task_id: str, payload: dict) -> str:
             except Exception:
                 pass
         return ""
+
+
+def has_pending_or_active_queue_item(task_id: str) -> bool:
+    """Return True when there is any pending/active queue file for task_id."""
+    if not task_id:
+        return False
+
+    for qdir in (QUEUE_PENDING, QUEUE_ACTIVE):
+        if not os.path.isdir(qdir):
+            continue
+        for filename in glob.glob(os.path.join(qdir, "*.json")):
+            try:
+                with open(filename) as f:
+                    payload = json.load(f)
+                if payload.get("task_id") == task_id:
+                    return True
+            except Exception:
+                # Corrupt files are treated as no proof, but will be escalated by another layer
+                continue
+    return False
+
+
+def has_dispatch_proof(task_id: str, tasks: list, sessions_by_key: dict) -> bool:
+    """Dispatch proof exists if task has live session or queue pending/active proof."""
+    task_obj = next((t for t in tasks if str(t.get("id", "")) == str(task_id)), None)
+    if task_obj:
+        fields = task_obj.get("custom_field_values") or {}
+        session_key = str(fields.get("mc_session_key", "") or "").strip()
+        if session_key and session_key in sessions_by_key:
+            status = str(sessions_by_key[session_key].get("status", "")).lower()
+            if status not in ("failed", "error", "ended"):
+                return True
+
+    return has_pending_or_active_queue_item(task_id)
 
 
 def send_system_event_nudge(title: str, task_id: str) -> bool:
@@ -557,6 +735,42 @@ def analyze_session_failure(session_key: str) -> tuple:
     return failure_type, adjustments
 
 
+def _build_qa_handoff_context(task: dict) -> dict:
+    """Return compact QA handoff context for queue prompt injection."""
+    fields = task.get("custom_field_values") or {}
+    status = str(task.get("status", "")).lower()
+    if status not in {"inbox", "review"}:
+        return {}
+
+    last_error = str(fields.get("mc_last_error", "") or "").strip().lower()
+    if last_error != "qa_rejected":
+        return {}
+
+    task_id = task.get("id", "")
+    comments = _extract_task_comments_for_handoff(task_id)
+    latest_comment = ""
+    latest_fp = str(fields.get("mc_qa_handoff_fp", "") or "").strip()
+    if not latest_fp:
+        latest_fp = _extract_latest_qa_handoff_fp(comments)
+    for comment in comments:
+        if latest_fp and latest_fp in comment:
+            latest_comment = comment
+            break
+    if not latest_comment:
+        for comment in comments:
+            if QA_HANDOFF_PREFIX in comment:
+                latest_comment = comment
+                break
+
+    return {
+        "qa_last_error": last_error,
+        "qa_retry_count": int(fields.get("mc_retry_count", 0) or 0),
+        "qa_handoff_fp": latest_fp,
+        "qa_hand_off_comment": latest_comment,
+        "qa_output_summary": str(fields.get("mc_output_summary", "") or "").strip(),
+    }
+
+
 def build_dispatch_payload(task: dict, agent_name: str, eligible_count: int, in_progress_count: int) -> dict:
     """Build the queue payload for a dispatch item."""
     title = task.get("title", "(sem título)")
@@ -564,6 +778,8 @@ def build_dispatch_payload(task: dict, agent_name: str, eligible_count: int, in_
     description = task.get("description", "")[:500]
     priority = task.get("priority", "medium")
     fields = task.get("custom_field_values") or {}
+
+    qa_context = _build_qa_handoff_context(task)
 
     return {
         "title": title,
@@ -575,6 +791,7 @@ def build_dispatch_payload(task: dict, agent_name: str, eligible_count: int, in_
             "in_progress_count": in_progress_count,
             "rejection_feedback": fields.get("mc_rejection_feedback", ""),
             "authorization_status": fields.get("mc_authorization_status", ""),
+            **qa_context,
         },
         "constraints": {
             "max_age_minutes": V3_CONFIG.get("escalation_critical_minutes", 30),
@@ -1458,19 +1675,23 @@ for t in in_progress:
     session_key = str(fields.get("mc_session_key", "") or "").strip()
 
     if not session_key:
-        if task_id_check == state.get("last_dispatched_id"):
+        # In queue-only mode, only keep "in_progress" if proof exists.
+        # Otherwise rollback to inbox (auditably) to avoid silent orphans.
+        if DISABLE_FAST_DISPATCH and not has_dispatch_proof(task_id_check, tasks, sessions_by_key):
             dispatch_age = now_ms - state.get("dispatched_at", 0)
             if dispatch_age > DISPATCH_STALE_MS:
                 title = t.get("title", "?")
-                log(f"STALE: task {task_id_check[:8]} dispatched {dispatch_age // 60000}min ago, no session_key")
+                log(f"STALE: task {task_id_check[:8]} in_progress without proof for {dispatch_age // 60000}min")
                 mc_update_task(task_id_check,
                     status="inbox",
-                    comment=f"[heartbeat-v3] rollback — no session after {dispatch_age // 60000}min")
+                    comment=f"[heartbeat-v3] rollback — queue-only task without proof after {dispatch_age // 60000}min",
+                    fields={"mc_last_error": "rollback no session/queue proof after timeout", "mc_session_key": ""},
+                )
                 state["last_dispatched_id"] = ""
                 save_state(state)
                 send_discord(NOTIFICATIONS_CHANNEL,
                     f"⏳ **Heartbeat V3** stale dispatch rollback: `{task_id_check[:8]}` — **{title}** "
-                    f"(no session after {dispatch_age // 60000}min)")
+                    f"(no proof after {dispatch_age // 60000}min)")
                 log("Phase 5.5: stale dispatch rolled back — exiting")
                 sys.exit(0)
 
@@ -1531,6 +1752,78 @@ if stale_results:
 log(f"Phase 5.5: {qa_review_count} qa-review, {orphan_count} orphan, {stale_count} stale")
 
 # ============================================================
+# ============================================================
+# PHASE 5.7: QA rejection handoff
+# If a review task has been rejected by QA (manual or marker-based),
+# create/append a QA_HANDOFF comment and move it back to inbox
+# (or await human if retry cap reached).
+# ============================================================
+qa_handoff_handled = 0
+for task in tasks:
+    if str(task.get("status", "")).lower() != "review":
+        continue
+
+    task_id = task.get("id", "")
+    if not task_id:
+        continue
+
+    comments = _extract_task_comments_for_handoff(task_id)
+    rejection = _extract_qa_rejection_feedback(task, comments)
+    if not rejection:
+        continue
+
+    fields = task.get("custom_field_values") or {}
+    current_retry = int(fields.get("mc_retry_count", 0) or 0)
+    next_retry = current_retry + 1
+
+    fp, comment_text, _ = _build_qa_handoff_block(task, rejection, next_retry)
+    field_fp = str(fields.get("mc_qa_handoff_fp", "") or "").strip()
+    comment_fp = _extract_latest_qa_handoff_fp(comments)
+
+    has_fp = False
+    if field_fp and field_fp == fp:
+        has_fp = True
+    elif not field_fp and comment_fp == fp:
+        has_fp = True
+
+    target_status = "inbox"
+    limit_reached = next_retry > MAX_QA_RETRY
+    if limit_reached:
+        target_status = "awaiting_human"
+
+    update_fields = {
+        "mc_retry_count": next_retry,
+        "mc_last_error": "qa_rejected",
+        "mc_session_key": "",
+        "mc_output_summary": f"QA rejected: {rejection.get('reason', '').strip()[:140] or 'motivo não informado'}",
+    }
+    if "mc_qa_handoff_fp" in fields:
+        update_fields["mc_qa_handoff_fp"] = fp
+
+    comment = comment_text
+    if limit_reached:
+        comment += "\n## Observação\n- Máximo de retries QA atingido. Marcado para intervenção humana.\n"
+
+    changed = mc_update_task(
+        task_id,
+        status=target_status,
+        fields=update_fields,
+        comment=None if has_fp else comment,
+    )
+
+    if changed:
+        qa_handoff_handled += 1
+        log(f"QA_HANDOFF applied: task={task_id[:8]} retry={next_retry} fp={fp[:8]} status={target_status}")
+    else:
+        log(f"ERROR: failed to apply QA_HANDOFF for task {task_id[:8]}")
+
+    # If any task was transitioned, avoid dispatching another task in this cycle.
+    # Next cycle will consume the inbox transition + handoff context.
+    if changed:
+        save_state(state)
+        if qa_handoff_handled > 0:
+            sys.exit(0)
+
 # PHASE 6: Review dispatcher (HIGH PRIORITY — runs before inbox)
 #
 # Review tasks from Luan take priority over new inbox dispatch.
@@ -1691,19 +1984,37 @@ if next_task is None:
 # ============================================================
 # PHASE 8: Dedup — already dispatched this task?
 # ============================================================
+# Dedup is only honored when we have execution proof:
+# 1) queue proof (pending/active item still exists), OR
+# 2) task has live mc_session_key.
+#
+# This avoids "already-dispatched" false positives when telemetry is stale,
+# queue item vanished, and no live executor session exists.
 last_id = state.get("last_dispatched_id", "")
 last_at = state.get("dispatched_at", 0)
 
+def _has_dispatch_proof() -> bool:
+    # Only force proof-based dedup for inbox dispatches.
+    if dispatch_type != "inbox":
+        return True
+    return has_dispatch_proof(task_id, tasks, sessions_by_key)
+
 if task_id == last_id and (now_ms - last_at) < DISPATCH_TIMEOUT_MS:
-    elapsed_min = int((now_ms - last_at) / 60000)
-    log(f"SKIP: task {task_id[:8]} already dispatched {elapsed_min}min ago")
-    sys.exit(0)
+    if _has_dispatch_proof():
+        elapsed_min = int((now_ms - last_at) / 60000)
+        log(f"SKIP: task {task_id[:8]} already dispatched {elapsed_min}min ago")
+        sys.exit(0)
+    else:
+        log(f"DEDUPE BYPASS: stale last_dispatched_id for {task_id[:8]} (no live proof)")
 
 for d in recent_dispatches:
     if d.get("task_id") == task_id:
-        elapsed_min = int((now_ms - d.get("at", 0)) / 60000)
-        log(f"SKIP: task {task_id[:8]} dispatched {elapsed_min}min ago (from history)")
-        sys.exit(0)
+        if _has_dispatch_proof():
+            elapsed_min = int((now_ms - d.get("at", 0)) / 60000)
+            log(f"SKIP: task {task_id[:8]} dispatched {elapsed_min}min ago (from history)")
+            sys.exit(0)
+        else:
+            log(f"DEDUPE BYPASS: stale dispatch history for {task_id[:8]} (no live proof)")
 
 log("Phase 8: Dedup OK")
 

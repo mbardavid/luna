@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "041052e0-7027-46e5-9592-dab53995f8c1",
+  "filename": "20260304T215518-respawn-041052e0.json",
+  "created_at": "2026-03-04T21:55:18.655015+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Phase 2A: Dispatch transacional + queue-consumer health (no orphan in_progress)",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "PHASE: implementation\n\n# Phase 2A \u2014 Dispatch transacional + consumer health (no orphan in_progress)\n\n## Objective\nCorrigir definitivamente o pipeline de dispatch (heartbeat-v3 queue-only + queue-dispatch-cron + mc-fast-dispatch), eliminando:\n- dedup sem prova de execu\u00e7\u00e3o\n- tasks em in_progress sem m",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:215bf298-7341-4402-beb5-b504008e2cfe"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

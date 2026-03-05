@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "04cf4072-1509-4df4-9f32-2568e00ff609",
+  "filename": "20260305T002518-respawn-04cf4072.json",
+  "created_at": "2026-03-05T00:25:18.851652+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Strategy: Polymarket MM Spread Capture (Scale-up Plan)",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "Objetivo: produzir um roadmap executivo para evoluir o bot de Polymarket Market Making do modo rewards/paper -> spread capture competitivo quando o capital crescer para ~1k\u201310k+. Incluir: (1) hip\u00f3teses baseadas em dados reais (fills/fees/rejections/latency), (2) requisitos m\u00ednimos de capital por mer",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:a481d14c-4f5c-4ce6-8d17-46b72aa366ad"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

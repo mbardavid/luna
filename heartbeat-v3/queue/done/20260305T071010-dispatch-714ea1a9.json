@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "714ea1a9-0fb8-4a77-bd35-cf3c7c7691d1",
+  "filename": "20260305T071010-dispatch-714ea1a9.json",
+  "created_at": "2026-03-05T07:10:10.651456+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Infra: Event-Driven Trading Pipeline (Polymarket)",
+  "agent": "luan",
+  "priority": "medium",
+  "context": {
+    "description": "## Objective\nConstruir a infraestrutura para trading direcional no Polymarket baseado em an\u00e1lise de eventos. M\u00f3dulos: (1) news/data ingestion, (2) market scoring/mispricing detector, (3) position sizing via Kelly criterion, (4) execution via CLOB API, (5) PnL tracking no Supabase. N\u00c3O executar trades reais \u2014 apenas a infra.\n\n## Context\nO quant agent identificou event-driven trading como strategy #2 (5-20% monthly variable). Mercados explor\u00e1veis: sports (cross-ref com sportsbooks), Fed/macro, nic",
+    "eligible_count": 5,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "714ea1a9-0fb8-4a77-bd35-cf3c7c7691d1",
+    "title": "Infra: Event-Driven Trading Pipeline (Polymarket)",
+    "description": "## Objective\nConstruir a infraestrutura para trading direcional no Polymarket baseado em an\u00e1lise de eventos. M\u00f3dulos: (1) news/data ingestion, (2) market scoring/mispricing detector, (3) position sizing via Kelly criterion, (4) execution via CLOB API, (5) PnL tracking no Supabase. N\u00c3O executar trades reais \u2014 apenas a infra.\n\n## Context\nO quant agent identificou event-driven trading como strategy #2 (5-20% monthly variable). Mercados explor\u00e1veis: sports (cross-ref com sportsbooks), Fed/macro, nic",
+    "priority": "medium"
+  }
+}

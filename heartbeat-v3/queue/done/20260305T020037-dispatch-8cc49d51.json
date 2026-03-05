@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "8cc49d51-4946-403a-bba7-ef6c9c820d7d",
+  "filename": "20260305T020037-dispatch-8cc49d51.json",
+  "created_at": "2026-03-05T02:00:37.655798+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Strategy: SOL Liquid Staking (Jito/Marinade)",
+  "agent": "luan",
+  "priority": "medium",
+  "context": {
+    "description": "## Objective\nFazer liquid staking dos ~$182 em SOL via Jito (JitoSOL) ou Marinade (mSOL). Yield de ~7% APY sem risco adicional. SOL staked continua dispon\u00edvel para airdrop farming e DeFi composability.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 2026):\n- SOL staking APY: ~7%\n- $182 \u00d7 7% = ~$12.74/ano = ~$1.06/m\u00eas\n- Liquid staking (JitoSOL, mSOL): Mesmo APY + DeFi composability\n- SOL staked pode ser usado em Kamino, MarginFi, Drift (airdrop farming)\n\nIMPLEMENTA\u00c7\u00c3O:\n1. Escolher protocolo: Jito (MEV rewards ",
+    "eligible_count": 7,
+    "in_progress_count": 1,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "8cc49d51-4946-403a-bba7-ef6c9c820d7d",
+    "title": "Strategy: SOL Liquid Staking (Jito/Marinade)",
+    "description": "## Objective\nFazer liquid staking dos ~$182 em SOL via Jito (JitoSOL) ou Marinade (mSOL). Yield de ~7% APY sem risco adicional. SOL staked continua dispon\u00edvel para airdrop farming e DeFi composability.\n\n## Context\nAN\u00c1LISE DO QUANT (Mar 2026):\n- SOL staking APY: ~7%\n- $182 \u00d7 7% = ~$12.74/ano = ~$1.06/m\u00eas\n- Liquid staking (JitoSOL, mSOL): Mesmo APY + DeFi composability\n- SOL staked pode ser usado em Kamino, MarginFi, Drift (airdrop farming)\n\nIMPLEMENTA\u00c7\u00c3O:\n1. Escolher protocolo: Jito (MEV rewards ",
+    "priority": "medium"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "856e22f8-9557-4e16-8ac5-9962c791229b",
+  "filename": "20260305T073038-dispatch-856e22f8.json",
+  "created_at": "2026-03-05T07:30:38.264261+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Infra: DeFi Yield Farming Automation (Base/Yearn)",
+  "agent": "luan",
+  "priority": "medium",
+  "context": {
+    "description": "## Objective\nConstruir automa\u00e7\u00e3o para yield farming em stablecoins na Base. M\u00f3dulos: (1) bridge Polygon\u2192Base, (2) deposit/withdraw em Yearn USDC vault, (3) APY monitoring com alertas, (4) portfolio tracking no crypto-sage. N\u00c3O depositar capital real \u2014 apenas a infra de scripts.\n\n## Context\nQuant research: Yearn USDC vault na Base tem 26.9% APY, single-sided, baixo risco. MaxAPY USDC 20.9%. Bridge Polygon\u2192Base custa ~$0.10. Crypto-sage j\u00e1 tem Base connector em src/connectors/base.mjs. Wallet EVM:",
+    "eligible_count": 4,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "856e22f8-9557-4e16-8ac5-9962c791229b",
+    "title": "Infra: DeFi Yield Farming Automation (Base/Yearn)",
+    "description": "## Objective\nConstruir automa\u00e7\u00e3o para yield farming em stablecoins na Base. M\u00f3dulos: (1) bridge Polygon\u2192Base, (2) deposit/withdraw em Yearn USDC vault, (3) APY monitoring com alertas, (4) portfolio tracking no crypto-sage. N\u00c3O depositar capital real \u2014 apenas a infra de scripts.\n\n## Context\nQuant research: Yearn USDC vault na Base tem 26.9% APY, single-sided, baixo risco. MaxAPY USDC 20.9%. Bridge Polygon\u2192Base custa ~$0.10. Crypto-sage j\u00e1 tem Base connector em src/connectors/base.mjs. Wallet EVM:",
+    "priority": "medium"
+  }
+}

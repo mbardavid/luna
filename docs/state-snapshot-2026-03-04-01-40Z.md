@@ -32,4 +32,5 @@
   4) Post-upgrade: Judge review of plans integrating new OpenClaw features.
 
 ## Notes
-- Previously pinned 2026.2.22-2 due to plugin incompatibility; upgrade must include plugin compatibility check.
+- Previously pinned 2026.2.22-2 due to plugin incompatibility (historical).
+- **Update:** system is now on OpenClaw **2026.3.2** (as of 2026-03-04).
