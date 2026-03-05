@@ -88,6 +88,7 @@ parsed_json=$(
   RAW_PAYLOAD="$raw_payload" TASK_ID_EXPECTED="$EXPECTED_TASK_ID" STRICT="$STRICT" MC_CLIENT="$MC_CLIENT" python3 - <<'PY'
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 
@@ -96,55 +97,15 @@ expected_task_id = os.environ.get("TASK_ID_EXPECTED", "").strip()
 strict = os.environ.get("STRICT", "0") == "1"
 mc_client = os.environ.get("MC_CLIENT", "").strip()
 
+workspace = Path(mc_client).resolve().parent.parent
+sys.path.insert(0, str(workspace / "heartbeat-v3" / "scripts"))
 
-def _normalize_status(value: str) -> str:
-    if not value:
-        return "in_progress"
-    normalized = value.strip().lower().replace("-", "_")
-    mapping = {
-        "inprogress": "in_progress",
-        "running": "in_progress",
-        "running_task": "in_progress",
-        "active": "in_progress",
-        "completed": "done",
-        "finished": "done",
-        "failed": "failed",
-        "error": "failed",
-        "blocked": "blocked",
-        "needs_approval": "awaiting_human",
-        "needsapproval": "awaiting_human",
-        "awaiting_human": "awaiting_human",
-        "awaitinghuman": "awaiting_human",
-        "review": "review",
-        "stalled": "stalled",
-        "retry": "retry",
-    }
-    result = mapping.get(normalized, normalized if normalized in {"in_progress", "done", "failed", "blocked", "awaiting_human", "review", "stalled", "retry"} else value)
-    return result
+from mc_control import apply_dev_loop_transition, normalize_status, normalize_workflow, task_phase
 
 
-# Anti-collapse: these statuses must remain semantically distinct
-PROTECTED_STATUSES = {"needs_approval", "stalled", "retry", "review", "blocked"}
-COLLAPSE_RULES = {
-    "needs_approval": {"review"},      # needs_approval must NOT become review
-    "stalled": {"review"},             # stalled must NOT become review
-    "retry": {"review", "stalled"},    # retry must NOT become review or stalled
-}
-
-
-def _validate_status_transition(old_status: str, new_status: str) -> str:
-    """Prevent semantic collapse of distinct status values."""
-    if old_status in COLLAPSE_RULES:
-        forbidden = COLLAPSE_RULES[old_status]
-        if new_status in forbidden:
-            # Keep the more specific status
-            return old_status
-    return new_status
-
-
-def fetch_current_status(task_id: str) -> str:
+def fetch_current_task(task_id: str) -> dict:
     if not mc_client:
-        return ""
+        return {}
     try:
         cp = subprocess.run(
             [mc_client, "get-task", task_id],
@@ -152,10 +113,10 @@ def fetch_current_status(task_id: str) -> str:
             text=True,
             capture_output=True,
         )
-        payload = json.loads(cp.stdout)
-        return str(payload.get("status", "")).strip().lower()
+        payload = json.loads(cp.stdout or "{}")
+        return payload if isinstance(payload, dict) else {}
     except Exception:
-        return ""
+        return {}
 
 
 def _extract_updates(raw_text: str):
@@ -217,14 +178,15 @@ if not task_id:
     elif strict:
         raise SystemExit("TASK_UPDATE missing taskId")
 
-status = _normalize_status(str(payload.get("status", "in_progress")))
+raw_status = str(payload.get("status", "in_progress")).strip()
+status = normalize_status(raw_status, default="in_progress")
 if strict and not status:
     raise SystemExit("missing status in update payload")
 
-current_status = fetch_current_status(task_id)
-if current_status:
-    normalized_current = _normalize_status(current_status)
-    status = _validate_status_transition(normalized_current, status)
+current_task = fetch_current_task(task_id)
+current_fields = dict(current_task.get("custom_field_values") or {})
+current_status = normalize_status(current_task.get("status", ""), default="")
+workflow = normalize_workflow(payload.get("workflow") or current_fields.get("mc_workflow") or "direct_exec")
 
 progress = payload.get("progress", 0)
 try:
@@ -242,16 +204,18 @@ artifacts = payload.get("artifacts") or []
 if not isinstance(artifacts, list):
     artifacts = [str(artifacts)]
 
-# Validate: rejections require review_reason
-if status in {"review", "needs_approval", "blocked"} and not review_reason:
-    if strict:
-        raise SystemExit(f"status '{status}' requires review_reason field")
+phase_hint = task_phase({"status": current_status or "inbox", "custom_field_values": current_fields})
+if strict and status == "awaiting_human" and not review_reason:
+    raise SystemExit("awaiting_human requires review_reason")
+if strict and phase_hint == "luna_final_validation" and status == "in_progress" and not review_reason:
+    raise SystemExit("final QA rejection requires review_reason")
 
 comment_lines = [
     f"[TASK_UPDATE] taskId={task_id}",
     f"status={status}",
     f"progress={progress}",
 ]
+comment_lines.append(f"workflow={workflow}")
 if summary:
     comment_lines.append(f"summary={summary}")
 if error is not None:
@@ -262,9 +226,10 @@ if loop_id:
     comment_lines.append(f"loop_id={loop_id}")
 if artifacts:
     comment_lines.append("artifacts=" + ", ".join(map(str, artifacts)))
-comment = "\n".join(comment_lines)
 
-fields = {"mc_progress": progress}
+fields = dict(current_fields)
+fields["mc_progress"] = progress
+fields["mc_workflow"] = workflow
 if summary and status in {"done", "failed"}:
     fields["mc_output_summary"] = str(summary)
 if cost is not None:
@@ -276,8 +241,31 @@ if error is not None:
     fields["mc_last_error"] = str(error)
 if review_reason:
     fields["mc_review_reason"] = str(review_reason)
+    fields["mc_rejection_feedback"] = str(review_reason)
 if loop_id:
     fields["mc_loop_id"] = str(loop_id)
+if raw_status.strip().lower().replace("-", "_") in {"needs_approval", "needsapproval", "awaiting_human"}:
+    fields["mc_gate_reason"] = review_reason or "needs_approval"
+if current_fields.get("mc_dispatch_policy"):
+    fields["mc_dispatch_policy"] = current_fields.get("mc_dispatch_policy")
+
+if workflow == "dev_loop_v1":
+    transition = apply_dev_loop_transition(
+        phase_hint,
+        {**current_fields, **fields, "mc_workflow": workflow},
+        status,
+        review_reason=review_reason,
+        artifacts=artifacts,
+        summary=summary,
+    )
+    status = transition["status"]
+    fields.update(transition["fields"])
+    comment_lines.append(f"phase={fields.get('mc_phase', '')}")
+else:
+    if review_reason and status == "awaiting_human":
+        fields["mc_gate_reason"] = review_reason
+
+comment = "\n".join(comment_lines)
 
 print(json.dumps({
     "task_id": task_id,

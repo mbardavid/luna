@@ -148,7 +148,13 @@ class QueueConsumer:
             data["completed_by"] = "queue-consumer"
             data["success"] = success
             if result:
-                data["result"] = result
+                result = dict(result)
+            else:
+                result = {}
+            result.setdefault("action", "unknown")
+            if success:
+                result.setdefault("session_id", "")
+            data["result"] = result
 
             # Atomic write back to same location first
             with open(src, "w") as f:

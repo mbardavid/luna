@@ -28,6 +28,7 @@ MC_BOARD_ID="${MC_BOARD_ID:-0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47}"
 DISCORD_CHANNEL="${DISCORD_CHANNEL:-1473367119377731800}"
 LOG_FILE="$WORKSPACE/logs/fast-dispatch.log"
 RATE_STATE="/tmp/.fast-dispatch-rate.json"
+METRICS_FILE="$WORKSPACE/state/control-loop-metrics.json"
 MAX_DISPATCHES_PER_HOUR=8
 
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -348,11 +349,66 @@ fi
 # ─── Update rate limit state ────────────────────────────────────────────────
 python3 -c "import json, time;\nstate={'timestamps': []};\n\ntry:\n    with open('$RATE_STATE') as f:\n        state = json.load(f)\nexcept: pass\n\ncutoff = time.time() - 3600\nstate['timestamps'] = [t for t in state.get('timestamps', []) if t > cutoff]\nstate['timestamps'].append(time.time())\nwith open('$RATE_STATE', 'w') as f:\n    json.dump(state, f)\n" 2>/dev/null || true
 
-# ─── Move queue file to done ───────────────────────────────────────────────
+# ─── Move queue file to done with audit metadata ──────────────────────────
 if [ -n "$QUEUE_FILE" ] && [ -f "$QUEUE_FILE" ]; then
     DONE_DIR="$(dirname "$(dirname "$QUEUE_FILE")")/done"
     mkdir -p "$DONE_DIR"
-    mv "$QUEUE_FILE" "$DONE_DIR/" 2>/dev/null || true
+    python3 - "$QUEUE_FILE" "$DONE_DIR" "$SESSION_ID" "$AGENT" "$METRICS_FILE" <<'PY'
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+queue_file, done_dir, session_id, agent, metrics_file = sys.argv[1:6]
+filename = os.path.basename(queue_file)
+target = os.path.join(done_dir, filename)
+
+try:
+    with open(queue_file, "r", encoding="utf-8") as fh:
+        payload = json.load(fh)
+except Exception:
+    payload = {}
+
+payload["completed_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+payload["completed_by"] = "mc-fast-dispatch"
+payload["success"] = True
+payload["result"] = {
+    "action": "dispatch",
+    "agent": agent,
+    "session_id": session_id,
+}
+
+tmp_path = f"{target}.tmp"
+with open(tmp_path, "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, indent=2, ensure_ascii=False)
+    fh.write("\n")
+os.replace(tmp_path, target)
+try:
+    os.unlink(queue_file)
+except FileNotFoundError:
+    pass
+
+metrics = {
+    "schema_version": 2,
+    "last_updated": payload["completed_at"],
+    "counters_today": {},
+    "cron_health": {},
+    "phase_transitions": {},
+}
+if os.path.exists(metrics_file):
+    try:
+        with open(metrics_file, "r", encoding="utf-8") as fh:
+            metrics = json.load(fh)
+    except Exception:
+        pass
+metrics.setdefault("counters_today", {})
+metrics["counters_today"]["queue_items_completed"] = int(metrics["counters_today"].get("queue_items_completed", 0) or 0) + 1
+metrics["last_updated"] = payload["completed_at"]
+os.makedirs(os.path.dirname(metrics_file), exist_ok=True)
+with open(metrics_file, "w", encoding="utf-8") as fh:
+    json.dump(metrics, fh, indent=2, ensure_ascii=False)
+    fh.write("\n")
+PY
 fi
 
 log "Dispatch complete: status=$ACTION_STATUS session=$SESSION_ID duration=${DURATION}ms"

@@ -71,6 +71,34 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from mc_control import (
+    LUNA_REVIEW_PHASES,
+    build_queue_key,
+    claim_review,
+    is_claim_active,
+    is_luna_review_task,
+    load_metrics,
+    metrics_increment,
+    metrics_record_cron,
+    metrics_record_phase_transition,
+    normalize_dispatch_policy,
+    normalize_status,
+    normalize_workflow,
+    queue_phase,
+    queue_key_for_task,
+    route_dev_loop_intake,
+    save_metrics,
+    task_dispatch_policy,
+    task_fields,
+    task_phase,
+    task_phase_owner,
+    task_phase_state,
+    task_status,
+    task_workflow,
+)
+
 
 # === CONFIG ===
 # Resolve workspace: env var → parent of parent of this script
@@ -107,10 +135,12 @@ OPENCLAW_CONFIG = os.environ.get("OPENCLAW_CONFIG", "/home/openclaw/.openclaw/op
 GATEWAY_URL = os.environ.get("MC_GATEWAY_URL", "ws://127.0.0.1:18789")
 DISCORD_CHANNEL = V3_CONFIG.get("discord_channel", "1473367119377731800")
 NOTIFICATIONS_CHANNEL = V3_CONFIG.get("notifications_channel", "1476255906894446644")
+MIRROR_NOTIFICATIONS = bool(V3_CONFIG.get("mirror_notifications", False))
 STATE_FILE = os.environ.get("HEARTBEAT_STATE_FILE", "/tmp/.heartbeat-check-state.json")
 LOCK_FILE = "/tmp/.heartbeat-check.lock"
 LOG_DIR = os.path.join(WORKSPACE, "logs")
 LOG_FILE = os.path.join(LOG_DIR, "heartbeat-v3.log")
+METRICS_FILE = os.path.join(WORKSPACE, "state", "control-loop-metrics.json")
 
 # Agent mapping file
 AGENT_IDS_FILE = os.path.join(WORKSPACE, "config", "mc-agent-ids.json")
@@ -142,6 +172,11 @@ QA_HANDOFF_PREFIX = "QA_HANDOFF v1 fp="
 # Review dispatcher tuning
 REVIEW_DISPATCH_COOLDOWN_MS = V3_CONFIG.get("review_dispatch_cooldown_minutes", 30) * 60 * 1000  # 30min default
 REVIEW_STALE_IGNORE_DAYS = 14                        # Ignore review tasks older than 14 days
+QUEUE_NUDGE_ENABLED = bool(V3_CONFIG.get("queue_nudge_enabled", False))
+QUEUE_WAKE_ENABLED = bool(V3_CONFIG.get("queue_wake_enabled", False))
+INBOX_REQUIRES_IDLE = bool(V3_CONFIG.get("inbox_requires_idle", True))
+QUEUE_DONE_DEDUP_MS = V3_CONFIG.get("queue_done_dedup_minutes", 180) * 60 * 1000
+REVIEW_LEASE_MINUTES = int(V3_CONFIG.get("review_lease_minutes", 20) or 20)
 
 # Dry-run support
 DRY_RUN = "--dry-run" in sys.argv
@@ -475,6 +510,18 @@ def send_discord(channel: str, message: str) -> bool:
         return False
 
 
+def notification_channels() -> list:
+    channels = [DISCORD_CHANNEL]
+    if MIRROR_NOTIFICATIONS and NOTIFICATIONS_CHANNEL and NOTIFICATIONS_CHANNEL not in channels:
+        channels.append(NOTIFICATIONS_CHANNEL)
+    return channels
+
+
+def send_operational_message(message: str) -> None:
+    for channel in notification_channels():
+        send_discord(channel, message)
+
+
 def load_agent_mapping() -> dict:
     """Build UUID → agent name mapping from MC config."""
     mapping = {}
@@ -523,13 +570,92 @@ def record_cb_failure(state: dict) -> None:
 
 # === QUEUE OPERATIONS ===
 
-def write_queue_item(item_type: str, task_id: str, payload: dict) -> str:
+def _load_queue_payload(path: str) -> dict:
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _queue_paths(*directories: str) -> list:
+    paths = []
+    for directory in directories:
+        if not os.path.isdir(directory):
+            continue
+        paths.extend(glob.glob(os.path.join(directory, "*.json")))
+    return paths
+
+
+def _queue_matches(payload: dict, task_id: str, queue_key: str) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    if queue_key and str(payload.get("queue_key", "")).strip() == queue_key:
+        return True
+    return str(payload.get("task_id", "")).strip() == str(task_id).strip()
+
+
+def has_pending_or_active_queue_item(task_id: str, queue_key: str = "") -> bool:
+    """Return True when there is a matching pending/active queue file."""
+    if not task_id:
+        return False
+    for filename in _queue_paths(QUEUE_PENDING, QUEUE_ACTIVE):
+        payload = _load_queue_payload(filename)
+        if _queue_matches(payload, task_id, queue_key):
+            return True
+    return False
+
+
+def has_recent_done_queue_item(task_id: str, queue_key: str = "", window_ms: int = QUEUE_DONE_DEDUP_MS) -> bool:
+    if not task_id or not os.path.isdir(QUEUE_DONE):
+        return False
+    now = int(time.time() * 1000)
+    for filename in _queue_paths(QUEUE_DONE):
+        payload = _load_queue_payload(filename)
+        if not _queue_matches(payload, task_id, queue_key):
+            continue
+        completed_at = str(payload.get("completed_at", "") or "").replace("Z", "+00:00")
+        try:
+            completed_ms = int(datetime.fromisoformat(completed_at).timestamp() * 1000)
+        except Exception:
+            completed_ms = int(os.path.getmtime(filename) * 1000)
+        if now - completed_ms <= window_ms:
+            return True
+    return False
+
+
+def write_queue_item(item_type: str, task_id: str, payload: dict, tasks: list = None, sessions_by_key: dict = None) -> str:
     """
     Atomically write a queue item to pending/.
 
     Returns the filename written, or empty string on failure.
     Format: {timestamp}-{type}-{task_id_short}.json
     """
+    queue_key = str(payload.get("queue_key", "") or "").strip()
+    if not queue_key:
+        queue_key = build_queue_key(task_id, item_type, payload.get("status", "inbox"), payload.get("phase", item_type))
+        payload["queue_key"] = queue_key
+
+    if has_pending_or_active_queue_item(task_id, queue_key=queue_key):
+        log(f"QUEUE DEDUP: skip write for {task_id[:8]} key={queue_key}")
+        metrics_increment(metrics, "queue_items_deduped")
+        save_metrics(METRICS_FILE, metrics)
+        return ""
+
+    if has_recent_done_queue_item(task_id, queue_key=queue_key):
+        log(f"QUEUE DEDUP: recent done exists for {task_id[:8]} key={queue_key}")
+        metrics_increment(metrics, "queue_items_deduped")
+        save_metrics(METRICS_FILE, metrics)
+        return ""
+
+    if tasks is not None and sessions_by_key is not None and item_type in {"dispatch", "respawn"}:
+        if has_dispatch_proof(task_id, tasks, sessions_by_key, queue_key=queue_key):
+            log(f"QUEUE DEDUP: live proof exists for {task_id[:8]} key={queue_key}")
+            metrics_increment(metrics, "queue_items_deduped")
+            metrics_increment(metrics, "duplicate_dispatch_attempts")
+            save_metrics(METRICS_FILE, metrics)
+            return ""
+
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     task_short = task_id[:8] if task_id else "unknown"
     filename = f"{timestamp}-{item_type}-{task_short}.json"
@@ -552,6 +678,8 @@ def write_queue_item(item_type: str, task_id: str, payload: dict) -> str:
             json.dump(queue_item, f, indent=2)
         os.replace(tmp_path, target_path)
         log(f"QUEUE: wrote {filename}")
+        metrics_increment(metrics, "queue_items_written")
+        save_metrics(METRICS_FILE, metrics)
         return filename
     except Exception as e:
         log(f"ERROR: queue write failed: {e}")
@@ -563,38 +691,18 @@ def write_queue_item(item_type: str, task_id: str, payload: dict) -> str:
         return ""
 
 
-def has_pending_or_active_queue_item(task_id: str) -> bool:
-    """Return True when there is any pending/active queue file for task_id."""
-    if not task_id:
-        return False
-
-    for qdir in (QUEUE_PENDING, QUEUE_ACTIVE):
-        if not os.path.isdir(qdir):
-            continue
-        for filename in glob.glob(os.path.join(qdir, "*.json")):
-            try:
-                with open(filename) as f:
-                    payload = json.load(f)
-                if payload.get("task_id") == task_id:
-                    return True
-            except Exception:
-                # Corrupt files are treated as no proof, but will be escalated by another layer
-                continue
-    return False
-
-
-def has_dispatch_proof(task_id: str, tasks: list, sessions_by_key: dict) -> bool:
+def has_dispatch_proof(task_id: str, tasks: list, sessions_by_key: dict, queue_key: str = "") -> bool:
     """Dispatch proof exists if task has live session or queue pending/active proof."""
     task_obj = next((t for t in tasks if str(t.get("id", "")) == str(task_id)), None)
     if task_obj:
-        fields = task_obj.get("custom_field_values") or {}
+        fields = task_fields(task_obj)
         session_key = str(fields.get("mc_session_key", "") or "").strip()
         if session_key and session_key in sessions_by_key:
             status = str(sessions_by_key[session_key].get("status", "")).lower()
             if status not in ("failed", "error", "ended"):
                 return True
 
-    return has_pending_or_active_queue_item(task_id)
+    return has_pending_or_active_queue_item(task_id, queue_key=queue_key)
 
 
 def send_system_event_nudge(title: str, task_id: str) -> bool:
@@ -604,6 +712,9 @@ def send_system_event_nudge(title: str, task_id: str) -> bool:
     This injects a system message into the main session context
     WITHOUT creating a new session. Luna sees it on next interaction.
     """
+    if not QUEUE_NUDGE_ENABLED:
+        log(f"NUDGE SKIP: queue system-event disabled for {task_id[:8]}")
+        return False
     if DRY_RUN:
         log(f"DRY-RUN: system-event nudge for {task_id[:8]} — {title}")
         return True
@@ -658,6 +769,24 @@ def wake_luna_immediate(reason: str) -> bool:
         return True
     except Exception as e:
         log(f"WARN: agent RPC wake failed (non-fatal): {e}")
+        return False
+
+
+def trigger_judge_loop(task_id: str = "", dry_run: bool = False) -> bool:
+    judge_worker = os.path.join(V3_DIR, "scripts", "judge-loop-worker.py")
+    if not os.path.isfile(judge_worker):
+        log("WARN: judge-loop-worker.py missing")
+        return False
+    cmd = [sys.executable, judge_worker]
+    if task_id:
+        cmd += ["--task-id", task_id]
+    if dry_run or DRY_RUN:
+        cmd += ["--dry-run"]
+    try:
+        run_cmd(cmd, timeout=40)
+        return True
+    except Exception as e:
+        log(f"WARN: judge loop trigger failed for {task_id[:8] if task_id else 'all'}: {e}")
         return False
 
 
@@ -785,6 +914,10 @@ def build_dispatch_payload(task: dict, agent_name: str, eligible_count: int, in_
         "title": title,
         "agent": agent_name,
         "priority": priority,
+        "workflow": task_workflow(task),
+        "phase": queue_phase("dispatch", task),
+        "status": task_status(task),
+        "dispatch_policy": task_dispatch_policy(task),
         "context": {
             "description": description,
             "eligible_count": eligible_count,
@@ -816,6 +949,9 @@ def build_failure_payload(task: dict, failure_type: str, retry_count: int, adjus
         "title": title,
         "agent": "luan",  # Default for respawn
         "priority": "high",
+        "workflow": task_workflow(task),
+        "phase": "respawn",
+        "status": task_status(task, default="in_progress"),
         "context": {
             "description": description,
             "failure_type": failure_type,
@@ -842,6 +978,9 @@ def build_review_payload(task: dict) -> dict:
         "title": title,
         "agent": "main",  # Luna reviews, not Luan
         "priority": "high",
+        "workflow": task_workflow(task),
+        "phase": task_phase(task),
+        "status": task_status(task),
         "context": {
             "description": description,
             "original_agent": fields.get("mc_assigned_agent", "luan"),
@@ -1001,7 +1140,7 @@ def check_pmm_health(state: dict) -> dict:
         # Alert once when rate limit first triggers (crash loop detected)
         crash_loop_key = "pmm_crash_loop_alerted"
         if not absorbed.get(crash_loop_key):
-            discord_alert(
+            send_operational_message(
                 "⚠️ **PMM Crash Loop**: bot reiniciou "
                 f"{len(pmm_restarts)}x na última hora e continua morrendo. "
                 "Rate limit ativo — verificar kill switch / config.",
@@ -1401,6 +1540,10 @@ log("heartbeat-v3 starting")
 now_ms = int(time.time() * 1000)
 state = load_state()
 state = ensure_state_fields(state)
+metrics = load_metrics(METRICS_FILE)
+metrics_increment(metrics, "heartbeat_runs")
+metrics_record_cron(metrics, "heartbeat-v3", "running")
+save_metrics(METRICS_FILE, metrics)
 
 # Handle --reset-circuit-breaker
 if RESET_CB:
@@ -1432,16 +1575,14 @@ elif pmm_result.get("alive") is None:
     log(f"Phase 1: PMM status unknown ({pmm_result.get('error', 'no info')})")
 elif pmm_result.get("restarted"):
     log(f"Phase 1: PMM was dead → auto-restarted (PID {pmm_result.get('pid', '?')})")
-    send_discord(NOTIFICATIONS_CHANNEL,
+    send_operational_message(
         f"🔄 **PMM Auto-Restart**: bot was dead, restarted (PID {pmm_result.get('pid', '?')})")
     save_state(state)
 else:
     error = pmm_result.get("error", "unknown")
     log(f"Phase 1: PMM dead, restart skipped ({error})")
     if "max restarts" in str(error):
-        send_discord(DISCORD_CHANNEL,
-            f"⚠️ **PMM**: dead but max restarts/hour exceeded. Requires manual intervention.")
-        send_discord(NOTIFICATIONS_CHANNEL,
+        send_operational_message(
             f"⚠️ **PMM**: dead but max restarts/hour exceeded. Requires manual intervention.")
 
 # ============================================================
@@ -1542,16 +1683,15 @@ for task in tasks:
     if retry_count < MAX_RETRIES:
         # === V3 CHANGE: Write queue file instead of cron one-shot ===
         payload = build_failure_payload(task, failure_type, retry_count, adjustments, session_key)
-        queue_file = write_queue_item("respawn", task_id, payload)
+        payload["queue_key"] = queue_key_for_task(task, "respawn")
+        queue_file = write_queue_item("respawn", task_id, payload, tasks=tasks, sessions_by_key=sessions_by_key)
 
         if queue_file:
-            # Send system-event nudge (non-blocking)
-            send_system_event_nudge(f"🔄 Respawn: {title}", task_id)
-            # Wake Luna immediately for high-priority failures
-            wake_luna_immediate(
-                f"⚠️ Subagent falhou ({failure_type}): {title[:50]}. "
-                f"Queue item gerado para respawn. Processar agora."
-            )
+            if QUEUE_WAKE_ENABLED:
+                wake_luna_immediate(
+                    f"⚠️ Subagent falhou ({failure_type}): {title[:50]}. "
+                    f"Queue item gerado para respawn."
+                )
 
         # Update MC task — only notify if update succeeds (prevents notification storms)
         mc_ok = True
@@ -1567,8 +1707,7 @@ for task in tasks:
                 f"Erro: {failure_type} | Retry #{retry_count + 1}/{MAX_RETRIES}\n"
                 f"Enfileirado para respawn automático via queue."
             )
-            send_discord(DISCORD_CHANNEL, notif_msg)
-            send_discord(NOTIFICATIONS_CHANNEL, notif_msg)
+            send_operational_message(notif_msg)
         else:
             log(f"WARNING: MC update failed for {task_id[:8]}, skipping Discord notification to prevent storm")
 
@@ -1584,8 +1723,7 @@ for task in tasks:
             f"Erro: {failure_type}\n"
             f"Requer intervenção humana."
         )
-        send_discord(DISCORD_CHANNEL, fail_msg)
-        send_discord(NOTIFICATIONS_CHANNEL, fail_msg)
+        send_operational_message(fail_msg)
 
     notified_failures[task_id] = {"at": now_ms, "session": session_key, "type": failure_type}
     new_failures.append({
@@ -1659,7 +1797,7 @@ if desc_violations:
         f"⚠️ **Description Quality**: {len(desc_violations)} task(s) with poor descriptions\n"
         + "\n".join(violation_lines)
     )
-    send_discord(NOTIFICATIONS_CHANNEL, violation_msg)
+    send_operational_message(violation_msg)
     save_state(state)
     log(f"Phase 4.8: {len(desc_violations)} description violation(s) found")
 else:
@@ -1677,8 +1815,7 @@ in_progress = [
 ]
 if len(in_progress) >= MAX_CONCURRENT_IN_PROGRESS:
     titles = [t.get("title", "?")[:40] for t in in_progress[:3]]
-    log(f"SKIP: {len(in_progress)} tasks in_progress (max {MAX_CONCURRENT_IN_PROGRESS}): {', '.join(titles)}")
-    sys.exit(0)
+    log(f"Phase 5: inbox drain will be blocked by {len(in_progress)} in_progress task(s): {', '.join(titles)}")
 
 active_subagents = [
     s for s in sessions
@@ -1689,8 +1826,7 @@ active_subagents = [
 ]
 if len(active_subagents) >= MAX_CONCURRENT_IN_PROGRESS:
     labels = [s.get("label", s.get("key", "?"))[:40] for s in active_subagents[:3]]
-    log(f"SKIP: {len(active_subagents)} active subagent(s): {', '.join(labels)}")
-    sys.exit(0)
+    log(f"Phase 5: observed {len(active_subagents)} active subagent(s): {', '.join(labels)}")
 
 log(f"Phase 5: {len(in_progress)} in_progress, {len(active_subagents)} active subagents")
 
@@ -1718,7 +1854,7 @@ for t in in_progress:
                 )
                 state["last_dispatched_id"] = ""
                 save_state(state)
-                send_discord(NOTIFICATIONS_CHANNEL,
+                send_operational_message(
                     f"⏳ **Heartbeat V3** stale dispatch rollback: `{task_id_check[:8]}` — **{title}** "
                     f"(no proof after {dispatch_age // 60000}min)")
                 log("Phase 5.5: stale dispatch rolled back — exiting")
@@ -1736,25 +1872,38 @@ for result in stale_results:
     rtitle = result.get("title", "?")
 
     if rtype == "qa-review":
-        # Completion pending QA → write qa-review queue item
-        qa_payload = build_qa_review_payload(
-            rtask_id, rtitle,
-            result.get("session_key", ""),
-            result.get("completion_status", "complete"),
+        task_obj = next((t for t in tasks if str(t.get("id", "")) == str(rtask_id)), None)
+        task_obj = task_obj or {"id": rtask_id, "title": rtitle, "status": "review", "custom_field_values": {}}
+        fields = dict(task_fields(task_obj))
+        workflow = task_workflow(task_obj)
+        fields.update({
+            "mc_workflow": workflow,
+            "mc_phase_owner": "luna",
+            "mc_phase_state": "pending",
+            "mc_phase": "luna_final_validation",
+            "mc_last_error": "",
+            "mc_completion_status": result.get("completion_status", "complete"),
+            "mc_session_key": result.get("session_key", ""),
+        })
+        if not fields.get("mc_validation_artifact"):
+            fields["mc_validation_artifact"] = f"artifacts/mc/{rtask_id[:8]}-luna-final-validation.md"
+        mc_update_task(
+            rtask_id,
+            status="review",
+            comment=(
+                f"[heartbeat-v3] completion pending QA detected ({result.get('completion_status', '?')}); "
+                "moved to Luna final validation"
+            ),
+            fields=fields,
         )
-        queue_file = write_queue_item("qa-review", rtask_id, qa_payload)
-        if queue_file:
-            send_system_event_nudge(f"🔍 QA Review: {rtitle}", rtask_id)
-            # Wake Luna immediately for QA reviews
-            wake_luna_immediate(
-                f"🔍 Completion pendente QA: {rtitle[:50]}. "
-                f"Subagent completou, preciso revisar. Queue item gerado."
-            )
-            qa_msg = (
-                f"🔍 **Completion Pending QA**: `{rtask_id[:8]}` — **{rtitle}**\n"
-                f"Status: {result.get('completion_status', '?')} | Enfileirado para review."
-            )
-            send_discord(NOTIFICATIONS_CHANNEL, qa_msg)
+        trigger_judge_loop(rtask_id, dry_run=DRY_RUN)
+        metrics_increment(metrics, "qa_reviews_dispatched")
+        save_metrics(METRICS_FILE, metrics)
+        qa_msg = (
+            f"🔍 **Completion Pending QA**: `{rtask_id[:8]}` — **{rtitle}**\n"
+            f"Status: {result.get('completion_status', '?')} | Routed to judge loop."
+        )
+        send_operational_message(qa_msg)
         qa_review_count += 1
 
     elif rtype == "orphan":
@@ -1769,7 +1918,7 @@ for result in stale_results:
             msg = (
                 f"🟡 **Orphan Task**: `{rtask_id[:8]}` — **{rtitle}** ({result.get('status', '?')}): sem executor"
             )
-        send_discord(NOTIFICATIONS_CHANNEL, msg)
+        send_operational_message(msg)
         orphan_count += 1
 
     elif rtype == "stale":
@@ -1815,6 +1964,8 @@ for task in tasks:
     elif not field_fp and comment_fp == fp:
         has_fp = True
 
+    workflow = task_workflow(task)
+    current_phase = task_phase(task)
     target_status = "inbox"
     limit_reached = next_retry > MAX_QA_RETRY
     if limit_reached:
@@ -1825,7 +1976,17 @@ for task in tasks:
         "mc_last_error": "qa_rejected",
         "mc_session_key": "",
         "mc_output_summary": f"QA rejected: {rejection.get('reason', '').strip()[:140] or 'motivo não informado'}",
+        "mc_claimed_by": None,
+        "mc_claim_expires_at": None,
     }
+    if workflow == "dev_loop_v1" and not limit_reached:
+        target_status = "in_progress"
+        update_fields["mc_phase_owner"] = "luan"
+        update_fields["mc_phase_state"] = "pending"
+        if current_phase == "luna_plan_validation":
+            update_fields["mc_phase"] = "luan_plan_elaboration"
+        else:
+            update_fields["mc_phase"] = "luan_execution_and_tests"
     if "mc_qa_handoff_fp" in fields:
         update_fields["mc_qa_handoff_fp"] = fp
 
@@ -1853,27 +2014,19 @@ for task in tasks:
         if qa_handoff_handled > 0:
             sys.exit(0)
 
-# PHASE 6: Review dispatcher (HIGH PRIORITY — runs before inbox)
-#
-# Review tasks from Luan take priority over new inbox dispatch.
-# Routes to Luna (main) for validation. Luan never self-reviews.
+# PHASE 6: Review always drains before inbox
 # ============================================================
 review_tasks = [
     t for t in tasks
-    if str(t.get("status", "")).lower() == "review"
+    if task_status(t) == "review"
     and not any(str(t.get("title", "")).startswith(pfx) for pfx in SERVICE_TITLE_PREFIXES)
 ]
-# Sort by updated_at (most recently moved to review first)
 review_tasks.sort(key=lambda t: t.get("updated_at", t.get("created_at", "")), reverse=True)
 
-# Filter: ignore stale reviews (>14 days) and already-dispatched (cooldown 2h)
-review_dispatched = state.get("review_dispatched", {})
 eligible_reviews = []
 for t in review_tasks:
     tid = t.get("id", "")
     title_check = t.get("title", "?")
-
-    # Age filter: skip reviews older than REVIEW_STALE_IGNORE_DAYS
     created_at = t.get("created_at", "")
     if created_at:
         try:
@@ -1884,350 +2037,191 @@ for t in review_tasks:
                 continue
         except Exception:
             pass
-
-    # Cooldown filter: don't re-dispatch within 2h
-    prev = review_dispatched.get(tid, {})
-    prev_at = prev.get("at", 0) if isinstance(prev, dict) else 0
-    if now_ms - prev_at < REVIEW_DISPATCH_COOLDOWN_MS:
-        log(f"REVIEW SKIP: {tid[:8]} dispatched {(now_ms - prev_at) // 60000}min ago")
+    if is_claim_active(t):
         continue
-
     eligible_reviews.append(t)
 
-# Decision: enforce priority review > inbox.
-# When review backlog is large, block inbox dispatch entirely.
-REVIEW_BACKLOG_BLOCK_INBOX = 3
+if eligible_reviews:
+    next_review = eligible_reviews[0]
+    task_id = next_review.get("id", "")
+    title = next_review.get("title", "(sem título)")
+    review_dispatched = state.get("review_dispatched", {})
+    review_dispatched[task_id] = {"at": now_ms, "agent": "main"}
+    state["review_dispatched"] = {
+        k: v for k, v in review_dispatched.items()
+        if isinstance(v, dict) and now_ms - v.get("at", 0) < 7 * 24 * 3600 * 1000
+    }
+    save_state(state)
+    trigger_judge_loop(task_id, dry_run=DRY_RUN)
+    metrics_record_phase_transition(metrics, task_id, task_phase(next_review))
+    save_metrics(METRICS_FILE, metrics)
+    send_operational_message(
+        f"🔍 **Heartbeat V3** review claim: `{task_id[:8]}` — **{title}**\n"
+        f"Phase: `{task_phase(next_review)}` | Judge loop acionado."
+    )
+    log(f"REVIEW CLAIM: {task_id[:8]} → judge loop")
+    log("heartbeat-v3 complete")
+    sys.exit(0)
 
-next_task = None
-dispatch_type = "inbox"  # default
+if review_tasks:
+    log(f"Phase 6: {len(review_tasks)} review task(s) pending/claimed — blocking inbox drain")
+    save_state(state)
+    save_metrics(METRICS_FILE, metrics)
+    sys.exit(0)
 
-# Filter out reviews that were already dispatched recently (from history)
+# ============================================================
+# PHASE 7: Pull oldest inbox task (FIFO) only when idle
+# ============================================================
+if INBOX_REQUIRES_IDLE and in_progress:
+    log(f"Phase 7: blocking inbox because {len(in_progress)} task(s) still in_progress")
+    save_state(state)
+    save_metrics(METRICS_FILE, metrics)
+    sys.exit(0)
+
+inbox = [t for t in tasks if task_status(t) == "inbox"]
+inbox.sort(key=lambda t: t.get("created_at", ""))
+
+BLOCKLIST_FILE = os.path.join(WORKSPACE, "config", "heartbeat-blocklist.json")
+blocked_ids = set()
+dep_chain = {}
 try:
-    recent_ids = {d.get("task_id") for d in recent_dispatches if d.get("task_id")}
-    eligible_reviews = [t for t in eligible_reviews if t.get("id", "") not in recent_ids]
+    with open(BLOCKLIST_FILE) as f:
+        bl = json.load(f)
+    blocked_ids = set(bl.get("blocked_task_ids", {}).keys())
+    dep_chain = bl.get("dependency_chain", {})
 except Exception:
     pass
 
-if eligible_reviews:
-    next_task = eligible_reviews[0]
-    dispatch_type = "review"
-    task_id = next_task.get("id", "")
-    title = next_task.get("title", "(sem título)")
-    description = next_task.get("description", "")[:500]
-    log(f"Phase 6: Review task FOUND (priority=high): {task_id[:8]} — {title}")
-    log(f"Phase 6: {len(eligible_reviews)} eligible review(s) — dispatching review")
-else:
-    # No eligible review this cycle.
-    # If backlog is high, we intentionally do NOT drain inbox.
-    if len(review_tasks) >= REVIEW_BACKLOG_BLOCK_INBOX:
-        log(
-            f"Phase 6: review backlog={len(review_tasks)} >= {REVIEW_BACKLOG_BLOCK_INBOX} — blocking inbox dispatch"
-        )
-        sys.exit(0)
-    log(f"Phase 6: No eligible review tasks ({len(review_tasks)} total) or all recently dispatched")
+task_status_by_id = {t.get("id", ""): task_status(t) for t in tasks}
+eligible = []
+for t in inbox:
+    tid = t.get("id", "")
+    title = t.get("title", "?")
+    dispatch_policy = task_dispatch_policy(t)
+
+    if dispatch_policy == "backlog":
+        log(f"FILTER: {tid[:8]} backlog policy — staying in inbox")
+        continue
+    if dispatch_policy == "human_hold":
+        log(f"FILTER: {tid[:8]} human_hold policy — staying out of auto-drain")
+        continue
+    if tid in blocked_ids:
+        log(f"FILTER: {tid[:8]} blocked (human-gate): {title[:40]}")
+        continue
+
+    deps = dep_chain.get(tid, [])
+    unmet = [d for d in deps if task_status_by_id.get(d, "").lower() != "done"]
+    if unmet:
+        unmet_short = ", ".join(d[:8] for d in unmet)
+        log(f"FILTER: {tid[:8]} has unmet deps ({unmet_short}): {title[:40]}")
+        continue
+
+    mc_deps = t.get("depends_on_task_ids", []) or []
+    mc_unmet = [d for d in mc_deps if task_status_by_id.get(d, "").lower() != "done"]
+    if mc_unmet:
+        unmet_short = ", ".join(d[:8] for d in mc_unmet)
+        log(f"FILTER: {tid[:8]} has unmet MC deps ({unmet_short}): {title[:40]}")
+        continue
+
+    eligible.append(t)
+
+if not eligible:
+    log(f"IDLE: no eligible inbox tasks ({len(inbox)} total)")
+    save_state(state)
+    save_metrics(METRICS_FILE, metrics)
+    sys.exit(0)
+
+next_task = eligible[0]
+task_id = next_task.get("id", "")
+title = next_task.get("title", "(sem título)")
+workflow = task_workflow(next_task)
+dispatch_type = "inbox"
+
+log(f"Phase 7: Eligible inbox task: {task_id[:8]} — {title}")
 
 # ============================================================
-# PHASE 7: Pull oldest inbox task (FIFO) — runs if we didn't pick a review
+# PHASE 8/9: Route inbox either to dev loop intake or queue dispatch
 # ============================================================
-if next_task is None:
-    inbox = [t for t in tasks if str(t.get("status", "")).lower() == "inbox"]
-    inbox.sort(key=lambda t: t.get("created_at", ""))
-
-    # Load blocklist and dependency chain
-    BLOCKLIST_FILE = os.path.join(WORKSPACE, "config", "heartbeat-blocklist.json")
-    blocked_ids = set()
-    dep_chain = {}
-    try:
-        with open(BLOCKLIST_FILE) as f:
-            bl = json.load(f)
-        blocked_ids = set(bl.get("blocked_task_ids", {}).keys())
-        dep_chain = bl.get("dependency_chain", {})
-    except Exception:
-        pass
-
-    task_status_by_id = {t.get("id", ""): t.get("status", "").lower() for t in tasks}
-
-    eligible = []
-    for t in inbox:
-        tid = t.get("id", "")
-        title = t.get("title", "?")
-
-        if tid in blocked_ids:
-            log(f"FILTER: {tid[:8]} blocked (human-gate): {title[:40]}")
-            continue
-
-        deps = dep_chain.get(tid, [])
-        unmet = [d for d in deps if task_status_by_id.get(d, "").lower() != "done"]
-        if unmet:
-            unmet_short = ", ".join(d[:8] for d in unmet)
-            log(f"FILTER: {tid[:8]} has unmet deps ({unmet_short}): {title[:40]}")
-            continue
-
-        mc_deps = t.get("depends_on_task_ids", []) or []
-        mc_unmet = [d for d in mc_deps if task_status_by_id.get(d, "").lower() != "done"]
-        if mc_unmet:
-            unmet_short = ", ".join(d[:8] for d in mc_unmet)
-            log(f"FILTER: {tid[:8]} has unmet MC deps ({unmet_short}): {title[:40]}")
-            continue
-
-        eligible.append(t)
-
-    if not eligible:
-        filtered_count = len(inbox) - len(eligible)
-        log(f"IDLE: no eligible inbox tasks ({len(inbox)} total, {filtered_count} filtered)")
-
-        # Blocklist stall alert: only if some tasks are stuck for non-intentional reasons
-        # Don't alert when ALL filtered tasks are in the explicit blocklist (intentional gating)
-        non_blocklist_filtered = [t for t in inbox if t.get("id", "") not in blocked_ids]
-        if inbox and filtered_count == len(inbox) and len(non_blocklist_filtered) > 0:
-            blocklist_stall_key = "blocklist_stall_last_alert"
-            last_stall_alert = state.get(blocklist_stall_key, 0)
-            stall_alert_cooldown = 6 * 60 * 60 * 1000  # 6h
-            if now_ms - last_stall_alert > stall_alert_cooldown:
-                stall_msg = (
-                    f"⚠️ **Blocklist Stall** — {len(non_blocklist_filtered)} inbox tasks stuck "
-                    f"(deps unmet, etc). {len(blocked_ids)} intentionally gated. No work can proceed."
-                )
-                send_discord(NOTIFICATIONS_CHANNEL, stall_msg)
-                state[blocklist_stall_key] = now_ms
-                log(f"ALERT: blocklist stall — {len(non_blocklist_filtered)} stuck, {len(blocked_ids)} gated")
-        elif inbox and filtered_count == len(inbox):
-            log(f"IDLE: all {len(inbox)} inbox tasks intentionally gated — no alert needed")
-
-        cleanup_threshold = now_ms - 24 * 60 * 60 * 1000
-        cleaned = {k: v for k, v in notified_failures.items()
-                   if isinstance(v, dict) and v.get("at", 0) > cleanup_threshold}
-        if len(cleaned) != len(notified_failures):
-            state["notified_failures"] = cleaned
-            save_state(state)
-        sys.exit(0)
-
-    next_task = eligible[0]
-    task_id = next_task.get("id", "")
-    title = next_task.get("title", "(sem título)")
-    description = next_task.get("description", "")[:500]
-    dispatch_type = "inbox"
-
-    log(f"Phase 7: Eligible inbox task: {task_id[:8]} — {title}")
-
-# ============================================================
-# PHASE 8: Dedup — already dispatched this task?
-# ============================================================
-# Dedup is only honored when we have execution proof:
-# 1) queue proof (pending/active item still exists), OR
-# 2) task has live mc_session_key.
-#
-# This avoids "already-dispatched" false positives when telemetry is stale,
-# queue item vanished, and no live executor session exists.
-last_id = state.get("last_dispatched_id", "")
-last_at = state.get("dispatched_at", 0)
-
-def _has_dispatch_proof() -> bool:
-    # Only force proof-based dedup for inbox dispatches.
-    if dispatch_type != "inbox":
-        return True
-    return has_dispatch_proof(task_id, tasks, sessions_by_key)
-
-if task_id == last_id and (now_ms - last_at) < DISPATCH_TIMEOUT_MS:
-    if _has_dispatch_proof():
-        elapsed_min = int((now_ms - last_at) / 60000)
-        log(f"SKIP: task {task_id[:8]} already dispatched {elapsed_min}min ago")
-        sys.exit(0)
-    else:
-        log(f"DEDUPE BYPASS: stale last_dispatched_id for {task_id[:8]} (no live proof)")
-
-for d in recent_dispatches:
-    if d.get("task_id") == task_id:
-        if _has_dispatch_proof():
-            elapsed_min = int((now_ms - d.get("at", 0)) / 60000)
-            log(f"SKIP: task {task_id[:8]} dispatched {elapsed_min}min ago (from history)")
-            sys.exit(0)
-        else:
-            log(f"DEDUPE BYPASS: stale dispatch history for {task_id[:8]} (no live proof)")
-
-log("Phase 8: Dedup OK")
-
-# ============================================================
-# PHASE 9: Dispatch via QUEUE (NOT cron one-shot)
-# ============================================================
-# Route: review tasks → Luna (main); inbox tasks → normal agent resolution
-if dispatch_type == "review":
-    agent_name = "main"  # Luna reviews
-else:
-    assigned_uuid = str(next_task.get("assigned_agent_id", "") or "")
-    agent_name = resolve_agent_name(assigned_uuid, agent_mapping)
-
-log(f"Phase 9: Dispatching {task_id[:8]} → {agent_name} (type={dispatch_type})")
-
-# Step 9a: Status update policy
-# - review: keep status=review (QA is handled by Luna)
-# - inbox:
-#   - if using fast-dispatch, it's okay to mark in_progress immediately
-#   - if fast-dispatch is disabled (queue-only mode), DO NOT mark in_progress here
-#     to avoid creating "in_progress without mc_session_key" false states.
-if dispatch_type == "review":
+if workflow == "dev_loop_v1":
+    phase_update = route_dev_loop_intake(next_task)
     mc_update_task(
         task_id,
-        comment=f"[heartbeat-v3] dispatching review to Luna for validation",
+        status=phase_update["status"],
+        comment="[heartbeat-v3] routed dev-loop intake to Luna task planning",
+        fields=phase_update["fields"],
     )
-else:
-    if DISABLE_FAST_DISPATCH:
-        mc_update_task(
-            task_id,
-            comment=f"[heartbeat-v3] queued dispatch to {agent_name} (fast-dispatch disabled)",
-        )
-    else:
-        if not mc_update_task(
-            task_id,
-            status="in_progress",
-            comment=f"[heartbeat-v3] dispatching to {agent_name} via fast-dispatch/queue",
-        ):
-            log("ERROR: failed to mark task in_progress")
-            record_cb_failure(state)
-            sys.exit(1)
-
-# Step 9b: Dispatch — DIFFERENT paths for review vs inbox
-dispatch_ok = False
-dispatch_method = "none"
-
-if dispatch_type == "review":
-    # ── REVIEW PATH: Wake Luna's MAIN session directly ──────────────
-    # Reviews CANNOT use mc-fast-dispatch.sh because:
-    #   1) The dispatcher agent can't spawn "main" (not in allowAgents)
-    #   2) mc-fast-dispatch.sh moves tasks to in_progress (wrong for reviews)
-    #   3) Review QA requires Luna's main session with full tool access
-    # Instead: wake Luna via agent RPC with actionable QA instructions.
-    description = next_task.get("description", "")[:1500]
-    qa_msg = (
-        f"🔍 **QA REVIEW OBRIGATÓRIO** — executar AGORA, não apenas registrar.\n\n"
-        f"**Task:** {title}\n"
-        f"**MC Task ID:** {task_id}\n\n"
-        f"Luan completou esta task e moveu para review. Você DEVE:\n"
-        f"1. Verificar workspace-luan/memory/active-tasks.md para status desta task\n"
-        f"2. Revisar os arquivos criados/modificados pelo Luan\n"
-        f"3. **Garantir que os artifacts estejam no workspace principal** (copiar de workspace-luan se necessário)\n"
-        f"4. Rodar testes se aplicável\n"
-        f"5. **Se aprovado:** fechar o MC card como done:\n"
-        f"   `bash /home/openclaw/.openclaw/workspace/scripts/mc-client.sh update-task {task_id} --status done --comment 'QA passed'`\n"
-        f"5. **Se reprovado:** mover de volta para inbox com feedback:\n"
-        f"   `bash /home/openclaw/.openclaw/workspace/scripts/mc-client.sh update-task {task_id} --status inbox --comment 'MOTIVO'`\n\n"
-        f"**IMPORTANTE:** Não responda apenas 'vou verificar'. EXECUTE a verificação e o update do MC NESTE TURNO.\n\n"
-        f"## Descrição Original\n{description}"
+    trigger_judge_loop(task_id, dry_run=DRY_RUN)
+    state["last_dispatched_id"] = task_id
+    state["dispatched_at"] = now_ms
+    state["last_dispatch_type"] = "dev-loop-intake"
+    state["dispatch_history"].append({
+        "task_id": task_id,
+        "at": now_ms,
+        "agent": "main",
+        "method": "judge-loop",
+        "queue_file": "judge-loop",
+    })
+    state["dispatch_history"] = [
+        d for d in state["dispatch_history"]
+        if now_ms - d.get("at", 0) < 24 * 3600 * 1000
+    ]
+    save_state(state)
+    metrics_record_phase_transition(metrics, task_id, phase_update["fields"].get("mc_phase", "luna_task_planning"))
+    metrics_increment(metrics, "tasks_dispatched")
+    save_metrics(METRICS_FILE, metrics)
+    send_operational_message(
+        f"🧭 **Heartbeat V3** dev-loop intake: `{task_id[:8]}` — **{title}**\n"
+        f"Phase: `luna_task_planning` | Judge loop acionado."
     )
+    log(f"DISPATCH: {task_id[:8]} → Luna planning (judge-loop)")
+    log("heartbeat-v3 complete")
+    sys.exit(0)
 
-    wake_ok = wake_luna_immediate(qa_msg)
-    if wake_ok:
-        log(f"REVIEW WAKE: {task_id[:8]} → Luna main session (direct RPC)")
-        dispatch_ok = True
-        dispatch_method = "wake"
-    else:
-        # Fallback: write queue file for escalation script to pick up
-        log(f"WARN: review wake failed for {task_id[:8]}, writing queue item as fallback")
-        dispatch_payload = build_review_payload(next_task)
-        queue_filename = write_queue_item("qa-review", task_id, dispatch_payload)
-        if queue_filename:
-            send_system_event_nudge(title, task_id)
-            dispatch_ok = True
-            dispatch_method = "queue"
-        else:
-            log("ERROR: queue write also failed for review — giving up this cycle")
+assigned_uuid = str(next_task.get("assigned_agent_id", "") or "")
+agent_name = resolve_agent_name(assigned_uuid, agent_mapping)
+dispatch_payload = build_dispatch_payload(next_task, agent_name, len(eligible), len(in_progress))
+dispatch_payload["queue_key"] = queue_key_for_task(next_task, "dispatch")
+queue_filename = write_queue_item("dispatch", task_id, dispatch_payload, tasks=tasks, sessions_by_key=sessions_by_key)
 
-else:
-    # ── INBOX PATH ────────────────────────────────────────────────
-    # TEMP MODE: disable fast-dispatch to avoid missing_session_key / orphan in_progress.
-    # We force queue+wake so Luna can orchestrate safely.
-    dispatch_payload = build_dispatch_payload(next_task, agent_name, len(eligible) if "eligible" in dir() else 0, len(in_progress))
+if not queue_filename:
+    log(f"Phase 9: no queue write for {task_id[:8]} (dedup or failure)")
+    save_state(state)
+    save_metrics(METRICS_FILE, metrics)
+    sys.exit(0)
 
-    if not DISABLE_FAST_DISPATCH:
-        # Fast dispatch via mc-fast-dispatch.sh
-        fast_dispatch_script = os.path.join(WORKSPACE, "scripts", "mc-fast-dispatch.sh")
+mc_update_task(
+    task_id,
+    comment=f"[heartbeat-v3] queued dispatch to {agent_name} (queue-only consumer)",
+    fields={**task_fields(next_task), "mc_dispatch_policy": task_dispatch_policy(next_task)},
+)
 
-        if os.path.isfile(fast_dispatch_script) and os.access(fast_dispatch_script, os.X_OK):
-            try:
-                task_msg = f"## MC Task: {title}\n\n{next_task.get('description', '')[:2000]}"
-                run_cmd([
-                    fast_dispatch_script,
-                    "--agent", agent_name,
-                    "--task", task_msg,
-                    "--title", title,
-                    "--from-mc", task_id,
-                    "--timeout", "600",
-                ], timeout=620)
-
-                log(f"FAST DISPATCH: {task_id[:8]} → {agent_name} (direct)")
-                dispatch_ok = True
-                dispatch_method = "fast"
-            except Exception as e:
-                log(f"WARN: fast dispatch failed ({e}), falling back to queue")
-
-    if not dispatch_ok:
-        # Queue dispatch (primary when fast-dispatch disabled)
-        queue_filename = write_queue_item("dispatch", task_id, dispatch_payload)
-
-        if not queue_filename:
-            log("ERROR: queue write failed")
-            if not DISABLE_FAST_DISPATCH:
-                # we may have already marked in_progress above; rollback status
-                mc_update_task(
-                    task_id,
-                    status="inbox",
-                    comment="[heartbeat-v3] rollback — queue write failed",
-                )
-            record_cb_failure(state)
-            sys.exit(1)
-
-        send_system_event_nudge(title, task_id)
-        wake_luna_immediate(
-            f"📋 Task dispatched: {title[:50]} ({task_id[:8]}). "
-            f"Queue item gerado — processar agora."
-        )
-        dispatch_method = "queue"
-        dispatch_ok = True
-
-# Step 9d: Update state
 state["last_dispatched_id"] = task_id
 state["dispatched_at"] = now_ms
 state["last_dispatch_type"] = dispatch_type
-
-# Track review dispatch for cooldown dedup
-if dispatch_type == "review":
-    review_dispatched = state.get("review_dispatched", {})
-    review_dispatched[task_id] = {"at": now_ms, "agent": agent_name}
-    # Trim old entries (>7 days)
-    review_dispatched = {k: v for k, v in review_dispatched.items()
-                          if isinstance(v, dict) and now_ms - v.get("at", 0) < 7 * 24 * 3600 * 1000}
-    state["review_dispatched"] = review_dispatched
 state["dispatch_history"].append({
     "task_id": task_id,
     "at": now_ms,
-    "queue_file": dispatch_method,
+    "queue_file": queue_filename,
     "agent": agent_name,
-    "method": dispatch_method,
+    "method": "queue",
 })
-# Trim history to last 24h
-state["dispatch_history"] = [d for d in state["dispatch_history"]
-                              if now_ms - d.get("at", 0) < 24 * 3600 * 1000]
+state["dispatch_history"] = [
+    d for d in state["dispatch_history"]
+    if now_ms - d.get("at", 0) < 24 * 3600 * 1000
+]
 
-# Circuit breaker: success in half-open → close
 if cb["state"] == "half-open":
     cb["state"] = "closed"
     cb["failures"] = 0
     log("CIRCUIT BREAKER: HALF-OPEN → CLOSED (dispatch succeeded)")
 
 save_state(state)
+metrics_increment(metrics, "tasks_dispatched")
+save_metrics(METRICS_FILE, metrics)
+send_operational_message(
+    f"📋 **Heartbeat V3** queue dispatch: `{task_id[:8]}` — **{title}** → `{agent_name}`\n"
+    f"Queue file: `{queue_filename}` | Eligible: {len(eligible)} | In-progress: {len(in_progress)}"
+)
 
-# Step 9e: Notify #notifications
-if dispatch_type == "review":
-    notif_msg = (
-        f"🔍 **Heartbeat V3** review dispatch: `{task_id[:8]}` — **{title}** → `{agent_name}` (Luna)\n"
-        f"Prioridade: HIGH | Reviews pendentes: {len(eligible_reviews)} | Via: {dispatch_method}"
-    )
-else:
-    notif_msg = (
-        f"📋 **Heartbeat V3** dispatch: `{task_id[:8]}` — **{title}** → `{agent_name}`\n"
-        f"Eligible: {len(eligible) if 'eligible' in dir() else '?'} | In-progress: {len(in_progress)} | Via: {dispatch_method}"
-    )
-send_discord(NOTIFICATIONS_CHANNEL, notif_msg)
-
-log(f"DISPATCH: {task_id[:8]} → {agent_name} (method: {dispatch_method})")
+log(f"DISPATCH: {task_id[:8]} → {agent_name} (method: queue)")
 log("heartbeat-v3 complete")

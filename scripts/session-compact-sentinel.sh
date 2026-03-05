@@ -14,7 +14,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPENCLAW_BIN="${OPENCLAW_BIN:-/usr/bin/openclaw}"
 OPENCLAW_CONFIG="${OPENCLAW_CONFIG:-/home/openclaw/.openclaw/openclaw.json}"
-DISCORD_CHANNEL="${SENTINEL_DISCORD_CHANNEL:-1476255906894446644}"
+DISCORD_CHANNEL="${SENTINEL_DISCORD_CHANNEL:-1473367119377731800}"
 SESSIONS_DIR="${SESSIONS_DIR:-/home/openclaw/.openclaw/agents/main/sessions}"
 AGENTS_DIR="${AGENTS_DIR:-/home/openclaw/.openclaw/agents}"
 

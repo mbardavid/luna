@@ -102,7 +102,7 @@ mc_normalize_status() {
     retry|retrying)
       normalized="retry" ;;
     needs_approval|needs-approval|requires_approval|requires-approval|awaiting_approval)
-      normalized="needs_approval" ;;
+      normalized="awaiting_human" ;;
     completed|done)
       normalized="done" ;;
     failed|error)
@@ -209,6 +209,9 @@ PY
 
 mc_list_tasks() {
   local status="${1:-}"
+  if [ "$status" = "--status" ]; then
+    status="${2:-}"
+  fi
   local endpoint="/boards/$MC_BOARD_ID/tasks"
   if [ -n "$status" ]; then
     endpoint="$endpoint?status=$(mc_normalize_status "$status")"
@@ -218,7 +221,45 @@ mc_list_tasks() {
 
 mc_get_task() {
   local task_id="$1"
-  mc_request GET "/boards/$MC_BOARD_ID/tasks/$task_id"
+  local output=""
+
+  if output="$(mc_request GET "/boards/$MC_BOARD_ID/tasks/$task_id" 2>/dev/null)"; then
+    printf '%s\n' "$output"
+    return 0
+  fi
+
+  if output="$(mc_request GET "/tasks/$task_id" 2>/dev/null)"; then
+    printf '%s\n' "$output"
+    return 0
+  fi
+
+  output="$(mc_list_tasks 2>/dev/null || true)"
+  if [ -z "$output" ]; then
+    return 1
+  fi
+
+  local tmp_json
+  tmp_json="$(mktemp)"
+  printf '%s\n' "$output" >"$tmp_json"
+
+  python3 - "$task_id" "$tmp_json" <<'PY'
+import json
+import sys
+
+task_id = sys.argv[1]
+payload_path = sys.argv[2]
+with open(payload_path, "r", encoding="utf-8") as fp:
+    payload = json.load(fp)
+items = payload.get("items", []) if isinstance(payload, dict) else payload
+for item in items:
+    if str(item.get("id", "")).strip() == task_id:
+        print(json.dumps(item, ensure_ascii=False))
+        raise SystemExit(0)
+raise SystemExit(1)
+PY
+  local rc=$?
+  rm -f "$tmp_json"
+  return "$rc"
 }
 
 mc_list_task_comments() {
@@ -233,6 +274,7 @@ mc_update_task() {
   local status=""
   local comment=""
   local fields_json=""
+  local description=""
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -248,6 +290,10 @@ mc_update_task() {
         fields_json="$2"
         shift 2
         ;;
+      --description)
+        description="$2"
+        shift 2
+        ;;
       *)
         echo "unknown argument: $1" >&2
         return 1
@@ -255,19 +301,21 @@ mc_update_task() {
     esac
   done
 
-  if [ -z "$status" ] && [ -z "$comment" ] && [ -z "$fields_json" ]; then
-    echo "mc_update_task requires at least one of --status, --comment, --fields" >&2
+  if [ -z "$status" ] && [ -z "$comment" ] && [ -z "$fields_json" ] && [ -z "$description" ]; then
+    echo "mc_update_task requires at least one of --status, --comment, --fields, --description" >&2
     return 1
   fi
 
   local payload
-  payload=$(STATUS="$status" COMMENT="$comment" FIELDS_JSON="$fields_json" python3 - <<'PY'
+  payload=$(STATUS="$status" COMMENT="$comment" FIELDS_JSON="$fields_json" DESCRIPTION="$description" python3 - <<'PY'
 import json
 import os
 
 payload = {}
 if os.environ.get("STATUS"):
     payload["status"] = os.environ["STATUS"]
+if os.environ.get("DESCRIPTION"):
+    payload["description"] = os.environ["DESCRIPTION"]
 if os.environ.get("COMMENT"):
     payload["comment"] = os.environ["COMMENT"]
 fields = os.environ.get("FIELDS_JSON", "").strip()
@@ -365,7 +413,7 @@ Commands:
   create-task <title> <description> [assignee|agent_uuid] [priority=medium] [status=inbox] [fields_json]
     Create task and optionally set custom_field_values.
 
-  update-task <task_id> [--status <status>] [--comment <msg>] [--fields <json>]
+  update-task <task_id> [--status <status>] [--comment <msg>] [--fields <json>] [--description <text>]
     Update task.
 
   list-task-comments <task_id>

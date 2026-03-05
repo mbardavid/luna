@@ -1,0 +1,12 @@
+{
+  "type": "respawn",
+  "task_id": "d628d1bb-397a-47b8-bb77-ee428a03c3c1",
+  "title": "Meta: Agent audit — align persistent agents (identity/soul/d",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "agent:luan:subagent:6e380d02-d939-4bc7-be75-f9cfb64d6889",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  }
+}

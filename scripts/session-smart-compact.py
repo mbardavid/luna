@@ -22,7 +22,7 @@ AGENTS_DIR = Path(os.environ.get("AGENTS_DIR", "/home/openclaw/.openclaw/agents"
 WORKSPACE = Path(os.environ.get("WORKSPACE_DIR", "/home/openclaw/.openclaw/workspace"))
 MC_CLIENT = WORKSPACE / "scripts" / "mc-client.sh"
 ACTIVE_TASKS_FILE = WORKSPACE / "memory" / "active-tasks.md"
-DISCORD_CHANNEL = os.environ.get("SENTINEL_DISCORD_CHANNEL", "1476255906894446644")
+DISCORD_CHANNEL = os.environ.get("SENTINEL_DISCORD_CHANNEL", "1473367119377731800")
 LOG_TAG = "[smart-compact]"
 
 # Pendency detection patterns
@@ -35,8 +35,8 @@ PENDENCY_PATTERNS = [
     (re.compile(r"(?:próximo[s]?\s*passo[s]?|next\s*step[s]?)[:\s]+(.+)", re.IGNORECASE), "next_step"),
     # TASK_UPDATE with blocked/failed
     (re.compile(r'TASK_UPDATE\s*\{.*"status"\s*:\s*"(blocked|failed|stalled)".*\}', re.IGNORECASE), "task_blocked"),
-    # needs_approval / stalled mentions
-    (re.compile(r"(?:needs_approval|stalled|pendente|bloqueado)[:\s]+(.+)", re.IGNORECASE), "status_pending"),
+    # awaiting_human / stalled mentions
+    (re.compile(r"(?:needs_approval|awaiting_human|stalled|pendente|bloqueado)[:\s]+(.+)", re.IGNORECASE), "status_pending"),
 ]
 
 # Completion patterns (to identify done work)

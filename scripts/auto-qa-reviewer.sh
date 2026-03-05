@@ -54,6 +54,7 @@ fi
 exec python3 - "$MC_CLIENT" "$OPENCLAW_BIN" "$OPENCLAW_CONFIG" "$GATEWAY_URL" "$DRY_RUN" "$VERBOSE" "$MAX_PER_CYCLE" "$LOG_FILE" <<'PY'
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import time
@@ -67,6 +68,10 @@ DRY_RUN = sys.argv[5] == "1"
 VERBOSE = sys.argv[6] == "1"
 MAX_PER_CYCLE = int(sys.argv[7])
 LOG_FILE = sys.argv[8]
+workspace = Path(mc_client_path).resolve().parent.parent
+sys.path.insert(0, str(workspace / "heartbeat-v3" / "scripts"))
+
+from mc_control import normalize_status, normalize_workflow, task_phase, task_phase_owner
 
 def log(msg):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -209,7 +214,18 @@ log("=" * 50)
 log("auto-qa-reviewer starting")
 
 tasks = mc_list_tasks()
-review_tasks = [t for t in tasks if str(t.get("status", "")).lower() == "review"]
+review_tasks = []
+for task in tasks:
+    if normalize_status(task.get("status"), default="inbox") != "review":
+        continue
+    workflow = normalize_workflow((task.get("custom_field_values") or {}).get("mc_workflow") or "direct_exec")
+    phase = task_phase(task)
+    owner = task_phase_owner(task)
+    if workflow == "dev_loop_v1":
+        if VERBOSE:
+            log(f"SKIP: {str(task.get('id', ''))[:8]} — dev_loop review phase={phase} owner={owner}")
+        continue
+    review_tasks.append(task)
 log(f"Found {len(review_tasks)} tasks in review")
 
 processed = 0
@@ -226,14 +242,10 @@ for task in review_tasks:
     session_key = str(fields.get("mc_session_key", "") or "").strip()
     progress = int(fields.get("mc_progress", 0) or 0)
     risk = str(fields.get("mc_risk_profile", "medium") or "medium").lower()
+    phase = task_phase(task)
+    workflow = normalize_workflow(fields.get("mc_workflow") or "direct_exec")
 
-    # ─── Only auto-QA tasks where the agent thinks it's done ─────────────
-    if last_error != "needs_approval":
-        if VERBOSE:
-            log(f"SKIP: {task_id[:8]} — {title[:40]} — last_error={last_error} (not needs_approval)")
-        continue
-
-    log(f"EVAL: {task_id[:8]} — {title[:50]} — progress={progress}% risk={risk}")
+    log(f"EVAL: {task_id[:8]} — {title[:50]} — progress={progress}% risk={risk} workflow={workflow} phase={phase} last_error={last_error or '(none)'}")
 
     # ─── Check 1: Session key exists ─────────────────────────────────────
     if not session_key:
@@ -264,6 +276,7 @@ for task in review_tasks:
             status="done",
             comment=comment,
             fields={
+                **fields,
                 "mc_last_error": "",
                 "mc_output_summary": f"Auto-QA approved ({completion})",
                 "mc_delivered": False,
@@ -284,6 +297,7 @@ for task in review_tasks:
                 status="done",
                 comment=comment,
                 fields={
+                    **fields,
                     "mc_last_error": "",
                     "mc_output_summary": f"Auto-QA approved (partial, {progress}%)",
                     "mc_delivered": False,
@@ -309,8 +323,10 @@ for task in review_tasks:
             status="inbox",
             comment=comment,
             fields={
+                **fields,
                 "mc_last_error": f"auto_qa_{completion}",
                 "mc_retry_count": 0,
+                "mc_session_key": "",
             })
         log(f"RETURNED TO INBOX: {task_id[:8]} — {completion}")
         processed += 1

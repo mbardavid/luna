@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "1c6ab056-9cd6-484f-8eb5-96ec98579379",
+  "filename": "20260305T200816-dispatch-1c6ab056.json",
+  "created_at": "2026-03-05T20:08:16.401026+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research: Incorporate Paperclip / Builderz Mission Control / OpenAI Symphony learnings into Autonomy v1 + Phase 2",
+  "agent": "luan",
+  "priority": "medium",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "PHASE: planning\n\n# Research: Incorporate Paperclip / Builderz Mission Control / OpenAI Symphony learnings into Autonomy v1 + Phase 2\n\n## Objective\nIncorporar aprendizados relevantes dos repos:\n- https://github.com/paperclipai/paperclip\n- https://github.com/builderz-labs/mission-control\n- https://github.com/openai/symphony\n\nno nosso sistema atual (Mission Control + heartbeat-v3 + Autonomy v1 + Phase 2A/2B/2C), sem over-engineering.\n\n## Context\n- Nosso gargalo atual é dispatch/queue/dedup/linked s",
+    "eligible_count": 1,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "1c6ab056-9cd6-484f-8eb5-96ec98579379",
+    "title": "Research: Incorporate Paperclip / Builderz Mission Control / OpenAI Symphony learnings into Autonomy v1 + Phase 2",
+    "description": "PHASE: planning\n\n# Research: Incorporate Paperclip / Builderz Mission Control / OpenAI Symphony learnings into Autonomy v1 + Phase 2\n\n## Objective\nIncorporar aprendizados relevantes dos repos:\n- https://github.com/paperclipai/paperclip\n- https://github.com/builderz-labs/mission-control\n- https://github.com/openai/symphony\n\nno nosso sistema atual (Mission Control + heartbeat-v3 + Autonomy v1 + Phase 2A/2B/2C), sem over-engineering.\n\n## Context\n- Nosso gargalo atual é dispatch/queue/dedup/linked s",
+    "priority": "medium"
+  },
+  "queue_key": "1c6ab056-9cd6-484f-8eb5-96ec98579379|dispatch|inbox|direct_exec|49fbc724de27",
+  "completed_at": "2026-03-05T20:09:23.159077Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "luan",
+    "session_id": "agent:luan:subagent:76f11c3b-a315-4ad6-a32e-4438f31b06d2"
+  }
+}

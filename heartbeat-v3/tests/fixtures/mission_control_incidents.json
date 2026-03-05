@@ -1,0 +1,62 @@
+{
+  "226588ab_backlog": {
+    "task": {
+      "id": "226588ab-690e-4349-9cf9-67b31cac64b3",
+      "status": "inbox",
+      "title": "Backlog item",
+      "description": "mc_dispatch_policy: backlog",
+      "custom_field_values": {
+        "mc_dispatch_policy": "backlog",
+        "mc_workflow": "dev_loop_v1",
+        "mc_phase": "luna_task_planning"
+      }
+    }
+  },
+  "review_priority": {
+    "tasks": [
+      {
+        "id": "34877d8a-3992-4015-a725-f074b47627e9",
+        "status": "review",
+        "title": "Review priority",
+        "custom_field_values": {
+          "mc_workflow": "dev_loop_v1",
+          "mc_phase": "luna_plan_validation",
+          "mc_phase_owner": "luna",
+          "mc_phase_state": "pending"
+        }
+      },
+      {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "status": "inbox",
+        "title": "Inbox candidate",
+        "custom_field_values": {
+          "mc_dispatch_policy": "auto",
+          "mc_workflow": "direct_exec"
+        }
+      }
+    ]
+  },
+  "awaiting_human_hold": {
+    "task": {
+      "id": "6e5effc1-1111-2222-3333-444444444444",
+      "status": "needs_approval",
+      "title": "Human gate",
+      "custom_field_values": {
+        "mc_gate_reason": "manual decision required"
+      }
+    }
+  },
+  "8cc49d51_duplicate_done_meta": {
+    "meta": {
+      "dedupe": "true",
+      "reason": "task already planned/executed earlier; ignoring duplicate dispatch"
+    }
+  },
+  "invalid_done_completion": {
+    "done_item": {
+      "task_id": "8cc49d51-4946-403a-bba7-ef6c9c820d7d",
+      "type": "dispatch",
+      "title": "Legacy invalid completion"
+    }
+  }
+}

@@ -1,67 +1,49 @@
-# Contrato de Loop de Orquestração (Luna ⇄ Luan)
+# Contrato de Loop de Orquestracao (Luna <-> Luan)
 
 ## Objetivo
 
-Padronizar revisão de tarefas com dupla passagem ativa:
+Todo desenvolvimento deve seguir um loop de 5 etapas, com ownership explicito e transicao registrada no Mission Control.
 
-1. Proposta executiva
-2. Crítica e contra-proposta
-3. Replano validado
-4. Autorização e execução
+## Loop obrigatorio
 
-## 4 Passos obrigatórios
+1. Luna planeja a task
+2. Luan elabora o plano
+3. Luna valida o plano
+4. Luan executa e testa
+5. Luna faz a validacao final
 
-### 1. Proposta inicial (Luna)
+## Representacao no Mission Control
 
-Luna cria um `TaskSpec` com:
-- `loop_id`
-- `proposed_by = luna`
-- `risk_profile`
-- `review_depth`
-- `review_feedback_required`
-- `auto_approve_window`
+| Etapa | status | mc_phase | owner |
+| --- | --- | --- | --- |
+| Intake | `inbox` | `intake` | none |
+| 1 | `review` | `luna_task_planning` | luna |
+| 2 | `in_progress` | `luan_plan_elaboration` | luan |
+| 3 | `review` | `luna_plan_validation` | luna |
+| 4 | `in_progress` | `luan_execution_and_tests` | luan |
+| 5 | `review` | `luna_final_validation` | luna |
+| Human gate | `awaiting_human` | `awaiting_human_decision` | human |
+| End | `done` | `done` | none |
 
-### 2. Entrega para Luan
+## Campos obrigatorios
 
-Luan responde com estrutura mínima:
-
-- bloco lógico de plano (entrega, riscos, testes)
-- lista de falhas previstas
-- plano de validação objetivo
-
-Estado de orquestração: `proposed`
-
-### 3. Contrarrevisão de Luan
-
-Luna revisa a resposta e pode decidir:
-
-- `needs_critique`: pedir `counter-review`
-- `needs_revision`: enviar de volta com ajustes explícitos e novo motivo (`review_reason`)
-- `rejected_for_authorization`: mover para `needs_approval`
-
-### 4. Replanejamento + autorização
-
-Luan emite versão revisada. Luna valida schema/assinatura/riscos e:
-
-- aprova automaticamente se `risk_profile=low` e dentro de `auto_approve_window`
-- solicita autorização humana se `risk_profile` não `low` ou falhas de risco
-
-Estado final:
-
-- `accepted_for_execution`, `needs_authorized_edit`, `blocked_by_review`, `completed_with_checks`
-
-## Campos obrigatórios no TaskSpec
-
-- `loop_id`
-- `proposed_by`
-- `risk_profile`
-- `review_depth`
-- `review_feedback_required`
-- `auto_approve_window`
-- `review_reason` (na crítica)
+- `mc_workflow`
+- `mc_phase`
+- `mc_phase_owner`
+- `mc_phase_state`
+- `mc_loop_id`
+- `mc_plan_artifact`
+- `mc_validation_artifact`
+- `mc_test_report_artifact`
+- `mc_gate_reason`
+- `mc_claimed_by`
+- `mc_claim_expires_at`
+- `mc_phase_retry_count`
 
 ## Regras de conformidade
 
-- Nenhum contrato passa sem `review_reason` quando reprovado
-- Nenhum contrato de risco alto/critical pode pular `needs_approval`
-- Toda revisão grava evento em `memory/orchestration-state.json`
+- Nenhum card `dev_loop_v1` pode sair de `inbox` direto para execucao do Luan.
+- Toda rejeicao precisa de `review_reason`.
+- `review` e reservado para fases da Luna.
+- `awaiting_human` e terminal ate intervencao humana.
+- Toda fase de review precisa de claim/lease antes do wake da Luna.

@@ -11,6 +11,7 @@ exec python3 - "$MC_CLIENT" "$OPENCLAW_BIN" "$OPENCLAW_CONFIG" "$GATEWAY_URL" "$
 import argparse
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -22,6 +23,10 @@ openclaw_bin = sys.argv[2]
 openclaw_config = sys.argv[3]
 gateway_url = sys.argv[4]
 argv = sys.argv[5:]
+workspace = Path(mc_client_path).resolve().parent.parent
+sys.path.insert(0, str(workspace / "heartbeat-v3" / "scripts"))
+
+from mc_control import normalize_status, task_phase_owner, task_workflow
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--max-retries", type=int, default=int(os.environ.get("MC_MAX_RETRIES", "2")))
@@ -246,7 +251,7 @@ stats = {
 
 
 def handle_task(task, sessions_by_key):
-  status = str(task.get("status", "")).lower()
+  status = normalize_status(task.get("status"), default="inbox")
   if status not in active_statuses:
     return
 
@@ -261,10 +266,15 @@ def handle_task(task, sessions_by_key):
   current_retry = payload["retry_count"]
   progress = payload["progress"]
   fields = payload["custom_field_values"] or {}
+  workflow = task_workflow(task)
+  phase_owner = task_phase_owner(task)
 
   session_entry = sessions_by_key.get(session_key, {}) if session_key else {}
 
   if not session_key:
+    if status == "review" and phase_owner == "luna":
+      maybe_log(f"[mc-watchdog] review Luna task {t_id} sem session_key e valida por design")
+      return
     # Missing session linkage is not recoverable automatically: we cannot
     # reconstruct the session without an explicit link step.
     update_counter(stats, "blocked_missing_session_key")
@@ -352,7 +362,7 @@ def handle_task(task, sessions_by_key):
         update_counter(stats, "moved_to_needs_approval")
         mc_update_task(
           t_id,
-          status="review",
+          status="awaiting_human",
           comment=(
             f"[mc-watchdog] {now_iso()} sessão ausente após {current_retry} retries; "
             "requer aprovação para ação manual e retomada."
@@ -361,6 +371,7 @@ def handle_task(task, sessions_by_key):
             args.retry_count_field: current_retry,
             "mc_progress": progress,
             "mc_last_error": "needs_approval",
+            "mc_gate_reason": "session_missing_after_retries",
           },
         )
       else:
@@ -398,7 +409,7 @@ def handle_task(task, sessions_by_key):
       maybe_log(f"[mc-watchdog] task {t_id} já marcada stalled, ignorando re-mark")
     return
 
-  if status == "review":
+  if status == "review" and phase_owner != "luna":
     update_counter(stats, "unstalled")
     mc_update_task(
       t_id,

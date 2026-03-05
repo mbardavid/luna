@@ -2,7 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MC_CONFIG_PATH="${MC_CONFIG_PATH:-${SCRIPT_DIR}/../config/mission-control-ids.json}"
+DEFAULT_CFG_LOCAL="${SCRIPT_DIR}/../config/mission-control-ids.local.json"
+DEFAULT_CFG_VERSIONED="${SCRIPT_DIR}/../config/mission-control-ids.json"
+MC_CONFIG_PATH="${MC_CONFIG_PATH:-$DEFAULT_CFG_LOCAL}"
+if [ ! -f "$MC_CONFIG_PATH" ] && [ -f "$DEFAULT_CFG_VERSIONED" ]; then
+  MC_CONFIG_PATH="$DEFAULT_CFG_VERSIONED"
+fi
 
 if [ "${1:-}" = "--dry-run" ]; then
   DRY_RUN=1
@@ -151,9 +156,153 @@ DESIRED_FIELDS='[
     "default_value": null
   },
   {
+    "field_key": "mc_review_reason",
+    "label": "MC Review Reason",
+    "field_type": "text_long",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
     "field_key": "mc_authorization_status",
     "label": "MC Authorization Status",
     "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_dispatch_policy",
+    "label": "MC Dispatch Policy",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "auto"
+  },
+  {
+    "field_key": "mc_workflow",
+    "label": "MC Workflow",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "direct_exec"
+  },
+  {
+    "field_key": "mc_phase",
+    "label": "MC Phase",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "intake"
+  },
+  {
+    "field_key": "mc_phase_owner",
+    "label": "MC Phase Owner",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_phase_state",
+    "label": "MC Phase State",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "pending"
+  },
+  {
+    "field_key": "mc_loop_id",
+    "label": "MC Loop ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_plan_artifact",
+    "label": "MC Plan Artifact",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_validation_artifact",
+    "label": "MC Validation Artifact",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_test_report_artifact",
+    "label": "MC Test Report Artifact",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_qa_handoff_fp",
+    "label": "MC QA Handoff Fingerprint",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_gate_reason",
+    "label": "MC Gate Reason",
+    "field_type": "text_long",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_claimed_by",
+    "label": "MC Claimed By",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_claim_expires_at",
+    "label": "MC Claim Expires At",
+    "field_type": "date_time",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_phase_retry_count",
+    "label": "MC Phase Retry Count",
+    "field_type": "integer",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": 0
+  },
+  {
+    "field_key": "mc_plan_version",
+    "label": "MC Plan Version",
+    "field_type": "integer",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": 1
+  },
+  {
+    "field_key": "mc_phase_started_at",
+    "label": "MC Phase Started At",
+    "field_type": "date_time",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_phase_completed_at",
+    "label": "MC Phase Completed At",
+    "field_type": "date_time",
     "ui_visibility": "if_set",
     "required": false,
     "default_value": null
@@ -245,4 +394,3 @@ for field in desired_fields:
 
 print(json.dumps(summary, indent=2, sort_keys=True))
 PY
-

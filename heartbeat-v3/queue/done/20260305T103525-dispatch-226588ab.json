@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "226588ab-690e-4349-9cf9-67b31cac64b3",
+  "filename": "20260305T103525-dispatch-226588ab.json",
+  "created_at": "2026-03-05T10:35:25.055021+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Meta: Agent audit \u2014 study each agent + improve identity/soul/docs",
+  "agent": "luan",
+  "priority": "medium",
+  "context": {
+    "description": "Objetivo: auditar todos os agentes persistentes do sistema (main/Luna, Luan, crypto-sage, quant-strategist, dispatcher/cto-ops se existir) para alinhar com objetivos futuros de autonomia e reduzir falhas recorrentes.\n\nEscopo:\n1) Estudar cada agente (papel, modelos, bindings, rotinas, limites), usando nosso conhecimento/objetivos e .\n2) Ler a documenta\u00e7\u00e3o de cada agente (SOUL/IDENTITY/USER/AGENTS/lessons/mem\u00f3ria espec\u00edfica) e propor melhorias.\n3) Aplicar melhorias onde fizer sentido (documenta\u00e7\u00e3o",
+    "eligible_count": 2,
+    "in_progress_count": 1,
+    "rejection_feedback": null,
+    "authorization_status": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "226588ab-690e-4349-9cf9-67b31cac64b3",
+    "title": "Meta: Agent audit \u2014 study each agent + improve identity/soul/docs",
+    "description": "Objetivo: auditar todos os agentes persistentes do sistema (main/Luna, Luan, crypto-sage, quant-strategist, dispatcher/cto-ops se existir) para alinhar com objetivos futuros de autonomia e reduzir falhas recorrentes.\n\nEscopo:\n1) Estudar cada agente (papel, modelos, bindings, rotinas, limites), usando nosso conhecimento/objetivos e .\n2) Ler a documenta\u00e7\u00e3o de cada agente (SOUL/IDENTITY/USER/AGENTS/lessons/mem\u00f3ria espec\u00edfica) e propor melhorias.\n3) Aplicar melhorias onde fizer sentido (documenta\u00e7\u00e3o",
+    "priority": "medium"
+  }
+}

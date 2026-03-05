@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "d628d1bb-397a-47b8-bb77-ee428a03c3c1",
+  "filename": "20260305T110515-respawn-d628d1bb.json",
+  "created_at": "2026-03-05T11:05:15.724817+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Meta: Agent audit \u2014 align persistent agents (identity/soul/docs)",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "description": "Objective: audit all persistent agents (main/Luna, Luan, crypto-sage, quant-strategist, dispatcher/cto-ops) to reduce recurring failures and align with upcoming autonomy goals.\n\nApproach: read each agent\u2019s identity + operating docs (SOUL.md, IDENTITY.md, USER.md, AGENTS.md, memory/lessons.md and any",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:6e380d02-d939-4bc7-be75-f9cfb64d6889"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  }
+}

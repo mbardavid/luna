@@ -1,12 +1,12 @@
 # Cron Inventory — Estado Final Pós-Migração
 
-**Última atualização:** 2026-03-03  
-**Total crons ativos:** 13  
+**Última atualização:** 2026-03-05  
+**Total crons ativos:** 14  
 **Migração Control Loop v2:** COMPLETA
 
 ---
 
-## Crons Ativos (13)
+## Crons Ativos (14)
 
 | # | Freq | Script | Categoria | Função |
 |---|------|--------|-----------|--------|
@@ -23,6 +23,7 @@
 | 11 | `daily 06:00` | `scripts/session-smart-compact.py` | Sessions | Compactação inteligente |
 | 12 | `daily 03:17` | `scripts/mc-log-rotate.sh` | Manutenção | Rotaciona logs |
 | 13 | `Mon 09:05` | `scripts/mc-cost-report.sh` | Manutenção | Relatório semanal |
+| 14 | `hourly :07` | `scripts/mc-queue-audit.py` | MC/Tasks | Auditoria de fila + métricas de corrupção/duplicata |
 
 ## Scripts Depreciados (7 → `scripts/archive/`)
 
@@ -54,6 +55,11 @@
 | Completion → QA | manual | qa-review queue automático |
 | Post-restart recovery | só com snapshot | snapshot-less via MC API |
 | Testes | 57 | 130+ |
+
+## Observações operacionais
+
+- `mc-approvals-notify.sh` e `mc-delivery.sh` passam a entregar no canal principal `1473367119377731800`.
+- A auditoria de fila é o artefato oficial para medir `invalid queue completion` e duplicatas históricas.
 
 ---
 

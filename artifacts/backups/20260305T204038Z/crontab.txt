@@ -1,0 +1,18 @@
+*/1 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/gateway-wake-sentinel.sh >> /home/openclaw/.openclaw/workspace/logs/gateway-wake-sentinel.log 2>&1
+*/5 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/heartbeat-v3/scripts/heartbeat-v3.sh >> /home/openclaw/.openclaw/workspace/logs/heartbeat-v3-cron.log 2>&1
+*/5 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/heartbeat-v3/scripts/queue-escalation.sh >> /home/openclaw/.openclaw/workspace/logs/queue-escalation-cron.log 2>&1
+*/5 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-approvals-notify.sh --channel "1473367119377731800" >> "/home/openclaw/.openclaw/workspace/logs/mc-approvals-notify-cron.log" 2>&1
+*/15 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-delivery.sh --status done --max-to-deliver "50" --channel "1473367119377731800" >> "/home/openclaw/.openclaw/workspace/logs/mc-delivery-cron.log" 2>&1
+7 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-queue-audit.py --write-metrics >> /home/openclaw/.openclaw/workspace/logs/mc-queue-audit-cron.log 2>&1
+*/15 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-resource-monitor.sh --warn-pct "80" --degrade-pct "90" --recover-pct "85" --kill-pct "95"  >> "/home/openclaw/.openclaw/workspace/logs/mc-resource-monitor-cron.log" 2>&1
+*/15 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-watchdog.sh --verbose --max-retries 2 >> "/home/openclaw/.openclaw/workspace/logs/mc-watchdog-cron.log" 2>&1
+*/30 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/heartbeat-v3/scripts/session-gc.sh >> /home/openclaw/.openclaw/workspace/logs/session-gc-cron.log 2>&1
+0 */6 * * * /home/openclaw/.openclaw/workspace/scripts/session-compact-sentinel.sh >> /tmp/session-compact.log 2>&1
+0 10 * * * PATH=/usr/local/bin:/usr/bin:/bin LUNA_LESSONS=/home/openclaw/.openclaw/workspace/memory/lessons.md LUAN_LESSONS=/home/openclaw/.openclaw/workspace-luan/memory/lessons.md /home/openclaw/.openclaw/workspace/scripts/lessons-sync.sh >> /home/openclaw/.openclaw/workspace/logs/lessons-sync-cron.log 2>&1
+0 6 * * * /home/openclaw/.openclaw/workspace/scripts/session-smart-compact.py >> /tmp/session-smart-compact.log 2>&1
+17 3 * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-log-rotate.sh >> /home/openclaw/.openclaw/workspace/logs/mc-log-rotate.log 2>&1
+5 9 * * 1 PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/mc-cost-report.sh --channel "1476255906894446644" >> "/home/openclaw/.openclaw/workspace/logs/mc-cost-report-cron.log" 2>&1
+MC_API_TOKEN=luna_mission_control_access_token_stable_v1_6741ef7ffc207adb58ce632e7ff1d9913dbf2e9c44441aac
+MC_AUTH_TOKEN=luna_mission_control_access_token_stable_v1_6741ef7ffc207adb58ce632e7ff1d9913dbf2e9c44441aac
+*/3 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/heartbeat-v3/scripts/queue-dispatch-cron.sh >> /home/openclaw/.openclaw/workspace/logs/queue-dispatch-cron.log 2>&1
+*/10 * * * * PATH=/usr/local/bin:/usr/bin:/bin /home/openclaw/.openclaw/workspace/scripts/auto-qa-reviewer.sh >> /home/openclaw/.openclaw/workspace/logs/auto-qa-reviewer-cron.log 2>&1

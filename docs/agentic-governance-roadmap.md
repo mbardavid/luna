@@ -35,6 +35,7 @@
 
 - Ponto forte: existe cadeia base de MC + heartbeat + watchguards + scripts de atualização.
 - Pontos de fragilidade: sem loop de revisão LUNA⇄LUAN por contrato, sem agente CTO persistente, sem rastreabilidade de review/estado de dupla passada, risco de collapse semântico de status no TaskSpec e no estado.
+- Runtime canônico pós-recuperação: `dev_loop_v1` com fases `luna_task_planning -> luan_plan_elaboration -> luna_plan_validation -> luan_execution_and_tests -> luna_final_validation -> done`, com gate humano em `awaiting_human`.
 
 ## 3) Matriz de pendências (ordem de execução)
 
@@ -66,7 +67,8 @@ Para qualquer task de produção com impacto em gateway/infra:
 - `risk_profile = high|critical` no TaskSpec
 - `review_depth >= 2`
 - `review_feedback_required = true`
-- `mc` deve registrar estado final em `needs_approval`, `review`, `blocked` sem colapso semântico
+- `mc` deve registrar estado final em `awaiting_human`, `review`, `blocked` sem colapso semântico
+- `needs_approval` passa a ser apenas alias legado de leitura, normalizado para `awaiting_human`
 - ação de alta energia (`gateway_restart`, `kill`, `deploy`) sem assinatura explícita e trilha de autorização = bloqueio
 
 ## 6) Runbook de execução do plano (Fase 0 → Fase 8)
@@ -99,7 +101,7 @@ Para qualquer task de produção com impacto em gateway/infra:
 ## 7) Métricas de sucesso (aceitação mínima)
 
 - `test_case_01`: TaskSpec sem `risk_profile` rejeitado pela validação
-- `test_case_02`: `needs_approval` não colapsa em `review` no estado da MC
+- `test_case_02`: `needs_approval` legado normaliza para `awaiting_human` sem colapsar em `review`
 - `test_case_03`: decisão de alta carga aciona CTO-ops sem reboot indevido
 - `test_case_04`: reboot gateway crítico com trilha de autorização
 - `test_case_05`: loop Luna-Luan em revisão executado sem intervenção manual direta
@@ -138,3 +140,5 @@ Snapshot (2026-03-01, API Mission Control remota): 8 tarefas estão em `review`.
 - Tarefas **sem** documento associado (Crypto/runner/paper-trading) devem ser tratadas como execução técnica fora do escopo do plano de governança e monitoradas apenas pelo novo loop de revisão (risco e semântica de status).
 
 Observação: os três documentos acima não estão presentes no workspace atual; manter trilha de revisão ativa no MC e evitar nova movimentação em revisão sem retorno de decisão antes de executar os próximos marcos de produção.
+
+Observação de migração: cards legados com `mc_last_error=needs_approval` devem ser tratados como `awaiting_human` no loop atual.

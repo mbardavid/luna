@@ -1,48 +1,47 @@
-# Guia de Debug A2A e Estados de Missão
+# Guia de Debug A2A e Estados de Missao
 
-## Objetivo
-
-Diagnosticar por que uma task de A2A travou, repetiu ou perdeu sessão sem ambiguidade.
-
-## Status semânticos aceitos
+## Status canonicos
 
 - `inbox`
 - `in_progress`
-- `needs_approval`
 - `review`
+- `awaiting_human`
 - `blocked`
 - `stalled`
 - `retry`
 - `done`
 - `failed`
 
-`review` não deve representar `needs_approval` ou `stalled`.
+`needs_approval` deve ser lido como `awaiting_human`.
 
-## Árvore de decisão rápida
+## Ordem de diagnostico
 
-1. Task sem `mc_session_key` e sem sessão ativa:
-   - se `retry_count < max`: `retry`
-   - se igual/maior: `needs_approval`
-2. Task em `in_progress` sem atividade > limite:
-   - set `stalled`
-3. Task em `retry` sem `session_key` recorrente:
-   - revisita `review`
-4. Task com payload de revisão sem `review_reason`:
-   - bloquear transição e solicitar contrato novo
+1. Confirmar `status` e `mc_phase` do card.
+2. Confirmar se o card e `direct_exec` ou `dev_loop_v1`.
+3. Se for `review`, verificar `mc_phase_owner`, `mc_claimed_by` e `mc_claim_expires_at`.
+4. Se for `in_progress`, verificar `mc_session_key` e sessao real no gateway.
+5. Se for `awaiting_human`, confirmar `mc_gate_reason` e parar o auto-drain.
+6. Se houver custom field novo rejeitado por `422`, rodar bootstrap e reiniciar backend/webhook-worker do Mission Control.
 
-## Comandos de inspeção
+## Casos tipicos
 
-- `scripts/mc-task-update.sh --task-id <id> --input <payload>`
-- `scripts/mc-link-task-session.sh <id> <sessionKey>`
-- `scripts/mc-spawn.sh --agent luan --title ... --task ...`
-- `scripts/mc-watchdog.sh --verbose`
+### Card em `inbox` re-despachando sem parar
+- verificar `mc_dispatch_policy`
+- verificar queue dedup key
+- verificar se existe `done/` recente para a mesma fase
 
-## Eventos obrigatórios a registrar
+### Card em `review` sem acao
+- verificar se o `judge-loop-worker` claimou a fase
+- verificar se o wake foi para `#general-luna`
+- verificar se a fase e Luna-owned
 
-- `last_transition_at`
-- `review_reason`
-- `review_feedback_required`
-- `proposed_by`
-- `loop_id`
+### Card em `awaiting_human` sendo mexido automaticamente
+- bug de semantica de status
+- corrigir consumidor que ainda trata `needs_approval` como funnel de review
 
-Sem esses campos, a task é tratada como revisão incompleta.
+## Comandos uteis
+
+- `scripts/mc-client.sh get-task <id>`
+- `scripts/mc-task-update.sh --strict`
+- `python3 heartbeat-v3/scripts/judge-loop-worker.py --task-id <id> --dry-run --json`
+- `python3 heartbeat-v3/scripts/heartbeat-v3.py --dry-run --verbose`
