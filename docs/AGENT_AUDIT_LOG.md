@@ -1,5 +1,27 @@
 # AGENT_AUDIT_LOG
 
+
+## 2026-03-05 | Ressonância de auditoria persistente (audit-agents-autonomy-5)
+
+- Continuidade da auditoria de agentes persistentes com foco em autonomia/recorrência.
+- Aplicado: registro formal de `cto-ops` em `openclaw.json` + `allowAgents` interno (main/dispatcher).
+- Aplicado: suporte a `cto-ops-agent-01` no mapeamento de IDs do `mc-fast-dispatch.sh`.
+- Aplicado: fallback de `PMM_DEFAULT_CONFIG` em `heartbeat-v3.py` para `prod-002.yaml`/`prod-001.yaml` quando `default_config` não existe.
+- Observação: manter validação de rollout em 24h (sessões + smoke cto-ops).
+
+## 2026-03-05 | Audit de Alinhamento de Agentes Persistentes
+
+- Auditados: `main/Luna`, `Luan`, `crypto-sage`, `quant-strategist`, `dispatcher`, `cto-ops` (existente em workspace).
+- Achados críticos:
+  - plugin obsoleto em `openclaw.json` gerando warning recorrente (`google-antigravity-auth`)
+  - PMM config padrão em heartbeat apontava para `prod-003.yaml` inexistente
+  - `cto-ops` tem runbooks/estado, mas **não está em `openclaw.json`** (`agents.list`).
+- Melhorias aplicadas:
+  - removido plugin obsoleto em `openclaw.json`
+  - alterado `workspace/heartbeat-v3/config/v3-config.json` para `prod-002.yaml`
+- Documento completo: `docs/persistent-agents-autonomy-audit-2026-03-05.md`
+
+
 ## 2026-03-01
 
 - Iniciada implementação do plano de governança integral A2A.

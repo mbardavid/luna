@@ -97,3 +97,7 @@
 - `memory/lessons.md`: decisões de saúde
 - `memory/orchestration-state.json`: decisão + trilha
 - `docs/AGENT_AUDIT_LOG.md`: resumo auditável
+
+
+## Observação operacional
+- Este workspace `workspace/agents/cto-ops` deve permanecer alinhado ao registro em `openclaw.json`. Se não estiver registrado, revisar antes de tentar dispatch/execução.

@@ -19,15 +19,33 @@
     "restart_cooldown_minutes": 5,
     "max_restarts_per_hour": 3,
     "env_file": "polymarket-mm/.env",
-    "default_config": "polymarket-mm/paper/runs/prod-003.yaml"
+    "default_config": "polymarket-mm/paper/runs/prod-002.yaml"
   },
   "description_quality": {
     "min_length": 200,
-    "required_markers": ["## ", "Objective", "Objetivo", "Context", "Contexto", "Criteria", "Problem", "Approach", "Plano"],
-    "check_statuses": ["inbox", "in_progress", "review"]
+    "required_markers": [
+      "## ",
+      "Objective",
+      "Objetivo",
+      "Context",
+      "Contexto",
+      "Criteria",
+      "Problem",
+      "Approach",
+      "Plano"
+    ],
+    "check_statuses": [
+      "inbox",
+      "in_progress",
+      "review"
+    ]
   },
   "failure_classification": {
     "loop_threshold": 5,
-    "known_provider_errors": ["thinking.signature", "RESOURCE_EXHAUSTED", "capacity"]
+    "known_provider_errors": [
+      "thinking.signature",
+      "RESOURCE_EXHAUSTED",
+      "capacity"
+    ]
   }
 }

@@ -97,7 +97,7 @@ if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
         -H "Authorization: Bearer $MC_API_TOKEN" 2>/dev/null)
 
     if [ -n "$MC_DATA" ]; then
-        _MC_AGENT=$(echo "$MC_DATA" | python3 -c "import json,sys; t=json.load(sys.stdin); agent_map={'ccd2e6d0':'luan','ad3cf364':'crypto-sage','70bd8378':'main','b66bda98':'quant-strategist'}; aid=t.get('assigned_agent_id',''); print(agent_map.get(aid, aid))" 2>/dev/null) || _MC_AGENT=""
+        _MC_AGENT=$(echo "$MC_DATA" | python3 -c "import json,sys; t=json.load(sys.stdin); agent_map={'ccd2e6d0':'luan','ad3cf364':'crypto-sage','70bd8378':'main','b66bda98':'quant-strategist','cto-ops-agent-01':'cto-ops'}; aid=t.get('assigned_agent_id',''); print(agent_map.get(aid, aid))" 2>/dev/null) || _MC_AGENT=""
         _MC_TITLE=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('title',''))" 2>/dev/null) || _MC_TITLE=""
         _MC_TASK=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('description',''))" 2>/dev/null) || _MC_TASK=""
         _MC_STATUS=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null) || _MC_STATUS=""

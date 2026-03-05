@@ -872,7 +872,36 @@ PMM_PID_FILE = os.path.join(WORKSPACE, PMM_CONFIG.get("pid_file", "polymarket-mm
 PMM_RESTART_COOLDOWN_MS = PMM_CONFIG.get("restart_cooldown_minutes", 5) * 60 * 1000
 PMM_MAX_RESTARTS_PER_HOUR = PMM_CONFIG.get("max_restarts_per_hour", 3)
 PMM_ENV_FILE = os.path.join(WORKSPACE, PMM_CONFIG.get("env_file", "polymarket-mm/.env"))
-PMM_DEFAULT_CONFIG = os.path.join(WORKSPACE, PMM_CONFIG.get("default_config", "polymarket-mm/paper/runs/prod-003.yaml"))
+
+
+def resolve_pmm_default_config() -> str:
+    """Resolve PMM config path with deterministic fallback strategy."""
+    primary = os.path.join(WORKSPACE, PMM_CONFIG.get("default_config", "polymarket-mm/paper/runs/prod-003.yaml"))
+    fallback_candidates = [
+        primary,
+        os.path.join(WORKSPACE, "polymarket-mm/paper/runs/prod-002.yaml"),
+        os.path.join(WORKSPACE, "polymarket-mm/paper/runs/prod-001.yaml"),
+    ]
+    configured_fallbacks = PMM_CONFIG.get("fallback_configs", [])
+    for cfg in configured_fallbacks:
+        fallback_path = os.path.join(WORKSPACE, cfg)
+        if fallback_path not in fallback_candidates:
+            fallback_candidates.append(fallback_path)
+
+    # Keep duplicates out while preserving order
+    deduped=[]
+    for cfg in fallback_candidates:
+        if cfg not in deduped:
+            deduped.append(cfg)
+
+    for cfg in deduped:
+        if cfg and os.path.exists(cfg):
+            return cfg
+
+    return primary
+
+
+PMM_DEFAULT_CONFIG = resolve_pmm_default_config()
 
 # === DESCRIPTION QUALITY CONFIG ===
 DESC_CONFIG = V3_CONFIG.get("description_quality", {})

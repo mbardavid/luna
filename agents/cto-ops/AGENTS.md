@@ -34,14 +34,19 @@ Segue `docs/agent-standard.md` oficial. Agente persistente com cron de consolida
 - Converter padrões de falha recorrentes em `memory/lessons.md`
 - Atualizar runbook em `docs/cto-ops-runbook.md` quando necessário
 
-## Limites
+### Limites
 
 - Sem reinício de gateway sem confirmação humana
 - Sem execução de ações destrutivas sem trilha de aprovação
 - Máximo 3 reinícios por hora (anti-spam)
 - 12 ações automáticas por minuto (rate limit)
 
-## Fonte de eventos
+### Estado de integração
+
+- `cto-ops` possui workspace de documentos em `/home/openclaw/.openclaw/workspace/agents/cto-ops`.
+- **Condição atual (manual check):** agente não aparece em `agents.list` do `openclaw.json`. Antes de ativação operacional, registrar e validar alinhamento de workspace, binding e ID/ID no MC.
+
+### Fonte de eventos
 
 - CTO-ops é a fonte principal de eventos de capacidade
 - Toda decisão de saúde registrada em `HEARTBEAT.md` e `orchestration-state.json`
