@@ -45,6 +45,7 @@ from execution.unwind import UnwindConfig, UnwindManager, UnwindStrategy
 from data.ws_client import CLOBWebSocketClient
 from execution.live_execution import LiveExecution
 from paper.startup_reconciler import StartupReconciler, StartupReconciliationConfig
+from runner.position_tracker import PositionTracker
 
 # ── SOCKS5 Proxy for Polymarket geoblock bypass ──────────────────────
 # py_clob_client uses a global httpx.Client without proxy.
@@ -302,6 +303,7 @@ class ProductionWallet:
         self,
         rest_client: Any,
         market_configs: list | None = None,
+        supabase_logger: Any | None = None,
     ) -> None:
         """Fetch on-chain balance and update ``_on_chain`` snapshot.
 
@@ -311,52 +313,74 @@ class ProductionWallet:
         """
         try:
             balance_info = await rest_client.get_balance_allowance("COLLATERAL")
-            # Balance comes as string of micro-USDC (6 decimals), divide by 1e6
             raw_balance = Decimal(str(balance_info.get("balance", "0")))
             usdc_balance = raw_balance / Decimal("1000000")
 
             self._on_chain["usdc_balance"] = float(usdc_balance)
             self._on_chain["last_updated"] = datetime.now(timezone.utc).isoformat()
 
-            # Query REAL on-chain token balances and live prices
             portfolio_value = usdc_balance
             self._on_chain["positions"] = {}
+            self._on_chain["untracked_positions"] = []
+            self._on_chain["warnings"] = []
 
-            if market_configs:
+            wallet_address = None
+            try:
+                wallet_address = str(rest_client.clob_client.get_address())
+            except Exception:
+                wallet_address = None
+
+            if market_configs and wallet_address:
+                tracker = PositionTracker(rest_client, market_configs)
+                snapshot = await tracker.collect(wallet_address)
+                self._on_chain["position_source"] = snapshot.source
+                self._on_chain["warnings"] = list(snapshot.warnings)
+                self._on_chain["untracked_positions"] = [
+                    {
+                        **row,
+                        "shares": float(row["shares"]),
+                        "price": float(row["price"]),
+                        "value_usd": float(row["value_usd"]),
+                    }
+                    for row in snapshot.unmatched_positions
+                ]
+                portfolio_value += sum(
+                    row["value_usd"] for row in snapshot.discovered_positions
+                )
+
                 for mc in market_configs:
-                    pos_data = {"yes_shares": 0, "no_shares": 0,
-                                "yes_price": 0, "no_price": 0,
-                                "yes_value": 0, "no_value": 0}
-                    try:
-                        # Query real token balances from CLOB
-                        yes_info = await rest_client.get_balance_allowance(
-                            "CONDITIONAL", token_id=mc.token_id_yes)
-                        no_info = await rest_client.get_balance_allowance(
-                            "CONDITIONAL", token_id=mc.token_id_no)
-                        yes_shares = Decimal(str(yes_info.get("balance", "0"))) / Decimal("1000000")
-                        no_shares = Decimal(str(no_info.get("balance", "0"))) / Decimal("1000000")
+                    market_state = snapshot.market_positions.get(mc.market_id, {})
+                    self._on_chain["positions"][mc.market_id] = {
+                        "yes_shares": float(market_state.get("yes_shares", Decimal("0"))),
+                        "no_shares": float(market_state.get("no_shares", Decimal("0"))),
+                        "yes_price": float(market_state.get("yes_price", Decimal("0"))),
+                        "no_price": float(market_state.get("no_price", Decimal("0"))),
+                        "yes_value": float(market_state.get("yes_value_usd", Decimal("0"))),
+                        "no_value": float(market_state.get("no_value_usd", Decimal("0"))),
+                        "description": market_state.get("description", mc.description),
+                    }
 
-                        # Get live prices from CLOB
-                        yes_price = await rest_client.get_price(mc.token_id_yes, side="sell")
-                        no_price = await rest_client.get_price(mc.token_id_no, side="sell")
-
-                        yes_value = yes_shares * yes_price
-                        no_value = no_shares * no_price
-                        portfolio_value += yes_value + no_value
-
-                        pos_data = {
-                            "yes_shares": float(yes_shares),
-                            "no_shares": float(no_shares),
-                            "yes_price": float(yes_price),
-                            "no_price": float(no_price),
-                            "yes_value": float(yes_value),
-                            "no_value": float(no_value),
-                            "description": mc.description,
-                        }
-                    except Exception as e:
-                        logger.warning("wallet.reconcile.position_error",
-                                       market_id=mc.market_id, error=str(e))
-                    self._on_chain["positions"][mc.market_id] = pos_data
+                if supabase_logger:
+                    supabase_logger.log_position_snapshot(
+                        wallet_address=wallet_address,
+                        phase="reconcile_loop",
+                        source=snapshot.source,
+                        usdc_balance=usdc_balance,
+                        positions=snapshot.discovered_positions,
+                        warnings=snapshot.warnings,
+                    )
+            elif market_configs:
+                for mc in market_configs:
+                    self._on_chain["positions"][mc.market_id] = {
+                        "yes_shares": 0,
+                        "no_shares": 0,
+                        "yes_price": 0,
+                        "no_price": 0,
+                        "yes_value": 0,
+                        "no_value": 0,
+                        "description": mc.description,
+                    }
+                self._on_chain["position_source"] = "legacy"
 
             self._on_chain["portfolio_value"] = float(portfolio_value)
 
@@ -1413,6 +1437,7 @@ class ProductionTradingPipeline:
                 await self.wallet.reconcile_on_chain(
                     self.rest_client,
                     market_configs=self.market_configs,
+                    supabase_logger=self.supabase_logger,
                 )
                 logger.debug(
                     "production.reconcile.done",
@@ -1764,6 +1789,7 @@ async def async_main(args):
         api_key=api_key,
         api_secret=api_secret,
         api_passphrase=api_passphrase,
+        proxy_url=os.environ.get("POLYMARKET_PROXY", "socks5://127.0.0.1:9050"),
         rate_limit_rps=5.0,  # conservative rate limit
     )
 
@@ -1881,6 +1907,7 @@ async def async_main(args):
             rest_client=rest_client,
             market_configs=markets,
             config=recon_config,
+            supabase_logger=pipeline.supabase_logger,
         )
 
         recon_result = await reconciler.reconcile()

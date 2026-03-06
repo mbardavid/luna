@@ -38,7 +38,7 @@ from core.event_bus import EventBus
 from core.kill_switch import KillSwitch, KillSwitchState
 from data.ws_client import CLOBWebSocketClient
 from models.market_state import MarketState
-from models.order import Order, Side
+from models.order import Order, OrderStatus, OrderType, Side
 from models.position import Position
 from paper.paper_runner import (
     LiveBookTracker,
@@ -55,6 +55,7 @@ from runner.config import (
     load_rotation_blacklist,
     save_rotation_blacklist,
 )
+from runner.decision_envelope import DecisionEnvelope
 from runner.market_health import MarketHealthMonitor, MarketHealthStatus
 from runner.trade_logger import UnifiedTradeLogger
 from runner.venue_adapter import VenueAdapter
@@ -105,6 +106,9 @@ class UnifiedTradingPipeline:
         rest_client: Any = None,
         ws_client: CLOBWebSocketClient | None = None,
         supabase_logger: Any = None,
+        decision_envelope: DecisionEnvelope | None = None,
+        transport_selection: Any = None,
+        latency_recorder: Any = None,
     ) -> None:
         self.market_configs = market_configs
         self.venue = venue
@@ -202,6 +206,30 @@ class UnifiedTradingPipeline:
 
         # REST client (for live mode reconciliation)
         self.rest_client = rest_client
+        self.decision_envelope = decision_envelope
+        self.transport_selection = transport_selection
+        self.latency_recorder = latency_recorder
+        self._decision_id = decision_envelope.decision_id if decision_envelope else ""
+        self._last_quote_refresh: dict[str, float] = {}
+        self._directional_allocated = Decimal("0")
+        self._max_directional_capital = (
+            decision_envelope.capital_policy.directional_capital_usdc
+            if decision_envelope
+            else Decimal("0")
+        )
+        self._allow_directional_live = bool(
+            decision_envelope
+            and decision_envelope.mode_allocations.directional_enabled
+            and decision_envelope.risk_limits.allow_directional_live
+            and (
+                not decision_envelope.risk_limits.directional_live_requires_direct
+                or (transport_selection is not None and transport_selection.directional_live_ok)
+            )
+        )
+        self._directional_enabled_for_mode = (
+            self.mode == "paper"
+            or self._allow_directional_live
+        )
 
         # Token → market mapping
         self._token_to_market: dict[str, UnifiedMarketConfig] = {}
@@ -246,6 +274,12 @@ class UnifiedTradingPipeline:
                 min_health_score=self._rotation_config.min_market_health_score,
                 blacklist_size=len(self._rotation_blacklist),
             )
+            if self.decision_envelope is not None:
+                logger.info(
+                    "pipeline.market_rotation_disabled_by_decision_envelope",
+                    decision_id=self._decision_id,
+                )
+                self._health_monitor = None
 
         if self._rotation_config.capital_recovery:
             self._capital_recovery = CapitalRecovery(self._rotation_config)
@@ -276,6 +310,8 @@ class UnifiedTradingPipeline:
                 "markets": [m.market_id for m in self.market_configs],
                 "duration_hours": self.duration_hours,
                 "quote_interval_s": self.quote_interval,
+                "decision_id": self._decision_id,
+                "transport": self._selected_transport(),
             })
 
         # Start WS client
@@ -306,6 +342,9 @@ class UnifiedTradingPipeline:
         else:
             tasks.append(asyncio.create_task(self._order_status_poll_loop()))
             tasks.append(asyncio.create_task(self._reconcile_loop()))
+            tasks.append(asyncio.create_task(self._execution_guard_loop()))
+            if self.latency_recorder is not None:
+                tasks.append(asyncio.create_task(self._transport_monitor_loop()))
 
         # Market rotation + capital recovery loops (both modes, config-gated)
         if self._health_monitor is not None:
@@ -465,6 +504,8 @@ class UnifiedTradingPipeline:
 
                 # Log trade
                 self.trade_logger.log_trade(
+                    decision_id=self._decision_id,
+                    execution_mode=getattr(market_cfg, "execution_mode", "rewards_farming") if market_cfg else "rewards_farming",
                     market_id=market_id,
                     market_description=getattr(market_cfg, "description", market_id) if market_cfg else market_id,
                     side=side,
@@ -481,6 +522,10 @@ class UnifiedTradingPipeline:
                     features=None,
                     kill_switch_state=self.kill_switch.state.value,
                     data_gap_seconds=data_gap,
+                    transport=self._selected_transport(),
+                    transport_ttfb_ms=self._selected_transport_ttfb_ms(),
+                    latency_bucket=self._latency_bucket(0.0),
+                    reward_estimate_usd=self._reward_estimate_for_market(market_cfg),
                     wallet_after={
                         "available": float(self.wallet.available_balance),
                         "locked": float(self.wallet.locked_balance),
@@ -545,6 +590,8 @@ class UnifiedTradingPipeline:
 
                     # Log fill
                     self.trade_logger.log_trade(
+                        decision_id=self._decision_id,
+                        execution_mode=market_cfg.execution_mode if market_cfg else "rewards_farming",
                         market_id=market_id,
                         market_description=market_cfg.description if market_cfg else market_id,
                         side=side,
@@ -564,6 +611,10 @@ class UnifiedTradingPipeline:
                         exchange_order_id=fill.get("exchange_order_id", ""),
                         kill_switch_state=self.kill_switch.state.value,
                         data_gap_seconds=data_gap,
+                        transport=self._selected_transport(),
+                        transport_ttfb_ms=self._selected_transport_ttfb_ms(),
+                        latency_bucket=self._latency_bucket(0.0),
+                        reward_estimate_usd=self._reward_estimate_for_market(market_cfg),
                         wallet_after=self.wallet.wallet_snapshot(self._get_mid_prices()),
                     )
 
@@ -637,7 +688,22 @@ class UnifiedTradingPipeline:
                 await asyncio.sleep(backoff)
 
     async def _process_market(self, market_cfg: UnifiedMarketConfig, elapsed_hours: Decimal) -> None:
-        """Process a single market: feature → quote → submit."""
+        """Process a single market according to its execution mode."""
+        if market_cfg.disable_reason:
+            return
+        if market_cfg.execution_mode == "event_driven":
+            if not self._directional_enabled_for_mode:
+                return
+            await self._process_directional_market(market_cfg)
+            return
+        await self._process_rewards_market(market_cfg, elapsed_hours)
+
+    async def _process_rewards_market(
+        self,
+        market_cfg: UnifiedMarketConfig,
+        elapsed_hours: Decimal,
+    ) -> None:
+        """Rewards-first market making path driven by Quant parameters."""
         market_state = self.book_tracker.get_market_state(market_cfg)
         if market_state is None:
             return
@@ -673,7 +739,18 @@ class UnifiedTradingPipeline:
         if position is None:
             position = self.wallet.get_position(market_cfg.market_id)
 
-        # Generate quotes (balance-aware quoting is config-driven, not mode-specific)
+        if self._should_hold_quotes(market_cfg):
+            return
+
+        original_order_size = self.quote_engine.config.default_order_size
+        original_min_half_spread = self.quote_engine.spread_model.config.min_half_spread_bps
+        if market_cfg.order_size_override is not None:
+            self.quote_engine.config.default_order_size = market_cfg.order_size_override
+        if market_cfg.half_spread_bps_override is not None:
+            self.quote_engine.spread_model.config.min_half_spread_bps = Decimal(
+                str(market_cfg.half_spread_bps_override)
+            )
+
         try:
             plan = self.quote_engine.generate_quotes(
                 state=market_state,
@@ -682,25 +759,38 @@ class UnifiedTradingPipeline:
                 elapsed_hours=elapsed_hours,
                 available_balance=self.wallet.available_balance,
                 max_position_size=market_cfg.max_position_size,
-                market_min_spread_bps=Decimal(str(market_cfg.spread_min_bps)),
+                market_min_spread_bps=Decimal(
+                    str(
+                        market_cfg.half_spread_bps_override * 2
+                        if market_cfg.half_spread_bps_override is not None
+                        else market_cfg.spread_min_bps
+                    )
+                ),
             )
         except Exception as e:
             logger.warning("quote_engine.error",
                            market_id=market_cfg.market_id, error=str(e))
             return
+        finally:
+            self.quote_engine.config.default_order_size = original_order_size
+            self.quote_engine.spread_model.config.min_half_spread_bps = original_min_half_spread
 
         if not plan.slices:
             return
 
         self.metrics.record_quote(market_cfg.market_id, len(plan.slices))
 
-        # Cancel existing orders for this market before placing new ones
+        # Refresh only after the minimum quote lifetime to reduce churn.
         await self.venue.cancel_market_orders(market_cfg.market_id)
+        self._last_quote_refresh[market_cfg.market_id] = time.monotonic()
 
         # Convert to orders and submit
         orders = plan.to_order_intents()
         for order in orders:
             try:
+                order = order.model_copy(update={
+                    "strategy_tag": f"{market_cfg.execution_mode}:{self._decision_id}",
+                })
                 self.metrics.record_order(market_cfg.market_id)
                 if self._health_monitor is not None:
                     self._health_monitor.record_order(market_cfg.market_id)
@@ -725,13 +815,14 @@ class UnifiedTradingPipeline:
                         total_pnl=str(self.total_pnl),
                     )
                 elif self.mode == "live":
-                    from models.order import OrderStatus
                     if result.status == OrderStatus.REJECTED:
                         logger.warning(
                             "order.rejected",
                             market_id=market_cfg.market_id,
                             side=order.side.value,
                             price=str(order.price),
+                            decision_id=self._decision_id,
+                            mode=market_cfg.execution_mode,
                         )
                     else:
                         logger.info(
@@ -740,6 +831,8 @@ class UnifiedTradingPipeline:
                             side=order.side.value,
                             price=str(order.price),
                             size=str(order.size),
+                            decision_id=self._decision_id,
+                            mode=market_cfg.execution_mode,
                         )
 
                         if self.supabase_logger:
@@ -757,6 +850,93 @@ class UnifiedTradingPipeline:
             except Exception as e:
                 logger.warning("order.submit_error",
                                market_id=market_cfg.market_id, error=str(e))
+
+    async def _process_directional_market(self, market_cfg: UnifiedMarketConfig) -> None:
+        """Directional path gated behind Quant allocation and transport health."""
+        market_state = self.book_tracker.get_market_state(market_cfg)
+        if market_state is None:
+            return
+
+        if self.mode == "live" and not self._allow_directional_live:
+            return
+        if market_cfg.directional_side not in {"YES", "NO"}:
+            return
+        if market_cfg.entry_price_limit is None or market_cfg.stake_usdc is None:
+            return
+        if self._should_hold_quotes(market_cfg, ttl_override=float(market_cfg.ttl_seconds or 0)):
+            return
+        if self._max_directional_capital > 0 and (
+            self._directional_allocated + market_cfg.stake_usdc > self._max_directional_capital
+        ):
+            logger.info(
+                "directional.cap_reached",
+                market_id=market_cfg.market_id,
+                allocated=str(self._directional_allocated),
+                cap=str(self._max_directional_capital),
+            )
+            return
+
+        if market_cfg.directional_side == "YES":
+            token_id = market_cfg.token_id_yes
+            live_price = market_state.yes_ask or market_state.mid_price
+        else:
+            token_id = market_cfg.token_id_no
+            live_price = market_state.no_ask or (Decimal("1") - market_state.mid_price)
+
+        if live_price <= 0 or live_price > market_cfg.entry_price_limit:
+            return
+
+        size = (market_cfg.stake_usdc / live_price).quantize(Decimal("0.0001"))
+        if size < market_cfg.min_order_size:
+            return
+
+        order = Order(
+            market_id=market_cfg.market_id,
+            token_id=token_id,
+            side=Side.BUY,
+            price=live_price,
+            size=size,
+            order_type=OrderType.GTC,
+            maker_only=True,
+            ttl_ms=int((market_cfg.ttl_seconds or 60) * 1000),
+            strategy_tag=f"event_driven:{self._decision_id}",
+        )
+
+        self.metrics.record_order(market_cfg.market_id)
+        result = await self.venue.submit_order(order)
+        self._last_quote_refresh[market_cfg.market_id] = time.monotonic()
+        if result.status != OrderStatus.REJECTED:
+            self._directional_allocated += market_cfg.stake_usdc
+            logger.info(
+                "directional.order_submitted",
+                market_id=market_cfg.market_id,
+                price=str(live_price),
+                size=str(size),
+                decision_id=self._decision_id,
+            )
+        else:
+            logger.warning(
+                "directional.order_rejected",
+                market_id=market_cfg.market_id,
+                price=str(live_price),
+                decision_id=self._decision_id,
+            )
+
+    def _should_hold_quotes(
+        self,
+        market_cfg: UnifiedMarketConfig,
+        *,
+        ttl_override: float | None = None,
+    ) -> bool:
+        min_lifetime = ttl_override
+        if min_lifetime is None:
+            min_lifetime = float(market_cfg.min_quote_lifetime_s or 0)
+        if min_lifetime <= 0:
+            return False
+        last_refresh = self._last_quote_refresh.get(market_cfg.market_id)
+        if last_refresh is None:
+            return False
+        return (time.monotonic() - last_refresh) < min_lifetime
 
     async def _metrics_flush_loop(self) -> None:
         """Paper mode: flush metrics every hour."""
@@ -876,6 +1056,45 @@ class UnifiedTradingPipeline:
                 break
             except Exception as e:
                 logger.warning("reconcile_loop.error", error=str(e))
+
+    async def _execution_guard_loop(self) -> None:
+        """Live mode: halt on structural execution anomalies."""
+        while self._running:
+            try:
+                await asyncio.sleep(1)
+                if not hasattr(self.venue, "drain_execution_alerts"):
+                    continue
+                alerts = self.venue.drain_execution_alerts()
+                for alert in alerts:
+                    if not alert.get("critical"):
+                        continue
+                    logger.critical(
+                        "execution_guard.halt",
+                        code=alert.get("code"),
+                        market_id=alert.get("market_id"),
+                        message=alert.get("message"),
+                    )
+                    await self.venue.cancel_all_orders()
+                    await self.stop(reason=f"operational_halt:{alert.get('code')}")
+                    return
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning("execution_guard.error", error=str(e))
+
+    async def _transport_monitor_loop(self) -> None:
+        """Live mode: record latency probes continuously for correlation."""
+        while self._running:
+            try:
+                await asyncio.sleep(60)
+                if self.latency_recorder is None:
+                    return
+                self.latency_recorder.sample_current_transport()
+                self.latency_recorder.write_summary()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning("transport_monitor.error", error=str(e))
 
     async def _live_state_loop(self) -> None:
         """Write live state JSON periodically."""
@@ -1223,6 +1442,8 @@ class UnifiedTradingPipeline:
     async def _final_flush(self) -> None:
         """Final metrics flush and save."""
         self.metrics.flush_hour(self._positions, self.total_pnl)
+        if self.latency_recorder is not None:
+            self.latency_recorder.write_summary()
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         prefix = "metrics_production_" if self.mode == "live" else "metrics_"
@@ -1300,6 +1521,43 @@ class UnifiedTradingPipeline:
             )
         except Exception as e:
             logger.warning("run_history.error", error=str(e))
+
+    def _selected_transport(self) -> str:
+        if self.transport_selection is None:
+            return ""
+        return getattr(self.transport_selection, "selected_transport", "")
+
+    def _selected_transport_ttfb_ms(self) -> float:
+        if self.transport_selection is None:
+            return 0.0
+        samples = (
+            self.transport_selection.direct_samples
+            if self.transport_selection.selected_transport == "direct"
+            else self.transport_selection.proxy_samples
+        )
+        ok_samples = [sample.ttfb_ms for sample in samples if getattr(sample, "ok", False)]
+        if not ok_samples:
+            return 0.0
+        return float(sum(ok_samples) / len(ok_samples))
+
+    @staticmethod
+    def _latency_bucket(ttfb_ms: float) -> str:
+        if ttfb_ms <= 0:
+            return "unknown"
+        if ttfb_ms < 350:
+            return "fast"
+        if ttfb_ms < 1300:
+            return "degraded"
+        return "slow"
+
+    @staticmethod
+    def _reward_estimate_for_market(market_cfg: UnifiedMarketConfig | None) -> float:
+        if market_cfg is None:
+            return 0.0
+        if market_cfg.expected_reward_yield_bps_day is None or market_cfg.order_size_override is None:
+            return 0.0
+        daily_yield = Decimal(str(market_cfg.expected_reward_yield_bps_day)) / Decimal("10000")
+        return float((market_cfg.order_size_override * daily_yield).quantize(Decimal("0.000001")))
 
     def _get_mid_prices(self) -> dict[str, Decimal]:
         """Get current mid prices from book tracker."""

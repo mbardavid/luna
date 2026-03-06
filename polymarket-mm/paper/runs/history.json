@@ -339,5 +339,145 @@
     "fill_rate": 0.38,
     "max_drawdown": 0,
     "timestamp": "2026-03-03T01:50:47.972420+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.02,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T02:34:23.695964+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.02,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T03:35:45.232491+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.02,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T03:37:32.867854+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.02,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T03:39:33.145000+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.02,
+    "fill_rate": 14.29,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T03:41:45.023039+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.02,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T03:43:29.750535+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.02,
+    "fill_rate": 25.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T03:45:30.117933+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.03,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T03:47:39.895122+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.02,
+    "fill_rate": 0.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T03:49:18.523690+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0059,
+    "duration_h": 0.95,
+    "fill_rate": 2.86,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T04:46:12.180835+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "PASS",
+    "pnl_per_hour": 4.8102,
+    "duration_h": 1.56,
+    "fill_rate": 1.48,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T06:20:46.195754+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.11,
+    "fill_rate": 3.57,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T06:27:58.408477+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 0.0,
+    "duration_h": 0.07,
+    "fill_rate": 5.56,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T06:32:19.261995+00:00"
+  },
+  {
+    "run_id": "prod-004",
+    "hypothesis": "rewards-farming-optimized",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": 67.7039,
+    "duration_h": 0.16,
+    "fill_rate": 9.52,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-06T06:42:38.991130+00:00"
   }
 ]

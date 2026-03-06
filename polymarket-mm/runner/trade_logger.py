@@ -46,6 +46,8 @@ class UnifiedTradeLogger:
     def log_trade(
         self,
         *,
+        decision_id: str = "",
+        execution_mode: str = "rewards_farming",
         market_id: str,
         market_description: str,
         side: str,
@@ -77,6 +79,14 @@ class UnifiedTradeLogger:
         rejection_reason: str = "",
         real_fee_bps: float = 0,
         exchange_order_id: str = "",
+        transport: str = "",
+        transport_ttfb_ms: float = 0,
+        order_ack_ms: float = 0,
+        latency_bucket: str = "",
+        reward_estimate_usd: float = 0,
+        reward_received_usd: float = 0,
+        churn_cost_usd: float = 0,
+        slippage_bps: float = 0,
     ) -> None:
         self._trade_counter += 1
         self._cumulative_pnl += pnl_this_trade
@@ -86,6 +96,8 @@ class UnifiedTradeLogger:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "run_id": self._run_id,
             "trade_id": trade_id,
+            "decision_id": decision_id,
+            "mode": execution_mode,
             "market_id": market_id,
             "market_description": market_description,
             "side": side,
@@ -117,6 +129,17 @@ class UnifiedTradeLogger:
             },
             "kill_switch_state": kill_switch_state,
             "data_gap_seconds": round(data_gap_seconds, 2),
+            "ledger": {
+                "execution_pnl_usd": float(pnl_this_trade),
+                "reward_estimate_usd": round(float(reward_estimate_usd), 6),
+                "reward_received_usd": round(float(reward_received_usd), 6),
+                "churn_cost_usd": round(float(churn_cost_usd), 6),
+                "reward_adjusted_pnl_usd": round(
+                    float(pnl_this_trade) + float(reward_received_usd) + float(reward_estimate_usd) - float(churn_cost_usd),
+                    6,
+                ),
+                "slippage_bps": round(float(slippage_bps), 4),
+            },
         }
 
         # Live-mode extra fields
@@ -127,6 +150,10 @@ class UnifiedTradeLogger:
             record["rejection_reason"] = rejection_reason
             record["real_fee_bps"] = round(real_fee_bps, 2)
             record["exchange_order_id"] = exchange_order_id
+            record["transport"] = transport
+            record["transport_ttfb_ms"] = round(transport_ttfb_ms, 2)
+            record["order_ack_ms"] = round(order_ack_ms, 2)
+            record["latency_bucket"] = latency_bucket
 
         if wallet_after:
             record["wallet_after"] = wallet_after

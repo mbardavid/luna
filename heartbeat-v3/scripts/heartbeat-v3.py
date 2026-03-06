@@ -59,6 +59,7 @@ except ImportError:
         print("Cannot determine São Paulo timezone for active hours check.", file=sys.stderr)
         sys.exit(1)
 
+import hashlib
 import json
 import os
 import subprocess
@@ -66,18 +67,20 @@ import time
 import fcntl
 import tempfile
 import glob
-import hashlib
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 from mc_control import (
     LUNA_REVIEW_PHASES,
     build_queue_key,
+    build_run_id,
     claim_review,
     is_claim_active,
+    is_executable_leaf_task,
     is_luna_review_task,
     load_metrics,
     metrics_increment,
@@ -90,14 +93,22 @@ from mc_control import (
     queue_key_for_task,
     route_dev_loop_intake,
     save_metrics,
+    task_attempt,
+    task_card_type,
     task_dispatch_policy,
     task_fields,
+    task_lane,
+    task_milestone_id,
     task_phase,
     task_phase_owner,
     task_phase_state,
+    task_project_id,
     task_status,
     task_workflow,
+    task_workstream_id,
 )
+from project_autonomy import choose_next_dispatch_task, plan_project_autonomy
+from agent_runtime_topology import build_assigned_agent_lookup, resolve_assigned_agent
 
 
 # === CONFIG ===
@@ -177,6 +188,14 @@ QUEUE_WAKE_ENABLED = bool(V3_CONFIG.get("queue_wake_enabled", False))
 INBOX_REQUIRES_IDLE = bool(V3_CONFIG.get("inbox_requires_idle", True))
 QUEUE_DONE_DEDUP_MS = V3_CONFIG.get("queue_done_dedup_minutes", 180) * 60 * 1000
 REVIEW_LEASE_MINUTES = int(V3_CONFIG.get("review_lease_minutes", 20) or 20)
+OPERATIONAL_MSG_COOLDOWN_MS = V3_CONFIG.get("operational_message_cooldown_minutes", 30) * 60 * 1000
+PROJECT_AUTONOMY_CONFIG = V3_CONFIG.get("project_autonomy", {})
+PROJECT_AUTONOMY_ENABLED = bool(PROJECT_AUTONOMY_CONFIG.get("enabled", True))
+PROJECT_LANE_FLOOR_RATIO = float(PROJECT_AUTONOMY_CONFIG.get("lane_floor_ratio", 0.25) or 0.25)
+PROJECT_LANE_CAP_RATIO = float(PROJECT_AUTONOMY_CONFIG.get("lane_cap_ratio", 0.5) or 0.5)
+PROJECT_AUTONOMY_MAX_ACTIVE_WORKSTREAMS = int(PROJECT_AUTONOMY_CONFIG.get("max_active_workstreams", 3) or 3)
+PROJECT_AUTONOMY_MAX_AUTO_PER_WORKSTREAM = int(PROJECT_AUTONOMY_CONFIG.get("max_auto_leaf_tasks_per_workstream", 2) or 2)
+PROJECT_AUTONOMY_MAX_NEW_LEAF_TASKS_PER_CYCLE = int(PROJECT_AUTONOMY_CONFIG.get("max_new_leaf_tasks_per_cycle", 3) or 3)
 
 # Dry-run support
 DRY_RUN = "--dry-run" in sys.argv
@@ -216,6 +235,7 @@ def load_state() -> dict:
         "last_dispatched_id": "",
         "dispatched_at": 0,
         "notified_failures": {},
+        "operational_alerts": {},
         "dispatch_history": [],
         "circuit_breaker": {
             "state": "closed",
@@ -248,6 +268,7 @@ def ensure_state_fields(state: dict) -> dict:
     state.setdefault("last_dispatched_id", "")
     state.setdefault("dispatched_at", 0)
     state.setdefault("notified_failures", {})
+    state.setdefault("operational_alerts", {})
     state.setdefault("dispatch_history", [])
     state.setdefault("circuit_breaker", {
         "state": "closed",
@@ -368,6 +389,24 @@ def mc_update_task(task_id: str, **kwargs) -> bool:
     except Exception as e:
         log(f"ERROR: mc-update failed: {e}")
         return False
+
+
+def mc_create_task(title: str, description: str, assignee: str = "", priority: str = "medium",
+                   status: str = "inbox", fields: dict | None = None) -> dict:
+    """Create a task via mc-client.sh and return the created payload when available."""
+    serialized_fields = json.dumps(fields or {}, ensure_ascii=False)
+    cmd = [MC_CLIENT, "create-task", title, description, assignee or "", priority, status, serialized_fields]
+    if DRY_RUN:
+        log(f"DRY-RUN mc-create: {' '.join(cmd[:6])} <fields>")
+        pseudo_id = hashlib.sha1(f"{title}|{description}".encode("utf-8")).hexdigest()[:12]
+        return {"id": f"dryrun-{pseudo_id}", "title": title}
+    try:
+        raw = run_cmd(cmd, timeout=20)
+        data = json.loads(raw or "{}")
+        return data if isinstance(data, dict) else {}
+    except Exception as e:
+        log(f"ERROR: mc-create failed: {e}")
+        return {}
 
 
 def _hash_qa_handoff(task_id: str, reason: str, evidence: str) -> str:
@@ -517,36 +556,40 @@ def notification_channels() -> list:
     return channels
 
 
-def send_operational_message(message: str) -> None:
+def send_operational_message(message: str, state: dict | None = None,
+                             dedupe_key: str | None = None,
+                             cooldown_ms: int = OPERATIONAL_MSG_COOLDOWN_MS) -> None:
+    if state is not None and cooldown_ms > 0:
+        alerts = state.setdefault("operational_alerts", {})
+        key = dedupe_key or hashlib.sha1(message.encode("utf-8")).hexdigest()
+        last_at = int(alerts.get(key, 0) or 0)
+        now_ms = int(time.time() * 1000)
+        if now_ms - last_at < cooldown_ms:
+            elapsed_min = int((now_ms - last_at) / 60000)
+            log(f"SKIP: operational message suppressed ({key[:8]}) after {elapsed_min}min")
+            return
+        alerts[key] = now_ms
+        state["operational_alerts"] = alerts
+        save_state(state)
     for channel in notification_channels():
         send_discord(channel, message)
 
 
 def load_agent_mapping() -> dict:
-    """Build UUID → agent name mapping from MC config."""
-    mapping = {}
+    """Build full/short-id → canonical agent mapping from shared topology."""
     try:
-        with open(MC_CONFIG_FILE) as f:
-            data = json.load(f)
-        agents = data.get("agents", {})
-        for name, uuid in agents.items():
-            agent_id = "main" if name.lower() == "luna" else name.lower().replace("_", "-")
-            mapping[uuid] = agent_id
+        return build_assigned_agent_lookup(
+            mc_config_path=Path(MC_CONFIG_FILE),
+            short_ids_path=Path(AGENT_IDS_FILE),
+        )
     except Exception:
-        pass
-    return mapping
+        return {}
 
 
 def resolve_agent_name(uuid_str: str, mapping: dict) -> str:
-    """Resolve MC agent UUID to OpenClaw agent name."""
-    if not uuid_str:
-        return "luan"  # Default worker
-    if uuid_str in mapping:
-        return mapping[uuid_str]
-    for full_uuid, name in mapping.items():
-        if full_uuid.startswith(uuid_str):
-            return name
-    return "luan"  # Fallback
+    """Resolve MC agent UUID or short-id to canonical OpenClaw agent name."""
+    resolved = resolve_assigned_agent(uuid_str, mapping)
+    return resolved or "luan"
 
 
 def record_cb_failure(state: dict) -> None:
@@ -924,6 +967,16 @@ def build_dispatch_payload(task: dict, agent_name: str, eligible_count: int, in_
             "in_progress_count": in_progress_count,
             "rejection_feedback": fields.get("mc_rejection_feedback", ""),
             "authorization_status": fields.get("mc_authorization_status", ""),
+            "acceptance_criteria": fields.get("mc_acceptance_criteria", ""),
+            "qa_checks": fields.get("mc_qa_checks", ""),
+            "expected_artifacts": fields.get("mc_expected_artifacts", ""),
+            "card_type": fields.get("mc_card_type", ""),
+            "lane": fields.get("mc_lane", ""),
+            "run_id": fields.get("mc_run_id", ""),
+            "attempt": fields.get("mc_attempt", 0),
+            "project_id": fields.get("mc_project_id", ""),
+            "milestone_id": fields.get("mc_milestone_id", ""),
+            "workstream_id": fields.get("mc_workstream_id", ""),
             **qa_context,
         },
         "constraints": {
@@ -1144,6 +1197,9 @@ def check_pmm_health(state: dict) -> dict:
                 "⚠️ **PMM Crash Loop**: bot reiniciou "
                 f"{len(pmm_restarts)}x na última hora e continua morrendo. "
                 "Rate limit ativo — verificar kill switch / config.",
+                state=state,
+                dedupe_key="pmm-crash-loop",
+                cooldown_ms=60 * 60 * 1000,
             )
             absorbed[crash_loop_key] = {"at": now_ms}
             state["absorbed"] = absorbed
@@ -1576,14 +1632,22 @@ elif pmm_result.get("alive") is None:
 elif pmm_result.get("restarted"):
     log(f"Phase 1: PMM was dead → auto-restarted (PID {pmm_result.get('pid', '?')})")
     send_operational_message(
-        f"🔄 **PMM Auto-Restart**: bot was dead, restarted (PID {pmm_result.get('pid', '?')})")
+        f"🔄 **PMM Auto-Restart**: bot was dead, restarted (PID {pmm_result.get('pid', '?')})",
+        state=state,
+        dedupe_key="pmm-auto-restart",
+        cooldown_ms=15 * 60 * 1000,
+    )
     save_state(state)
 else:
     error = pmm_result.get("error", "unknown")
     log(f"Phase 1: PMM dead, restart skipped ({error})")
     if "max restarts" in str(error):
         send_operational_message(
-            f"⚠️ **PMM**: dead but max restarts/hour exceeded. Requires manual intervention.")
+            f"⚠️ **PMM**: dead but max restarts/hour exceeded. Requires manual intervention.",
+            state=state,
+            dedupe_key="pmm-max-restarts-manual",
+            cooldown_ms=60 * 60 * 1000,
+        )
 
 # ============================================================
 # PHASE 2: Active hours check (São Paulo)
@@ -1707,7 +1771,7 @@ for task in tasks:
                 f"Erro: {failure_type} | Retry #{retry_count + 1}/{MAX_RETRIES}\n"
                 f"Enfileirado para respawn automático via queue."
             )
-            send_operational_message(notif_msg)
+            send_operational_message(notif_msg, state=state)
         else:
             log(f"WARNING: MC update failed for {task_id[:8]}, skipping Discord notification to prevent storm")
 
@@ -1723,7 +1787,7 @@ for task in tasks:
             f"Erro: {failure_type}\n"
             f"Requer intervenção humana."
         )
-        send_operational_message(fail_msg)
+        send_operational_message(fail_msg, state=state)
 
     notified_failures[task_id] = {"at": now_ms, "session": session_key, "type": failure_type}
     new_failures.append({
@@ -1797,7 +1861,7 @@ if desc_violations:
         f"⚠️ **Description Quality**: {len(desc_violations)} task(s) with poor descriptions\n"
         + "\n".join(violation_lines)
     )
-    send_operational_message(violation_msg)
+    send_operational_message(violation_msg, state=state, dedupe_key="description-quality", cooldown_ms=60 * 60 * 1000)
     save_state(state)
     log(f"Phase 4.8: {len(desc_violations)} description violation(s) found")
 else:
@@ -1850,13 +1914,15 @@ for t in in_progress:
                 mc_update_task(task_id_check,
                     status="inbox",
                     comment=f"[heartbeat-v3] rollback — queue-only task without proof after {dispatch_age // 60000}min",
-                    fields={"mc_last_error": "rollback no session/queue proof after timeout", "mc_session_key": ""},
+                    fields={"mc_last_error": "rollback no session/queue proof after timeout", "mc_session_key": "", "mc_delivery_state": "queued"},
                 )
                 state["last_dispatched_id"] = ""
                 save_state(state)
                 send_operational_message(
                     f"⏳ **Heartbeat V3** stale dispatch rollback: `{task_id_check[:8]}` — **{title}** "
-                    f"(no proof after {dispatch_age // 60000}min)")
+                    f"(no proof after {dispatch_age // 60000}min)",
+                    state=state,
+                )
                 log("Phase 5.5: stale dispatch rolled back — exiting")
                 sys.exit(0)
 
@@ -1884,9 +1950,11 @@ for result in stale_results:
             "mc_last_error": "",
             "mc_completion_status": result.get("completion_status", "complete"),
             "mc_session_key": result.get("session_key", ""),
+            "mc_delivery_state": "review",
         })
         if not fields.get("mc_validation_artifact"):
             fields["mc_validation_artifact"] = f"artifacts/mc/{rtask_id[:8]}-luna-final-validation.md"
+        fields["mc_proof_ref"] = fields.get("mc_validation_artifact", "")
         mc_update_task(
             rtask_id,
             status="review",
@@ -1903,7 +1971,7 @@ for result in stale_results:
             f"🔍 **Completion Pending QA**: `{rtask_id[:8]}` — **{rtitle}**\n"
             f"Status: {result.get('completion_status', '?')} | Routed to judge loop."
         )
-        send_operational_message(qa_msg)
+        send_operational_message(qa_msg, state=state)
         qa_review_count += 1
 
     elif rtype == "orphan":
@@ -1918,7 +1986,7 @@ for result in stale_results:
             msg = (
                 f"🟡 **Orphan Task**: `{rtask_id[:8]}` — **{rtitle}** ({result.get('status', '?')}): sem executor"
             )
-        send_operational_message(msg)
+        send_operational_message(msg, state=state)
         orphan_count += 1
 
     elif rtype == "stale":
@@ -1975,12 +2043,14 @@ for task in tasks:
         "mc_retry_count": next_retry,
         "mc_last_error": "qa_rejected",
         "mc_session_key": "",
+        "mc_delivery_state": "queued",
         "mc_output_summary": f"QA rejected: {rejection.get('reason', '').strip()[:140] or 'motivo não informado'}",
         "mc_claimed_by": None,
         "mc_claim_expires_at": None,
     }
     if workflow == "dev_loop_v1" and not limit_reached:
         target_status = "in_progress"
+        update_fields["mc_delivery_state"] = "in_progress"
         update_fields["mc_phase_owner"] = "luan"
         update_fields["mc_phase_state"] = "pending"
         if current_phase == "luna_plan_validation":
@@ -2057,7 +2127,8 @@ if eligible_reviews:
     save_metrics(METRICS_FILE, metrics)
     send_operational_message(
         f"🔍 **Heartbeat V3** review claim: `{task_id[:8]}` — **{title}**\n"
-        f"Phase: `{task_phase(next_review)}` | Judge loop acionado."
+        f"Phase: `{task_phase(next_review)}` | Judge loop acionado.",
+        state=state,
     )
     log(f"REVIEW CLAIM: {task_id[:8]} → judge loop")
     log("heartbeat-v3 complete")
@@ -2068,6 +2139,67 @@ if review_tasks:
     save_state(state)
     save_metrics(METRICS_FILE, metrics)
     sys.exit(0)
+
+autonomy_plan = {"project": None, "milestone": None, "workstreams": [], "actions": [], "reason": "disabled"}
+if PROJECT_AUTONOMY_ENABLED:
+    autonomy_plan = plan_project_autonomy(
+        tasks,
+        max_concurrent_in_progress=MAX_CONCURRENT_IN_PROGRESS,
+        floor_ratio=PROJECT_LANE_FLOOR_RATIO,
+        cap_ratio=PROJECT_LANE_CAP_RATIO,
+        max_active_workstreams=PROJECT_AUTONOMY_MAX_ACTIVE_WORKSTREAMS,
+        max_auto_leaf_tasks_per_workstream=PROJECT_AUTONOMY_MAX_AUTO_PER_WORKSTREAM,
+        max_new_leaf_tasks_per_cycle=PROJECT_AUTONOMY_MAX_NEW_LEAF_TASKS_PER_CYCLE,
+    )
+    active_project = autonomy_plan.get("project")
+    active_milestone = autonomy_plan.get("milestone")
+    if active_project:
+        log(
+            "Phase 6.5: autonomy scope project="
+            f"{str(active_project.get('id', ''))[:8]} milestone={str((active_milestone or {}).get('id', ''))[:8]} "
+            f"reason={autonomy_plan.get('reason', 'unknown')}"
+        )
+    created_actions = []
+    promoted_actions = []
+    for action in autonomy_plan.get("actions", []):
+        if action.get("type") == "create_leaf_task":
+            created = mc_create_task(
+                action.get("title", "(untitled)"),
+                action.get("description", ""),
+                action.get("assignee", ""),
+                action.get("priority", "medium"),
+                action.get("status", "inbox"),
+                action.get("fields", {}),
+            )
+            if created:
+                created_actions.append(created)
+        elif action.get("type") == "promote_leaf_task":
+            task_obj = next((task for task in tasks if str(task.get("id", "")) == str(action.get("task_id", ""))), None)
+            if not task_obj:
+                continue
+            updated_fields = dict(task_fields(task_obj))
+            updated_fields.update(action.get("fields", {}))
+            if mc_update_task(str(action.get("task_id", "")), comment=action.get("comment"), fields=updated_fields):
+                promoted_actions.append(action)
+    if created_actions or promoted_actions:
+        if created_actions:
+            metrics_increment(metrics, "autonomy_creations", len(created_actions))
+        if promoted_actions:
+            metrics_increment(metrics, "autonomy_promotions", len(promoted_actions))
+        save_metrics(METRICS_FILE, metrics)
+        summary = []
+        if created_actions:
+            summary.append(f"created {len(created_actions)}")
+        if promoted_actions:
+            summary.append(f"promoted {len(promoted_actions)}")
+        milestone_title = str((autonomy_plan.get("milestone") or {}).get("title", "current milestone") or "current milestone")
+        send_operational_message(
+            f"🧭 **Autonomy Loop**: {' and '.join(summary)} leaf task(s) for **{milestone_title}**.",
+            state=state,
+        )
+        save_state(state)
+        log(f"Phase 6.5: autonomy actions applied ({', '.join(summary)})")
+        sys.exit(0)
 
 # ============================================================
 # PHASE 7: Pull oldest inbox task (FIFO) only when idle
@@ -2093,11 +2225,19 @@ except Exception:
     pass
 
 task_status_by_id = {t.get("id", ""): task_status(t) for t in tasks}
+autonomy_active_project = autonomy_plan.get("project") if PROJECT_AUTONOMY_ENABLED else None
+autonomy_active_milestone = autonomy_plan.get("milestone") if PROJECT_AUTONOMY_ENABLED else None
+autonomy_active_workstream_ids = {
+    str(item.get("id", ""))
+    for item in (autonomy_plan.get("workstreams") or [])
+} if PROJECT_AUTONOMY_ENABLED else set()
 eligible = []
 for t in inbox:
     tid = t.get("id", "")
     title = t.get("title", "?")
     dispatch_policy = task_dispatch_policy(t)
+    card_type = task_card_type(t)
+    lane = task_lane(t)
 
     if dispatch_policy == "backlog":
         log(f"FILTER: {tid[:8]} backlog policy — staying in inbox")
@@ -2105,6 +2245,25 @@ for t in inbox:
     if dispatch_policy == "human_hold":
         log(f"FILTER: {tid[:8]} human_hold policy — staying out of auto-drain")
         continue
+    if card_type in {"project", "milestone", "workstream"}:
+        log(f"FILTER: {tid[:8]} {card_type} container — never auto-drain")
+        continue
+    if lane == "project":
+        if not autonomy_active_project or not autonomy_active_milestone:
+            log(f"FILTER: {tid[:8]} project leaf without active autonomy scope")
+            continue
+        if task_project_id(t) != str(autonomy_active_project.get("id", "")):
+            log(f"FILTER: {tid[:8]} project leaf outside active project")
+            continue
+        if task_milestone_id(t) != str(autonomy_active_milestone.get("id", "")):
+            log(f"FILTER: {tid[:8]} project leaf outside active milestone")
+            continue
+        if task_workstream_id(t) not in autonomy_active_workstream_ids:
+            log(f"FILTER: {tid[:8]} project leaf outside active workstreams")
+            continue
+        if not is_executable_leaf_task(t):
+            log(f"FILTER: {tid[:8]} project leaf missing executability contract")
+            continue
     if tid in blocked_ids:
         log(f"FILTER: {tid[:8]} blocked (human-gate): {title[:40]}")
         continue
@@ -2131,13 +2290,20 @@ if not eligible:
     save_metrics(METRICS_FILE, metrics)
     sys.exit(0)
 
-next_task = eligible[0]
+next_task = choose_next_dispatch_task(
+    eligible,
+    tasks,
+    max_concurrent_in_progress=MAX_CONCURRENT_IN_PROGRESS,
+    floor_ratio=PROJECT_LANE_FLOOR_RATIO,
+    cap_ratio=PROJECT_LANE_CAP_RATIO,
+    max_active_workstreams=PROJECT_AUTONOMY_MAX_ACTIVE_WORKSTREAMS,
+) or eligible[0]
 task_id = next_task.get("id", "")
 title = next_task.get("title", "(sem título)")
 workflow = task_workflow(next_task)
 dispatch_type = "inbox"
 
-log(f"Phase 7: Eligible inbox task: {task_id[:8]} — {title}")
+log(f"Phase 7: Eligible inbox task: {task_id[:8]} — {title} (lane={task_lane(next_task)})")
 
 # ============================================================
 # PHASE 8/9: Route inbox either to dev loop intake or queue dispatch
@@ -2171,16 +2337,33 @@ if workflow == "dev_loop_v1":
     save_metrics(METRICS_FILE, metrics)
     send_operational_message(
         f"🧭 **Heartbeat V3** dev-loop intake: `{task_id[:8]}` — **{title}**\n"
-        f"Phase: `luna_task_planning` | Judge loop acionado."
+        f"Phase: `luna_task_planning` | Judge loop acionado.",
+        state=state,
     )
     log(f"DISPATCH: {task_id[:8]} → Luna planning (judge-loop)")
     log("heartbeat-v3 complete")
     sys.exit(0)
 
+dispatch_fields = dict(task_fields(next_task))
+dispatch_attempt = max(task_attempt(next_task), 0) + 1
+dispatch_fields.update({
+    "mc_card_type": task_card_type(next_task),
+    "mc_lane": task_lane(next_task),
+    "mc_delivery_state": "dispatched",
+    "mc_run_id": build_run_id(next_task, attempt=dispatch_attempt),
+    "mc_attempt": dispatch_attempt,
+    "mc_session_key": "",
+    "mc_proof_ref": "",
+    "mc_dispatch_policy": task_dispatch_policy(next_task),
+})
+dispatch_task = dict(next_task)
+dispatch_task["custom_field_values"] = dispatch_fields
 assigned_uuid = str(next_task.get("assigned_agent_id", "") or "")
 agent_name = resolve_agent_name(assigned_uuid, agent_mapping)
-dispatch_payload = build_dispatch_payload(next_task, agent_name, len(eligible), len(in_progress))
-dispatch_payload["queue_key"] = queue_key_for_task(next_task, "dispatch")
+dispatch_fields["mc_assigned_agent"] = agent_name
+dispatch_task["custom_field_values"] = dispatch_fields
+dispatch_payload = build_dispatch_payload(dispatch_task, agent_name, len(eligible), len(in_progress))
+dispatch_payload["queue_key"] = queue_key_for_task(dispatch_task, "dispatch")
 queue_filename = write_queue_item("dispatch", task_id, dispatch_payload, tasks=tasks, sessions_by_key=sessions_by_key)
 
 if not queue_filename:
@@ -2192,7 +2375,7 @@ if not queue_filename:
 mc_update_task(
     task_id,
     comment=f"[heartbeat-v3] queued dispatch to {agent_name} (queue-only consumer)",
-    fields={**task_fields(next_task), "mc_dispatch_policy": task_dispatch_policy(next_task)},
+    fields=dispatch_fields,
 )
 
 state["last_dispatched_id"] = task_id
@@ -2220,7 +2403,8 @@ metrics_increment(metrics, "tasks_dispatched")
 save_metrics(METRICS_FILE, metrics)
 send_operational_message(
     f"📋 **Heartbeat V3** queue dispatch: `{task_id[:8]}` — **{title}** → `{agent_name}`\n"
-    f"Queue file: `{queue_filename}` | Eligible: {len(eligible)} | In-progress: {len(in_progress)}"
+    f"Queue file: `{queue_filename}` | Eligible: {len(eligible)} | In-progress: {len(in_progress)}",
+    state=state,
 )
 
 log(f"DISPATCH: {task_id[:8]} → {agent_name} (method: queue)")

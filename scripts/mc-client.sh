@@ -50,6 +50,7 @@ fi
 MC_STATUS_ALLOWLIST="${MC_STATUS_ALLOWLIST:-inbox,in_progress,review,awaiting_human,blocked,stalled,retry,done,failed}"
 MC_STATUS_ALLOWLIST="${MC_STATUS_ALLOWLIST,,}"
 MC_STATUS_ALLOWLIST="${MC_STATUS_ALLOWLIST//[[:space:]]/}"
+TOPOLOGY_HELPER="${SCRIPT_DIR}/agent_runtime_topology.py"
 
 mc_resolve_agent_id() {
   local ref="$1"
@@ -58,10 +59,18 @@ mc_resolve_agent_id() {
     return
   fi
 
-  # Already UUID-like => keep as-is when valid.
   if python3 -c "from uuid import UUID; import sys; UUID(sys.argv[1]); print(sys.argv[1])" "$ref" >/dev/null 2>&1; then
     echo "$ref"
     return
+  fi
+
+  if [ -f "$TOPOLOGY_HELPER" ]; then
+    local resolved=""
+    resolved="$(python3 "$TOPOLOGY_HELPER" full-id "$ref" 2>/dev/null || true)"
+    if [ -n "$resolved" ]; then
+      echo "$resolved"
+      return
+    fi
   fi
 
   local agents_json

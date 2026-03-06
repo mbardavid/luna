@@ -427,20 +427,13 @@ class UnwindManager:
             attempts += 1
 
             try:
-                # Get current price
-                mid_price = await self._get_mid_price(token_id)
-                if mid_price <= Decimal("0"):
+                executable_price = await self._get_sell_reference_price(token_id)
+                if executable_price <= Decimal("0"):
                     continue
 
-                # Calculate sell price with offset
-                if token_side == "YES":
-                    # Selling YES: sell at mid - offset
-                    price = mid_price * (Decimal("1") - offset_pct / Decimal("100"))
-                else:
-                    # Selling NO: sell at (1 - mid) - offset
-                    # But on the CLOB we sell the NO token, so price is
-                    # the best bid for NO token
-                    price = mid_price * (Decimal("1") - offset_pct / Decimal("100"))
+                # Start from the executable quote and only worsen it if we need
+                # a more aggressive liquidation attempt.
+                price = executable_price * (Decimal("1") - offset_pct / Decimal("100"))
 
                 # Clamp price to valid range
                 price = max(Decimal("0.01"), min(Decimal("0.99"), price))
@@ -501,12 +494,18 @@ class UnwindManager:
             error=None if success else f"Only sold {shares_sold}/{shares} after {attempts} attempts",
         )
 
-    async def _get_mid_price(self, token_id: str) -> Decimal:
-        """Get mid price for a token."""
+    async def _get_sell_reference_price(self, token_id: str) -> Decimal:
+        """Get an executable sell reference price for a token."""
+        try:
+            quote = await self._rest.get_executable_quote(token_id, action="sell_token")
+            if quote.price > Decimal("0"):
+                return quote.price
+        except Exception:
+            pass
         try:
             return await self._rest.get_midpoint(token_id)
         except Exception:
             try:
-                return await self._rest.get_price(token_id)
+                return await self._rest.get_price(token_id, side="sell")
             except Exception:
                 return Decimal("0")

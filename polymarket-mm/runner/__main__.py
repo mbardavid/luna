@@ -13,6 +13,7 @@ import asyncio
 import os
 import signal
 import sys
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -23,22 +24,205 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.event_bus import EventBus
+from models.market_state import MarketType
 from paper.paper_runner import RunConfig
 from runner.config import RotationConfig, UnifiedMarketConfig, auto_select_markets, load_markets
+from runner.decision_envelope import DecisionEnvelope, EventDrivenMarketDecision, RewardMarketDecision
 from runner.pipeline import UnifiedTradingPipeline
+from runner.transport import (
+    DEFAULT_PROXY_URL,
+    TransportLatencyRecorder,
+    apply_py_clob_transport,
+    choose_transport,
+    probe_transport_set,
+)
 
 logger = structlog.get_logger("runner.__main__")
 
 
-async def _run_paper(args, run_config: RunConfig | None) -> None:
+def _resolve_decision_envelope_path(args, run_config: RunConfig | None) -> Path | None:
+    raw = getattr(args, "decision_envelope", None)
+    if not raw and run_config:
+        raw = run_config.params.get("decision_envelope_path")
+    if not raw:
+        raw = os.environ.get("PMM_DECISION_ENVELOPE")
+    if not raw:
+        return None
+    path = Path(str(raw))
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return path
+
+
+def _load_decision_envelope(args, run_config: RunConfig | None, *, required: bool) -> DecisionEnvelope | None:
+    path = _resolve_decision_envelope_path(args, run_config)
+    if path is None:
+        if required:
+            raise SystemExit("live mode requires --decision-envelope or PMM_DECISION_ENVELOPE")
+        return None
+    envelope = DecisionEnvelope.load(path)
+    envelope.require_live_ready()
+    logger.info(
+        "decision_envelope.loaded",
+        path=str(path),
+        decision_id=envelope.decision_id,
+        expires_at=envelope.expires_at.isoformat(),
+        trading_state=envelope.trading_state,
+        decision_scope=envelope.decision_scope,
+        markets=len(envelope.markets),
+    )
+    return envelope
+
+
+def _market_type(value: str) -> MarketType:
+    try:
+        return MarketType(value)
+    except Exception:
+        return MarketType.OTHER
+
+
+def _market_config_from_decision(
+    decision_market: RewardMarketDecision | EventDrivenMarketDecision,
+) -> UnifiedMarketConfig:
+    kwargs = {
+        "market_id": decision_market.condition_id,
+        "condition_id": decision_market.condition_id,
+        "token_id_yes": decision_market.token_id_yes,
+        "token_id_no": decision_market.token_id_no,
+        "description": getattr(decision_market, "description", "") or decision_market.market_id,
+        "market_type": _market_type(getattr(decision_market, "market_type", "OTHER")),
+        "tick_size": getattr(decision_market, "tick_size", Decimal("0.01")),
+        "min_order_size": getattr(decision_market, "min_order_size", Decimal("5")),
+        "neg_risk": getattr(decision_market, "neg_risk", False),
+        "execution_mode": decision_market.mode,
+        "disable_reason": getattr(decision_market, "disable_reason", ""),
+    }
+
+    if isinstance(decision_market, RewardMarketDecision):
+        kwargs.update(
+            spread_min_bps=decision_market.half_spread_bps * 2,
+            max_position_size=decision_market.max_inventory_per_side,
+            reward_min_size_usdc=decision_market.reward_min_size_usdc,
+            reward_max_spread_cents=decision_market.reward_max_spread_cents,
+            expected_reward_yield_bps_day=decision_market.expected_reward_yield_bps_day,
+            expected_fill_rate_pct=decision_market.expected_fill_rate_pct,
+            max_inventory_per_side=decision_market.max_inventory_per_side,
+            order_size_override=decision_market.order_size,
+            half_spread_bps_override=decision_market.half_spread_bps,
+            min_quote_lifetime_s=decision_market.min_quote_lifetime_s,
+            max_requote_rate_per_min=decision_market.max_requote_rate_per_min,
+            health_score_threshold=decision_market.health_score_threshold,
+        )
+    else:
+        kwargs.update(
+            spread_min_bps=50,
+            max_position_size=decision_market.stake_usdc,
+            directional_side=decision_market.side,
+            entry_price_limit=decision_market.entry_price_limit,
+            model_probability=decision_market.model_probability,
+            market_implied_probability=decision_market.market_implied_probability,
+            edge_bps=decision_market.edge_bps,
+            confidence=decision_market.confidence,
+            stake_usdc=decision_market.stake_usdc,
+            max_slippage_bps=decision_market.max_slippage_bps,
+            ttl_seconds=decision_market.ttl_seconds,
+            stop_rule=decision_market.stop_rule,
+            take_profit_rule=decision_market.take_profit_rule,
+            source_evidence_ids=list(decision_market.source_evidence_ids),
+        )
+
+    return UnifiedMarketConfig(**kwargs)
+
+
+def _markets_from_envelope(envelope: DecisionEnvelope) -> list[UnifiedMarketConfig]:
+    markets: list[UnifiedMarketConfig] = []
+    rewards_count = 0
+    directional_count = 0
+
+    for item in envelope.enabled_markets():
+        if isinstance(item, RewardMarketDecision):
+            if not envelope.mode_allocations.rewards_enabled:
+                continue
+            if rewards_count >= envelope.risk_limits.max_active_rewards_markets:
+                continue
+            rewards_count += 1
+        elif isinstance(item, EventDrivenMarketDecision):
+            if not envelope.mode_allocations.directional_enabled:
+                continue
+            if directional_count >= envelope.risk_limits.max_active_directional_markets:
+                continue
+            directional_count += 1
+        markets.append(_market_config_from_decision(item))
+    return markets
+
+
+async def _validate_live_capital(rest_client, envelope: DecisionEnvelope) -> Decimal:
+    balance_info = await rest_client.get_balance_allowance("COLLATERAL")
+    raw_balance = Decimal(str(balance_info.get("balance", "0")))
+    balance_usdc = raw_balance / Decimal("1000000")
+
+    allowance_raw = balance_info.get("allowance")
+    if allowance_raw is None and isinstance(balance_info.get("allowances"), dict):
+        allowance_candidates = [v for v in balance_info["allowances"].values() if v is not None]
+        allowance_raw = allowance_candidates[0] if allowance_candidates else None
+    if envelope.risk_limits.enforce_balance_allowance_check and allowance_raw is not None:
+        allowance = Decimal(str(allowance_raw))
+        if allowance <= 0:
+            raise SystemExit("live mode aborted: collateral allowance is zero")
+
+    required_capital = envelope.capital_policy.total_capital_usdc
+    if balance_usdc + Decimal("0.000001") < required_capital:
+        raise SystemExit(
+            f"live mode aborted: on-chain USDC {balance_usdc} is below required total_capital_usdc {required_capital}"
+        )
+    logger.info(
+        "live.capital_validated",
+        on_chain_usdc=str(balance_usdc),
+        required_capital=str(required_capital),
+    )
+    return required_capital
+
+
+def _configure_transport(envelope: DecisionEnvelope) -> tuple[Any, TransportLatencyRecorder]:
+    proxy_url = os.environ.get("POLYMARKET_PROXY", DEFAULT_PROXY_URL)
+    direct_samples, proxy_samples = probe_transport_set(proxy_url=proxy_url)
+    selection = choose_transport(
+        envelope.transport_policy,
+        direct_samples,
+        proxy_samples,
+        proxy_url=proxy_url,
+    )
+    apply_py_clob_transport(selection)
+    recorder = TransportLatencyRecorder(selection=selection, proxy_url=proxy_url)
+    for sample in direct_samples + proxy_samples:
+        recorder.record_probe(sample)
+    recorder.write_summary()
+    logger.info(
+        "transport.selected",
+        selected_transport=selection.selected_transport,
+        rewards_live_ok=selection.rewards_live_ok,
+        directional_live_ok=selection.directional_live_ok,
+        reason=selection.reason,
+    )
+    return selection, recorder
+
+
+async def _run_paper(
+    args,
+    run_config: RunConfig | None,
+    decision_envelope: DecisionEnvelope | None = None,
+) -> None:
     """Paper mode: simulated venue with PaperVenueAdapter + PaperWalletAdapter."""
     from paper.paper_venue import FeeConfig, MarketSimConfig, PaperVenue
     from runner.paper_venue_adapter import PaperVenueAdapter
     from runner.paper_wallet import PaperWalletAdapter
 
-    # Load markets from YAML
-    config_path = PROJECT_ROOT / "config" / "markets.yaml"
-    markets = load_markets(config_path)
+    # Load markets from YAML or DecisionEnvelope
+    if decision_envelope:
+        markets = _markets_from_envelope(decision_envelope)
+    else:
+        config_path = PROJECT_ROOT / "config" / "markets.yaml"
+        markets = load_markets(config_path)
 
     # Filter by run config if specified
     if run_config and run_config.params.get("markets"):
@@ -57,10 +241,13 @@ async def _run_paper(args, run_config: RunConfig | None) -> None:
     params = run_config.params if run_config else {}
     fill_probability = float(params.get("fill_probability",
                                          params.get("fill_probability_override", 0.5)))
-    order_size = Decimal(str(params.get("order_size",
-                                         params.get("default_order_size", "50"))))
-    half_spread_bps = int(params.get("half_spread_bps",
-                                      params.get("default_half_spread_bps", 50)))
+    default_market = next((m for m in markets if m.execution_mode == "rewards_farming"), markets[0])
+    order_size = Decimal(str(
+        params.get("order_size", params.get("default_order_size", default_market.order_size_override or "50"))
+    ))
+    half_spread_bps = int(
+        params.get("half_spread_bps", params.get("default_half_spread_bps", default_market.half_spread_bps_override or 50))
+    )
     gamma = float(params.get("gamma", params.get("gamma_risk_aversion", 0.3)))
     initial_balance = run_config.initial_balance if run_config else Decimal("500")
     adv_sel_bps = int(params.get("adverse_selection_bps", 0))
@@ -130,6 +317,7 @@ async def _run_paper(args, run_config: RunConfig | None) -> None:
         position_recycling=pos_recycling,
         recycle_profit_threshold=recycle_threshold,
         rotation_config=rotation_config,
+        decision_envelope=decision_envelope,
     )
 
     # Handle signals
@@ -140,7 +328,11 @@ async def _run_paper(args, run_config: RunConfig | None) -> None:
     await pipeline.start()
 
 
-async def _run_live(args, run_config: RunConfig | None) -> None:
+async def _run_live(
+    args,
+    run_config: RunConfig | None,
+    decision_envelope: DecisionEnvelope,
+) -> None:
     """Live mode: real CLOB via LiveVenueAdapter + ProductionWalletAdapter."""
     from data.rest_client import CLOBRestClient
     from execution.live_execution import LiveExecution
@@ -149,21 +341,13 @@ async def _run_live(args, run_config: RunConfig | None) -> None:
     from runner.live_venue_adapter import LiveVenueAdapter
     from runner.production_wallet import ProductionWalletAdapter
 
-    # SOCKS5 proxy setup (same as production_runner)
-    try:
-        import httpx as _httpx
-        import py_clob_client.http_helpers.helpers as _clob_helpers
-        _PROXY_URL = os.environ.get("POLYMARKET_PROXY", "socks5://127.0.0.1:9050")
-        _clob_helpers._http_client = _httpx.Client(
-            http2=True, proxy=_PROXY_URL, timeout=30.0
-        )
-    except Exception:
-        pass
-
     params = run_config.params if run_config else {}
-    initial_balance = run_config.initial_balance if run_config else Decimal("25")
-    order_size = Decimal(str(params.get("default_order_size", "5")))
-    half_spread_bps = int(params.get("default_half_spread_bps", 50))
+    transport_selection, latency_recorder = _configure_transport(decision_envelope)
+    initial_balance = decision_envelope.capital_policy.total_capital_usdc
+    reward_markets = [m for m in decision_envelope.enabled_markets("rewards_farming")]
+    primary_rewards = reward_markets[0] if reward_markets else None
+    order_size = Decimal(str(params.get("default_order_size", primary_rewards.order_size if primary_rewards else "5")))
+    half_spread_bps = int(params.get("default_half_spread_bps", primary_rewards.half_spread_bps if primary_rewards else 50))
     gamma = float(params.get("gamma_risk_aversion", 0.3))
     quote_interval = float(params.get("quote_interval_s", 5.0))
     ks_max_dd = float(params.get("kill_switch_max_drawdown_pct", 20.0))
@@ -189,33 +373,13 @@ async def _run_live(args, run_config: RunConfig | None) -> None:
         api_key=api_key,
         api_secret=api_secret,
         api_passphrase=api_passphrase,
+        proxy_url=transport_selection.selected_proxy_url or os.environ.get("POLYMARKET_PROXY", DEFAULT_PROXY_URL),
         rate_limit_rps=5.0,
     )
     await rest_client.connect()
+    initial_balance = await _validate_live_capital(rest_client, decision_envelope)
 
-    # Get markets from config or auto-select
-    market_ids = params.get("markets", []) if run_config else []
-    if market_ids:
-        markets: list[UnifiedMarketConfig] = []
-        for mid in market_ids:
-            try:
-                from models.market_state import MarketType
-                info = await rest_client.get_market_info(mid)
-                markets.append(UnifiedMarketConfig(
-                    market_id=info["condition_id"],
-                    condition_id=info["condition_id"],
-                    token_id_yes=info["token_id_yes"],
-                    token_id_no=info["token_id_no"],
-                    description=info.get("question", info["condition_id"])[:80],
-                    market_type=MarketType.OTHER,
-                    tick_size=Decimal(str(info.get("tick_size", "0.01"))),
-                    min_order_size=Decimal(str(info.get("min_order_size", "5"))),
-                    neg_risk=info.get("neg_risk", False),
-                ))
-            except Exception as e:
-                logger.warning("market_fetch_failed", market_id=mid, error=str(e))
-    else:
-        markets = await auto_select_markets(rest_client, max_markets=1)
+    markets = _markets_from_envelope(decision_envelope)
 
     if not markets:
         logger.error("no_markets_found")
@@ -229,6 +393,8 @@ async def _run_live(args, run_config: RunConfig | None) -> None:
         rest_client=rest_client,
         default_tick_size="0.01",
         default_neg_risk=False,
+        latency_recorder=latency_recorder,
+        decision_id=decision_envelope.decision_id,
     )
     prod_wallet = ProductionWallet(initial_balance=initial_balance)
     wallet_adapter = ProductionWalletAdapter(wallet=prod_wallet)
@@ -272,6 +438,9 @@ async def _run_live(args, run_config: RunConfig | None) -> None:
         rest_client=rest_client,
         supabase_logger=supa_logger,
         rotation_config=rotation_config_live,
+        decision_envelope=decision_envelope,
+        transport_selection=transport_selection,
+        latency_recorder=latency_recorder,
     )
 
     # Startup reconciliation (live mode only)
@@ -311,6 +480,7 @@ async def _run_live(args, run_config: RunConfig | None) -> None:
             rest_client=rest_client,
             market_configs=markets,
             config=recon_config,
+            supabase_logger=supa_logger,
         )
 
         recon_result = await reconciler.reconcile()
@@ -324,6 +494,13 @@ async def _run_live(args, run_config: RunConfig | None) -> None:
         logger.info("reconciliation.applied",
                      usdc_balance=str(recon_result.usdc_balance),
                      positions=len(recon_result.positions))
+
+    if decision_envelope.mode_allocations.directional_enabled and not transport_selection.directional_live_ok:
+        logger.warning(
+            "directional.live_disabled",
+            reason="selected transport does not satisfy directional gate",
+            selected_transport=transport_selection.selected_transport,
+        )
 
     # Handle signals
     loop = asyncio.get_running_loop()
@@ -374,10 +551,17 @@ async def async_main(args) -> None:
     if args.quote_interval is None:
         args.quote_interval = 2.0 if args.mode == "paper" else 5.0
 
+    decision_envelope = _load_decision_envelope(
+        args,
+        run_config,
+        required=(args.mode == "live"),
+    )
+
     if args.mode == "paper":
-        await _run_paper(args, run_config)
+        await _run_paper(args, run_config, decision_envelope)
     elif args.mode == "live":
-        await _run_live(args, run_config)
+        assert decision_envelope is not None
+        await _run_live(args, run_config, decision_envelope)
     else:
         print(f"ERROR: Unknown mode '{args.mode}'. Use 'paper' or 'live'.")
         sys.exit(1)
@@ -396,6 +580,8 @@ def main() -> None:
                         help="Quote cycle interval in seconds")
     parser.add_argument("--skip-reconciliation", action="store_true",
                         help="Skip startup reconciliation (live mode only)")
+    parser.add_argument("--decision-envelope", type=str, default=None,
+                        help="Path to DecisionEnvelope JSON emitted by Quant")
     args = parser.parse_args()
 
     asyncio.run(async_main(args))

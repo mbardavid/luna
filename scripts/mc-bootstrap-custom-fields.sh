@@ -306,6 +306,174 @@ DESIRED_FIELDS='[
     "ui_visibility": "if_set",
     "required": false,
     "default_value": null
+  },
+  {
+    "field_key": "mc_assigned_agent",
+    "label": "MC Assigned Agent",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_completion_status",
+    "label": "MC Completion Status",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_card_type",
+    "label": "MC Card Type",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "leaf_task"
+  },
+  {
+    "field_key": "mc_parent_task_id",
+    "label": "MC Parent Task ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_project_id",
+    "label": "MC Project ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_milestone_id",
+    "label": "MC Milestone ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_workstream_id",
+    "label": "MC Workstream ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_generation_mode",
+    "label": "MC Generation Mode",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "manual"
+  },
+  {
+    "field_key": "mc_generation_key",
+    "label": "MC Generation Key",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_lane",
+    "label": "MC Lane",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "ambient"
+  },
+  {
+    "field_key": "mc_delivery_state",
+    "label": "MC Delivery State",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "queued"
+  },
+  {
+    "field_key": "mc_run_id",
+    "label": "MC Run ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_attempt",
+    "label": "MC Attempt",
+    "field_type": "integer",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": 0
+  },
+  {
+    "field_key": "mc_proof_ref",
+    "label": "MC Proof Ref",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_budget_scope",
+    "label": "MC Budget Scope",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "project"
+  },
+  {
+    "field_key": "mc_chairman_state",
+    "label": "MC Chairman State",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "planned"
+  },
+  {
+    "field_key": "mc_outcome_ref",
+    "label": "MC Outcome Ref",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_acceptance_criteria",
+    "label": "MC Acceptance Criteria",
+    "field_type": "text_long",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_qa_checks",
+    "label": "MC QA Checks",
+    "field_type": "text_long",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_expected_artifacts",
+    "label": "MC Expected Artifacts",
+    "field_type": "text_long",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_task_seed_spec",
+    "label": "MC Task Seed Spec",
+    "field_type": "json",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
   }
 ]'
 

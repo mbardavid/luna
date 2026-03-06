@@ -190,6 +190,19 @@ class RPCManager:
                 pass
             self._health_check_task = None
 
+        for w3 in self._web3_instances.values():
+            provider = getattr(w3, "provider", None)
+            disconnect = getattr(provider, "disconnect", None)
+            if disconnect is None:
+                continue
+            try:
+                await disconnect()
+            except Exception as exc:
+                logger.warning(
+                    "rpc_manager.disconnect_failed",
+                    error=str(exc),
+                )
+
         self._web3_instances.clear()
         self._started = False
         logger.info("rpc_manager.stopped")

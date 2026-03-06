@@ -1,12 +1,15 @@
 {
+  "main": "70bd8378",
+  "luna": "70bd8378",
   "luan": "ccd2e6d0",
   "crypto-sage": "ad3cf364",
-  "main": "70bd8378",
-  "quant-strategist": "b66bda98",
+  "crypto_sage": "ad3cf364",
+  "quant-strategist": "b66bda58",
+  "quant_strategist": "b66bda58",
+  "cto-ops": "717382de",
+  "cto_ops": "717382de",
   "luan-dev": "ccd2e6d0",
-  "cto-ops": "cto-ops-agent-01",
   "luan_dev": "ccd2e6d0",
-  "cto_ops": "cto-ops-agent-01",
   "blockchain-operator": "ad3cf364",
   "blockchain_operator": "ad3cf364"
 }

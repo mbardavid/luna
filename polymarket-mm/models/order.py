@@ -42,6 +42,10 @@ class Order(BaseModel):
     """Ordem individual enviada ao CLOB."""
 
     client_order_id: UUID = Field(default_factory=uuid4, description="ID local único")
+    exchange_order_id: Optional[str] = Field(
+        default=None,
+        description="ID da ordem na venue, quando conhecida",
+    )
     market_id: str = Field(..., min_length=1)
     token_id: str = Field(..., min_length=1)
 

@@ -100,4 +100,6 @@
 
 
 ## Observação operacional
-- Este workspace `workspace/agents/cto-ops` deve permanecer alinhado ao registro em `openclaw.json`. Se não estiver registrado, revisar antes de tentar dispatch/execução.
+- Runtime canônico: `workspace-cto-ops`.
+- `workspace/agents/cto-ops` permanece somente como stub legado de documentação.
+- Reinício de gateway segue a policy oficial: direto nunca; `gateway-safe-restart.sh` apenas quando autorizado.

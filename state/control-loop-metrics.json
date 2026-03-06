@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-03-05T20:44:25Z",
+  "last_updated": "2026-03-06T08:30:02Z",
   "fase2_baseline": {
     "gateway_memory_mb": 450,
     "heartbeat_frequency": "*/5",
@@ -9,19 +9,19 @@
     "timestamp": "2026-03-03T00:03:21Z"
   },
   "counters_today": {
-    "heartbeat_runs": 15,
+    "heartbeat_runs": 159,
     "opus_triggers": 0,
     "tasks_completed": 2,
-    "tasks_dispatched": 2,
+    "tasks_dispatched": 4,
     "failures_detected": 0,
     "qa_reviews_dispatched": 0,
     "pmm_restarts": 0,
     "gateway_restarts": 0,
     "alerts_sent": 0,
     "duplicate_alerts_suppressed": 0,
-    "queue_items_deduped": 10,
-    "queue_items_written": 1,
-    "queue_items_completed": 1,
+    "queue_items_deduped": 83,
+    "queue_items_written": 3,
+    "queue_items_completed": 3,
     "review_claims": 3,
     "judge_wakeups": 3,
     "queue_items_invalid_completed": 0
@@ -43,7 +43,7 @@
   "cron_health": {
     "heartbeat-v3": {
       "status": "running",
-      "last_run": "2026-03-05T20:40:02Z"
+      "last_run": "2026-03-06T08:30:02Z"
     },
     "judge-loop-worker": {
       "status": "ok",
@@ -54,11 +54,18 @@
     "acd7019e-1abe-447c-a9cb-328f5f6ec909:luna_task_planning": "2026-03-05T20:19:31Z",
     "acd7019e-1abe-447c-a9cb-328f5f6ec909:luna_plan_validation": "2026-03-05T20:20:34Z",
     "acd7019e-1abe-447c-a9cb-328f5f6ec909:luna_final_validation": "2026-03-05T20:21:01Z",
-    "34877d8a-3992-4015-a725-f074b47627e9:luna_plan_validation": "2026-03-05T20:23:24Z"
+    "34877d8a-3992-4015-a725-f074b47627e9:luna_plan_validation": "2026-03-05T20:23:24Z",
+    "3a0d8492-412a-4676-b945-cd3b02885e3f:intake": "2026-03-06T04:06:12Z",
+    "fed0a72b-16d0-4daf-aab7-362663a44eda:intake": "2026-03-06T04:10:32Z",
+    "3a0d8492-412a-4676-b945-cd3b02885e3f:autonomy_active": "2026-03-06T08:20:29Z",
+    "fed0a72b-16d0-4daf-aab7-362663a44eda:autonomy_active": "2026-03-06T08:10:30Z",
+    "0a7aac3a-62a3-4d56-afff-9c34449091f4:autonomy_active": "2026-03-06T08:25:18Z",
+    "f71aaca0-06e5-400a-9282-7785b5ae126c:autonomy_active": "2026-03-06T06:05:16Z",
+    "c2dad9a4-6952-4593-b505-62f8617ed604:autonomy_active": "2026-03-06T08:05:23Z"
   },
   "queue_audit": {
-    "last_run": "2026-03-05T20:44:25Z",
-    "done_json": 1,
+    "last_run": "2026-03-06T08:07:01Z",
+    "done_json": 3,
     "done_meta": 0,
     "failed": 5,
     "pending": 0,
@@ -66,9 +73,19 @@
     "invalid_done_total": 0,
     "invalid_done_post_recovery": 0,
     "duplicate_meta_markers_total": 0,
-    "duplicate_groups_total": 0,
+    "duplicate_groups_total": 1,
     "invalid_done_samples": [],
     "duplicate_meta_samples": [],
-    "duplicate_groups_top": []
+    "duplicate_groups_top": [
+      {
+        "identity": "1c6ab056-9cd6-484f-8eb5-96ec98579379|dispatch|inbox|direct_exec|49fbc724de27",
+        "files": [
+          "20260305T200816-dispatch-1c6ab056.json",
+          "20260305T231015-dispatch-1c6ab056.json",
+          "20260306T021517-dispatch-1c6ab056.json"
+        ],
+        "count": 3
+      }
+    ]
   }
 }

@@ -122,3 +122,10 @@ Escopo: `main/Luna`, `Luan`, `crypto-sage`, `quant-strategist`, `dispatcher` e a
   para confirmar extração de `session_key`.
 - Rodar uma janela de 24h e validar que entradas de PMM em `heartbeat-v3.log` mudaram para o novo
   resolvedor de config (ou que o PMM foi removido do ciclo por `alive`).
+
+## Addenda — 2026-03-05 (workspace-only cutover)
+
+- `cto-ops` foi promovido para runtime canônico em `/home/openclaw/.openclaw/workspace-cto-ops`.
+- UUID real no MC: `717382de-e289-4bcd-a4b8-e850a808fe68`.
+- UUID real corrigido do `quant-strategist`: `b66bda58-1962-4759-88b9-7836dbac9c63`.
+- `workspace/agents/cto-ops` permanece apenas como stub legado; referências antigas abaixo devem ser lidas como histórico pré-cutover.

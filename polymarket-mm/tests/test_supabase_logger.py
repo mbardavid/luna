@@ -23,6 +23,13 @@ def env_vars(monkeypatch):
 
 
 @pytest.fixture
+def anon_only_env_vars(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.delenv("SUPABASE_SERVICE_KEY", raising=False)
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "anon-key-123")
+
+
+@pytest.fixture
 def no_env_vars(monkeypatch):
     """Ensure Supabase env vars are NOT set."""
     monkeypatch.delenv("SUPABASE_URL", raising=False)
@@ -178,6 +185,28 @@ class TestEnabled:
         assert body["status"] == "running"
         assert body["config"]["markets"] == ["m1"]
 
+
+    @pytest.mark.asyncio
+    async def test_log_position_snapshot_posts_to_supabase(self, env_vars, mock_httpx_client):
+        logger = await _make_logger(env_vars, mock_httpx_client, "run-pos")
+
+        logger.log_position_snapshot(
+            wallet_address="0xabc",
+            phase="startup_reconciliation",
+            source="blockscout",
+            usdc_balance=Decimal("42.5"),
+            positions=[{"token_id": "101", "shares": Decimal("10"), "price": Decimal("0.6"), "value_usd": Decimal("6")}],
+            warnings=["complement mismatch"],
+        )
+        await asyncio.sleep(0.1)
+
+        mock_httpx_client.post.assert_called_once()
+        body = json.loads(mock_httpx_client.post.call_args[1]["content"])
+        assert body["wallet_address"] == "0xabc"
+        assert body["phase"] == "startup_reconciliation"
+        assert body["positions_count"] == 1
+        assert body["positions"][0]["token_id"] == "101"
+
     @pytest.mark.asyncio
     async def test_log_run_end_patches(self, env_vars, mock_httpx_client):
         logger = await _make_logger(env_vars, mock_httpx_client, "run-005")
@@ -196,6 +225,26 @@ class TestEnabled:
         body = json.loads(mock_httpx_client.patch.call_args[1]["content"])
         assert body["total_fills"] == 10
         assert body["status"] == "completed"
+
+    def test_anon_key_is_accepted_as_fallback(self, anon_only_env_vars):
+        logger = SupabaseLogger(run_id="fallback", enabled=True)
+        assert logger.enabled is True
+
+    @pytest.mark.asyncio
+    async def test_auth_failure_disables_logger(self, env_vars):
+        client = AsyncMock()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.text = '{"message":"Invalid API key"}'
+        client.post = AsyncMock(return_value=mock_resp)
+        client.patch = AsyncMock(return_value=mock_resp)
+        client.aclose = AsyncMock()
+
+        logger = await _make_logger(env_vars, client, "run-auth")
+        logger.log_run_start(config={"markets": ["m1"]})
+        await asyncio.sleep(0.1)
+
+        assert logger.enabled is False
 
 
 # ── Fire-and-forget resilience ─────────────────────────────────────

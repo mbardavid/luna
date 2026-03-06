@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "1c6ab056-9cd6-484f-8eb5-96ec98579379",
+  "filename": "20260306T021517-dispatch-1c6ab056.json",
+  "created_at": "2026-03-06T02:15:17.635023+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research: Incorporate Paperclip / Builderz Mission Control / OpenAI Symphony learnings into Autonomy v1 + Phase 2",
+  "agent": "luan",
+  "priority": "medium",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "PHASE: planning\n\n# Research: Incorporate Paperclip / Builderz Mission Control / OpenAI Symphony learnings into Autonomy v1 + Phase 2\n\n## Objective\nIncorporar aprendizados relevantes dos repos:\n- https://github.com/paperclipai/paperclip\n- https://github.com/builderz-labs/mission-control\n- https://github.com/openai/symphony\n\nno nosso sistema atual (Mission Control + heartbeat-v3 + Autonomy v1 + Phase 2A/2B/2C), sem over-engineering.\n\n## Context\n- Nosso gargalo atual é dispatch/queue/dedup/linked s",
+    "eligible_count": 1,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": null,
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "1c6ab056-a1-20260306T021517Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "1c6ab056-9cd6-484f-8eb5-96ec98579379",
+    "title": "Research: Incorporate Paperclip / Builderz Mission Control / OpenAI Symphony learnings into Autonomy v1 + Phase 2",
+    "description": "PHASE: planning\n\n# Research: Incorporate Paperclip / Builderz Mission Control / OpenAI Symphony learnings into Autonomy v1 + Phase 2\n\n## Objective\nIncorporar aprendizados relevantes dos repos:\n- https://github.com/paperclipai/paperclip\n- https://github.com/builderz-labs/mission-control\n- https://github.com/openai/symphony\n\nno nosso sistema atual (Mission Control + heartbeat-v3 + Autonomy v1 + Phase 2A/2B/2C), sem over-engineering.\n\n## Context\n- Nosso gargalo atual é dispatch/queue/dedup/linked s",
+    "priority": "medium"
+  },
+  "queue_key": "1c6ab056-9cd6-484f-8eb5-96ec98579379|dispatch|inbox|direct_exec|49fbc724de27",
+  "completed_at": "2026-03-06T02:18:20.940530Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "luan",
+    "session_id": "agent:luan:subagent:a7cb4b93-e773-400b-8b6b-9bc8949926db"
+  }
+}

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from enum import Enum
 from typing import Any
 
@@ -157,7 +157,8 @@ class CTFAdapterConfig:
     gas_limit_merge: int = 300_000
     gas_limit_split: int = 300_000
     gas_limit_approve: int = 100_000
-    max_gas_price_gwei: Decimal = Decimal("100")
+    max_gas_price_gwei: Decimal | None = None
+    max_gas_cost_usd: Decimal = Decimal("0.25")
     gas_price_multiplier: Decimal = Decimal("1.2")  # 20% buffer over estimated
 
     # USDC has 6 decimals on Polygon
@@ -216,6 +217,8 @@ class CTFAdapter:
         self._private_key = private_key
         self._sender_address = AsyncWeb3.to_checksum_address(sender_address)
         self._config = config or CTFAdapterConfig()
+        self._nonce_lock = asyncio.Lock()
+        self._next_nonce: int | None = None
 
     @property
     def config(self) -> CTFAdapterConfig:
@@ -271,7 +274,7 @@ class CTFAdapter:
 
         async def _build_and_send(w3: AsyncWeb3) -> CTFTxResult:
             # Check gas price
-            await self._check_gas_price(w3)
+            await self._check_gas_price(w3, gas_limit=self._config.gas_limit_merge)
 
             # Build contract instance
             contract = w3.eth.contract(
@@ -341,7 +344,7 @@ class CTFAdapter:
 
         async def _build_and_send(w3: AsyncWeb3) -> CTFTxResult:
             # Check gas price
-            await self._check_gas_price(w3)
+            await self._check_gas_price(w3, gas_limit=self._config.gas_limit_split)
 
             # Ensure USDC approval
             await self._ensure_approval(w3, ctf_address, amount_raw)
@@ -411,11 +414,11 @@ class CTFAdapter:
     def _to_raw_amount(self, amount: Decimal) -> int:
         """Convert USDC amount to raw integer (6 decimals)."""
         multiplier = 10 ** self._config.usdc_decimals
-        return int(amount * multiplier)
+        return int((amount * multiplier).quantize(Decimal("1"), rounding=ROUND_DOWN))
 
     async def _base_tx_params(self, w3: AsyncWeb3, gas_limit: int) -> dict[str, Any]:
         """Build base transaction parameters."""
-        nonce = await w3.eth.get_transaction_count(self._sender_address)
+        nonce = await self._allocate_nonce(w3)
         gas_price = await w3.eth.gas_price
         adjusted_gas_price = int(
             gas_price * int(self._config.gas_price_multiplier * 100) // 100
@@ -429,7 +432,16 @@ class CTFAdapter:
             "chainId": 137,  # Polygon mainnet
         }
 
-    async def _check_gas_price(self, w3: AsyncWeb3) -> None:
+    async def _allocate_nonce(self, w3: AsyncWeb3) -> int:
+        async with self._nonce_lock:
+            pending_nonce = await w3.eth.get_transaction_count(self._sender_address, "pending")
+            if self._next_nonce is None or pending_nonce > self._next_nonce:
+                self._next_nonce = pending_nonce
+            nonce = self._next_nonce
+            self._next_nonce += 1
+            return nonce
+
+    async def _check_gas_price(self, w3: AsyncWeb3, *, gas_limit: int) -> None:
         """Abort if gas price exceeds configured maximum.
 
         Raises
@@ -439,17 +451,30 @@ class CTFAdapter:
         """
         gas_price_wei = await w3.eth.gas_price
         gas_price_gwei = Decimal(str(gas_price_wei)) / Decimal("1000000000")
+        estimated_merge_cost_usd = (
+            gas_price_gwei
+            * Decimal(str(gas_limit))
+            / Decimal("1000000000")
+            * self._config.matic_price_usd
+        )
 
-        if gas_price_gwei > self._config.max_gas_price_gwei:
+        if self._config.max_gas_price_gwei is not None and gas_price_gwei > self._config.max_gas_price_gwei:
             raise GasAbortError(
                 f"Gas price {gas_price_gwei} Gwei exceeds maximum "
                 f"{self._config.max_gas_price_gwei} Gwei"
+            )
+        if estimated_merge_cost_usd > self._config.max_gas_cost_usd:
+            raise GasAbortError(
+                f"Estimated gas cost ${estimated_merge_cost_usd} exceeds maximum "
+                f"${self._config.max_gas_cost_usd}"
             )
 
         logger.debug(
             "ctf_adapter.gas_check_ok",
             gas_price_gwei=str(gas_price_gwei),
-            max_gwei=str(self._config.max_gas_price_gwei),
+            max_gwei=str(self._config.max_gas_price_gwei) if self._config.max_gas_price_gwei is not None else None,
+            estimated_merge_cost_usd=str(estimated_merge_cost_usd),
+            max_gas_cost_usd=str(self._config.max_gas_cost_usd),
         )
 
     async def _ensure_approval(

@@ -23,6 +23,7 @@ set -euo pipefail
 
 WORKSPACE="${WORKSPACE:-/home/openclaw/.openclaw/workspace}"
 OPENCLAW_BIN="${OPENCLAW_BIN:-openclaw}"
+TOPOLOGY_HELPER="$WORKSPACE/scripts/agent_runtime_topology.py"
 MC_API_URL="${MC_API_URL:-http://localhost:8000}"
 MC_BOARD_ID="${MC_BOARD_ID:-0b6371a3-ec66-4bcc-abd9-d4fa26fc7d47}"
 DISCORD_CHANNEL="${DISCORD_CHANNEL:-1473367119377731800}"
@@ -33,6 +34,40 @@ MAX_DISPATCHES_PER_HOUR=8
 
 mkdir -p "$(dirname "$LOG_FILE")"
 log() { echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"; }
+
+resolve_agent_name() {
+    local ref="${1:-}"
+    if [ -z "$ref" ]; then
+        echo ""
+        return
+    fi
+    if [ -f "$TOPOLOGY_HELPER" ]; then
+        local resolved=""
+        resolved="$(python3 "$TOPOLOGY_HELPER" assigned-agent "$ref" 2>/dev/null || true)"
+        if [ -n "$resolved" ]; then
+            echo "$resolved"
+            return
+        fi
+    fi
+    echo "$ref"
+}
+
+canonicalize_agent() {
+    local ref="${1:-}"
+    if [ -z "$ref" ]; then
+        echo ""
+        return
+    fi
+    if [ -f "$TOPOLOGY_HELPER" ]; then
+        local resolved=""
+        resolved="$(python3 "$TOPOLOGY_HELPER" normalize "$ref" 2>/dev/null || true)"
+        if [ -n "$resolved" ]; then
+            echo "$resolved"
+            return
+        fi
+    fi
+    echo "$ref"
+}
 
 # Parse args
 AGENT=""
@@ -98,7 +133,8 @@ if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
         -H "Authorization: Bearer $MC_API_TOKEN" 2>/dev/null)
 
     if [ -n "$MC_DATA" ]; then
-        _MC_AGENT=$(echo "$MC_DATA" | python3 -c "import json,sys; t=json.load(sys.stdin); agent_map={'ccd2e6d0':'luan','ad3cf364':'crypto-sage','70bd8378':'main','b66bda98':'quant-strategist','cto-ops-agent-01':'cto-ops'}; aid=t.get('assigned_agent_id',''); print(agent_map.get(aid, aid))" 2>/dev/null) || _MC_AGENT=""
+        _MC_ASSIGNED_ID=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('assigned_agent_id',''))" 2>/dev/null) || _MC_ASSIGNED_ID=""
+        _MC_AGENT="$(resolve_agent_name "$_MC_ASSIGNED_ID")"
         _MC_TITLE=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('title',''))" 2>/dev/null) || _MC_TITLE=""
         _MC_TASK=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('description',''))" 2>/dev/null) || _MC_TASK=""
         _MC_STATUS=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null) || _MC_STATUS=""
@@ -145,6 +181,7 @@ if [ -n "$QUEUE_FILE" ] && [ -f "$QUEUE_FILE" ]; then
 fi
 
 # ─── Validate ────────────────────────────────────────────────────────────────
+AGENT="$(canonicalize_agent "$AGENT")"
 if [ -z "$AGENT" ] || [ -z "$TASK" ]; then
     echo "ERROR: --agent and --task are required (or --from-mc/--from-queue)" >&2
     exit 1

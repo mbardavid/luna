@@ -19,13 +19,14 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Optional
 
+import httpx
 import structlog
 
+from data.public_clob_quote_client import ExecutableQuote, PublicClobQuoteClient
 from py_clob_client.client import ClobClient
 from py_clob_client.clob_types import (
     ApiCreds,
     BalanceAllowanceParams,
-    BookParams,
     OpenOrderParams,
     OrderArgs,
     OrderType as ClobOrderType,
@@ -108,6 +109,8 @@ class CLOBRestClient:
         api_key: str = "",
         api_secret: str = "",
         api_passphrase: str = "",
+        proxy_url: str | None = None,
+        allow_direct_private: bool = False,
         rate_limit_rps: float = 10.0,
         max_retries: int = 3,
     ) -> None:
@@ -117,10 +120,15 @@ class CLOBRestClient:
         self._api_key = api_key
         self._api_secret = api_secret
         self._api_passphrase = api_passphrase
+        self._proxy_url = proxy_url
+        self._allow_direct_private = allow_direct_private
         self._max_retries = max_retries
         self._rate_limiter = _RateLimiter(rate=rate_limit_rps, burst=int(rate_limit_rps * 2))
         self._client: ClobClient | None = None
         self._connected = False
+        self._public = PublicClobQuoteClient(base_url=self._base_url)
+        self._pyclob_http_client: httpx.Client | None = None
+        self._previous_pyclob_http_client: httpx.Client | None = None
 
     @property
     def clob_client(self) -> ClobClient:
@@ -133,11 +141,32 @@ class CLOBRestClient:
 
     async def connect(self) -> None:
         """Create the ClobClient with L2 auth credentials."""
+        if not self._proxy_url and not self._allow_direct_private:
+            raise ValueError("private CLOB traffic requires proxy_url; direct private mode is disabled")
+
         creds = ApiCreds(
             api_key=self._api_key,
             api_secret=self._api_secret,
             api_passphrase=self._api_passphrase,
         )
+
+        from py_clob_client.http_helpers import helpers as http_helpers
+
+        self._previous_pyclob_http_client = http_helpers._http_client
+        if self._proxy_url:
+            self._pyclob_http_client = httpx.Client(
+                http2=True,
+                proxy=self._proxy_url,
+                timeout=30.0,
+                follow_redirects=True,
+            )
+        else:
+            self._pyclob_http_client = httpx.Client(
+                http2=True,
+                timeout=30.0,
+                follow_redirects=True,
+            )
+        http_helpers._http_client = self._pyclob_http_client
 
         self._client = ClobClient(
             host=self._base_url,
@@ -153,11 +182,20 @@ class CLOBRestClient:
             base_url=self._base_url,
             address=self._client.get_address(),
             ok=ok,
+            private_transport="proxy" if self._proxy_url else "direct",
         )
         self._connected = True
 
     async def disconnect(self) -> None:
         """Disconnect the client."""
+        if self._pyclob_http_client is not None:
+            self._pyclob_http_client.close()
+            self._pyclob_http_client = None
+        if self._previous_pyclob_http_client is not None:
+            from py_clob_client.http_helpers import helpers as http_helpers
+
+            http_helpers._http_client = self._previous_pyclob_http_client
+            self._previous_pyclob_http_client = None
         self._client = None
         self._connected = False
         logger.info("rest_client.disconnected")
@@ -189,10 +227,7 @@ class CLOBRestClient:
 
         for page in range(max_pages):
             await self._rate_limiter.acquire()
-            raw = await self._run_sync(
-                self._client.get_sampling_simplified_markets,
-                next_cursor=cursor,
-            )
+            raw = await self._public.get_sampling_simplified_markets(next_cursor=cursor)
 
             data = raw if isinstance(raw, list) else raw.get("data", [])
             next_cursor = raw.get("next_cursor", "") if isinstance(raw, dict) else ""
@@ -227,10 +262,8 @@ class CLOBRestClient:
 
     async def get_market_info(self, condition_id: str) -> dict[str, Any]:
         """Fetch detailed market info including tick_size and token IDs."""
-        assert self._client is not None, "Call connect() first"
-
         await self._rate_limiter.acquire()
-        raw = await self._run_sync(self._client.get_market, condition_id)
+        raw = await self._public.get_market(condition_id)
 
         tokens = raw.get("tokens", [])
         yes_token = next((t for t in tokens if t.get("outcome") == "Yes"), tokens[0] if tokens else {})
@@ -258,29 +291,7 @@ class CLOBRestClient:
         assert self._client is not None, "Call connect() first"
 
         await self._rate_limiter.acquire()
-        ob = await self._run_sync(self._client.get_order_book, token_id)
-
-        # OrderBookSummary → dict
-        bids_raw = ob.bids if hasattr(ob, "bids") and ob.bids else []
-        asks_raw = ob.asks if hasattr(ob, "asks") and ob.asks else []
-
-        def _parse_level(lvl: Any) -> dict[str, Decimal]:
-            if hasattr(lvl, "price"):
-                return {"price": Decimal(str(lvl.price)), "size": Decimal(str(lvl.size))}
-            return {"price": Decimal(str(lvl["price"])), "size": Decimal(str(lvl["size"]))}
-
-        result = {
-            "asset_id": getattr(ob, "asset_id", token_id),
-            "market": getattr(ob, "market", ""),
-            "bids": [_parse_level(b) for b in bids_raw],
-            "asks": [_parse_level(a) for a in asks_raw],
-            "timestamp": datetime.now(timezone.utc),
-            "hash": getattr(ob, "hash", None),
-            "tick_size": Decimal(str(getattr(ob, "tick_size", "0.01") or "0.01")),
-            "min_order_size": Decimal(str(getattr(ob, "min_order_size", "5") or "5")),
-            "neg_risk": getattr(ob, "neg_risk", False),
-            "last_trade_price": getattr(ob, "last_trade_price", None),
-        }
+        result = await self._public.get_orderbook(token_id)
 
         logger.debug(
             "rest_client.get_orderbook",
@@ -292,23 +303,13 @@ class CLOBRestClient:
 
     async def get_midpoint(self, token_id: str) -> Decimal:
         """Get the midpoint price for a token."""
-        assert self._client is not None
         await self._rate_limiter.acquire()
-        mid = await self._run_sync(self._client.get_midpoint, token_id)
-        # API returns {"mid": "0.50"} or a plain value
-        if isinstance(mid, dict):
-            mid = mid.get("mid", "0")
-        return Decimal(str(mid))
+        return await self._public.get_midpoint(token_id)
 
     async def get_spread(self, token_id: str) -> Decimal:
         """Get the spread for a token."""
-        assert self._client is not None
         await self._rate_limiter.acquire()
-        spread = await self._run_sync(self._client.get_spread, token_id)
-        # API returns {"spread": "0.02"} or a plain value
-        if isinstance(spread, dict):
-            spread = spread.get("spread", "0")
-        return Decimal(str(spread))
+        return await self._public.get_spread(token_id)
 
     # ── Public API: Balances ─────────────────────────────────────
 
@@ -344,19 +345,40 @@ class CLOBRestClient:
         )
         return result
 
+    async def get_last_trade_price(self, token_id: str) -> Decimal:
+        """Fetch the last traded price, not the executable quote."""
+        await self._rate_limiter.acquire()
+        try:
+            return await self._public.get_last_trade_price(token_id)
+        except Exception:
+            return Decimal("0")
+
+    async def get_executable_quote(
+        self,
+        token_id: str,
+        *,
+        action: str = "sell_token",
+    ) -> ExecutableQuote:
+        await self._rate_limiter.acquire()
+        normalized = action.strip().lower()
+        if normalized in {"sell", "sell_token", "exit", "liquidate"}:
+            return await self._public.get_executable_quote(token_id, action="sell_token")
+        if normalized in {"buy", "buy_token", "enter"}:
+            return await self._public.get_executable_quote(token_id, action="buy_token")
+        raise ValueError(f"unsupported executable quote action: {action}")
+
     async def get_price(
         self, token_id: str, side: str = "sell",
     ) -> Decimal:
-        """Fetch live price for a token from CLOB.
+        """Backward-compatible executable quote helper.
 
-        Returns the price as Decimal, or 0 if unavailable.
+        ``side=sell`` returns the public quote to sell the token now.
+        ``side=buy`` returns the public quote to buy the token now.
         """
-        assert self._client is not None, "Call connect() first"
-        await self._rate_limiter.acquire()
         try:
-            result = await self._run_sync(
-                self._client.get_last_trade_price, token_id)
-            return Decimal(str(result.get("price", "0")))
+            action = "sell_token" if side.lower() == "sell" else "buy_token"
+            quote = await self.get_executable_quote(token_id, action=action)
+            return quote.price
         except Exception:
             return Decimal("0")
 

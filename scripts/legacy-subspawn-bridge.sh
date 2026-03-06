@@ -8,7 +8,7 @@ usage() {
 legacy-subspawn-bridge.sh
 
 Usage:
-  cat legacy.json | legacy-subspawn-bridge.sh [--agent-map luan-dev]
+  cat legacy.json | legacy-subspawn-bridge.sh [--agent-map luan]
   legacy-subspawn-bridge.sh --in /path/legacy.json --out /tmp/task-spec.json
 
 Converte payload legado de subspawn para TaskSpec A2A compatível com schema 1.1.
@@ -17,7 +17,7 @@ USAGE
 
 OUTFILE=""
 INFILE=""
-AGENT_MAP="luan-dev"
+AGENT_MAP="luan"
 RISK="medium"
 AUTO_APPROVE_WINDOW="600"
 REVIEW_DEPTH="2"

@@ -223,6 +223,9 @@ class QueueConsumer:
 
         rejection_feedback = context.get("rejection_feedback", "")
         authorization_status = context.get("authorization_status", "")
+        acceptance_criteria = context.get("acceptance_criteria", "")
+        qa_checks = context.get("qa_checks", "")
+        expected_artifacts = context.get("expected_artifacts", "")
         qa_handoff_comment = context.get("qa_hand_off_comment", "") or context.get("qa_handoff_comment", "")
         auth_section = ""
         if rejection_feedback:
@@ -268,8 +271,33 @@ Luna reviewed your plan and requests changes. See feedback above.
 Revise your plan and re-submit for authorization (max 2 cycles).
 """
 
+        contract_section = ""
+        if acceptance_criteria or qa_checks or expected_artifacts:
+            contract_section = f"""
+## Execution Contract
+**Acceptance criteria**
+{acceptance_criteria or '(not provided)'}
+
+**Checks**
+{qa_checks or '(not provided)'}
+
+**Expected artifacts**
+{expected_artifacts or '(not provided)'}
+"""
+
+        lineage_section = f"""
+## Run Lineage
+- Lane: {context.get('lane', 'ambient')}
+- Card type: {context.get('card_type', 'leaf_task')}
+- Run ID: {context.get('run_id', '(pending)')}
+- Attempt: {context.get('attempt', 0)}
+- Project: {context.get('project_id', '(none)')}
+- Milestone: {context.get('milestone_id', '(none)')}
+- Workstream: {context.get('workstream_id', '(none)')}
+"""
+
         message = f"""📋 Heartbeat V3 dispatch — execute a task abaixo.
-{feedback_section}{qa_section}{auth_section}
+{feedback_section}{qa_section}{auth_section}{contract_section}{lineage_section}
 ## Task
 **Título:** {title}
 **MC Task ID:** {task_id}
@@ -281,9 +309,9 @@ Revise your plan and re-submit for authorization (max 2 cycles).
 
 ## Instruções
 1. Executar a task conforme descrição
-2. Linkar session_key ao MC task via mc-client.sh update-task {task_id} --fields '{{"mc_session_key":"<SESSION_KEY>"}}'
+2. Linkar session_key ao MC task via mc-client.sh update-task {task_id} --fields '{{"mc_session_key":"<SESSION_KEY>","mc_delivery_state":"linked"}}'
 3. Se a task não tiver descrição suficiente, consultar MC para detalhes completos
-4. Ao concluir, marcar task como done no MC
+4. Ao concluir, marcar task como done no MC com proof/artifacts preenchidos
 
 ## Contexto
 - Eligible tasks no inbox: {context.get('eligible_count', '?')}
@@ -341,7 +369,7 @@ Revise your plan and re-submit for authorization (max 2 cycles).
 
 ## Instruções
 1. Re-executar a task com os ajustes acima em mente
-2. Linkar novo session_key ao MC task
+2. Linkar novo session_key ao MC task e atualizar `mc_delivery_state=linked`
 3. Se retry falhar novamente, mover task para `review`
 4. Atualizar mc_retry_count no MC
 

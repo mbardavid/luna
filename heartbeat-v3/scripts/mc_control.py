@@ -47,6 +47,22 @@ STATUS_ALIASES = {
 DISPATCH_POLICIES = {"auto", "backlog", "human_hold"}
 WORKFLOWS = {"direct_exec", "dev_loop_v1"}
 PHASE_STATES = {"pending", "claimed", "completed", "rejected"}
+CARD_TYPES = {"project", "milestone", "workstream", "leaf_task", "review_bundle"}
+CARD_TYPE_ALIASES = {
+    "project": "project",
+    "milestone": "milestone",
+    "workstream": "workstream",
+    "leaf": "leaf_task",
+    "leaf_task": "leaf_task",
+    "leaf-task": "leaf_task",
+    "review_bundle": "review_bundle",
+    "review-bundle": "review_bundle",
+}
+GENERATION_MODES = {"manual", "autonomy"}
+LANES = {"ambient", "project", "review"}
+DELIVERY_STATES = {"queued", "dispatched", "linked", "in_progress", "review", "done"}
+CHAIRMAN_STATES = {"planned", "active", "steering", "approved", "paused", "completed", "terminated"}
+NON_EXECUTABLE_CARD_TYPES = {"project", "milestone", "workstream"}
 
 LUNA_REVIEW_PHASES = {
     "luna_task_planning",
@@ -194,6 +210,203 @@ def task_phase_state(task: dict[str, Any]) -> str:
     return normalize_phase_state(task_fields(task).get("mc_phase_state"), default="pending")
 
 
+def normalize_card_type(value: Any, default: str = "leaf_task") -> str:
+    if value is None:
+        return default
+    text = str(value).strip().lower().replace("-", "_")
+    if not text:
+        return default
+    text = CARD_TYPE_ALIASES.get(text, text)
+    return text if text in CARD_TYPES else default
+
+
+def normalize_generation_mode(value: Any, default: str = "manual") -> str:
+    if value is None:
+        return default
+    text = str(value).strip().lower().replace("-", "_")
+    return text if text in GENERATION_MODES else default
+
+
+def normalize_lane(value: Any, default: str = "ambient") -> str:
+    if value is None:
+        return default
+    text = str(value).strip().lower().replace("-", "_")
+    return text if text in LANES else default
+
+
+def normalize_delivery_state(value: Any, default: str = "queued") -> str:
+    if value is None:
+        return default
+    text = str(value).strip().lower().replace("-", "_")
+    return text if text in DELIVERY_STATES else default
+
+
+def normalize_chairman_state(value: Any, default: str = "planned") -> str:
+    if value is None:
+        return default
+    text = str(value).strip().lower().replace("-", "_")
+    return text if text in CHAIRMAN_STATES else default
+
+
+def task_card_type(task: dict[str, Any]) -> str:
+    return normalize_card_type(task_fields(task).get("mc_card_type"), default="leaf_task")
+
+
+def task_parent_task_id(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_parent_task_id") or "").strip()
+
+
+def task_project_id(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_project_id") or "").strip()
+
+
+def task_milestone_id(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_milestone_id") or "").strip()
+
+
+def task_workstream_id(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_workstream_id") or "").strip()
+
+
+def task_generation_mode(task: dict[str, Any]) -> str:
+    return normalize_generation_mode(task_fields(task).get("mc_generation_mode"), default="manual")
+
+
+def task_generation_key(task: dict[str, Any]) -> str:
+    fields = task_fields(task)
+    explicit = str(fields.get("mc_generation_key") or "").strip()
+    if explicit:
+        return explicit
+    title = str(task.get("title") or "").strip().lower()
+    if title and task_workstream_id(task):
+        return title
+    return ""
+
+
+def task_budget_scope(task: dict[str, Any]) -> str:
+    fields = task_fields(task)
+    value = str(fields.get("mc_budget_scope") or "").strip()
+    if value:
+        return value
+    if task_project_id(task):
+        return "project"
+    return "task"
+
+
+def task_chairman_state(task: dict[str, Any]) -> str:
+    return normalize_chairman_state(task_fields(task).get("mc_chairman_state"), default="planned")
+
+
+def task_acceptance_criteria(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_acceptance_criteria") or "").strip()
+
+
+def task_qa_checks(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_qa_checks") or "").strip()
+
+
+def task_expected_artifacts(task: dict[str, Any]) -> str:
+    fields = task_fields(task)
+    explicit = str(fields.get("mc_expected_artifacts") or "").strip()
+    if explicit:
+        return explicit
+    fallbacks = [
+        str(fields.get("mc_plan_artifact") or "").strip(),
+        str(fields.get("mc_validation_artifact") or "").strip(),
+        str(fields.get("mc_test_report_artifact") or "").strip(),
+    ]
+    return "\n".join(item for item in fallbacks if item)
+
+
+def task_proof_ref(task: dict[str, Any]) -> str:
+    fields = task_fields(task)
+    explicit = str(fields.get("mc_proof_ref") or "").strip()
+    if explicit:
+        return explicit
+    for key in ("mc_validation_artifact", "mc_test_report_artifact", "mc_plan_artifact"):
+        value = str(fields.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def task_execution_owner(task: dict[str, Any]) -> str:
+    assigned = str(task.get("assigned_agent_id") or "").strip()
+    if assigned:
+        return assigned
+    owner = str(task_fields(task).get("mc_phase_owner") or "").strip().lower()
+    if owner and owner not in {"none", "human"}:
+        return owner
+    return ""
+
+
+def task_delivery_state(task: dict[str, Any]) -> str:
+    fields = task_fields(task)
+    explicit = normalize_delivery_state(fields.get("mc_delivery_state"), default="")
+    if explicit:
+        return explicit
+    status = task_status(task)
+    session_key = str(fields.get("mc_session_key") or "").strip()
+    if status == "done":
+        return "done"
+    if status == "review":
+        return "review"
+    if session_key:
+        return "linked"
+    if status == "in_progress":
+        return "in_progress"
+    return "queued"
+
+
+def task_lane(task: dict[str, Any]) -> str:
+    fields = task_fields(task)
+    explicit = normalize_lane(fields.get("mc_lane"), default="")
+    if explicit:
+        return explicit
+    if task_status(task) == "review" or task_card_type(task) == "review_bundle":
+        return "review"
+    if task_card_type(task) in NON_EXECUTABLE_CARD_TYPES:
+        return "project"
+    if task_project_id(task) or task_milestone_id(task) or task_workstream_id(task):
+        return "project"
+    return "ambient"
+
+
+def task_attempt(task: dict[str, Any]) -> int:
+    fields = task_fields(task)
+    try:
+        return int(fields.get("mc_attempt", 0) or 0)
+    except Exception:
+        return 0
+
+
+def build_run_id(task: dict[str, Any], attempt: int | None = None, now: datetime | None = None) -> str:
+    task_id = str(task.get("id") or "task").strip()[:8] or "task"
+    current_attempt = int(attempt if attempt is not None else max(task_attempt(task), 1))
+    stamp = (now or utcnow()).strftime("%Y%m%dT%H%M%SZ")
+    return f"{task_id}-a{current_attempt}-{stamp}"
+
+
+def is_leaf_task(task: dict[str, Any]) -> bool:
+    return task_card_type(task) == "leaf_task"
+
+
+def is_executable_leaf_task(task: dict[str, Any]) -> bool:
+    if not is_leaf_task(task):
+        return False
+    if not task_project_id(task) or not task_milestone_id(task) or not task_workstream_id(task):
+        return False
+    if not task_execution_owner(task):
+        return False
+    if not task_acceptance_criteria(task):
+        return False
+    if not task_qa_checks(task):
+        return False
+    if not task_expected_artifacts(task):
+        return False
+    return True
+
+
 def is_luna_review_task(task: dict[str, Any]) -> bool:
     return task_status(task) == "review" and task_phase_owner(task) == "luna"
 
@@ -259,6 +472,14 @@ def base_phase_fields(task: dict[str, Any]) -> dict[str, Any]:
     fields.setdefault("mc_workflow", task_workflow(task))
     fields.setdefault("mc_dispatch_policy", task_dispatch_policy(task))
     fields.setdefault("mc_loop_id", task_loop_id(task))
+    fields.setdefault("mc_card_type", task_card_type(task))
+    fields.setdefault("mc_generation_mode", task_generation_mode(task))
+    fields.setdefault("mc_generation_key", task_generation_key(task) or None)
+    fields.setdefault("mc_lane", task_lane(task))
+    fields.setdefault("mc_delivery_state", task_delivery_state(task))
+    fields.setdefault("mc_attempt", task_attempt(task))
+    fields.setdefault("mc_budget_scope", task_budget_scope(task))
+    fields.setdefault("mc_chairman_state", task_chairman_state(task))
     return fields
 
 
@@ -301,6 +522,7 @@ def route_dev_loop_intake(task: dict[str, Any]) -> dict[str, Any]:
             "mc_phase_retry_count": int(task_fields(task).get("mc_phase_retry_count", 0) or 0),
             "mc_phase_started_at": to_iso(),
             "mc_phase_completed_at": None,
+            "mc_delivery_state": "review",
         },
     )
 
@@ -397,6 +619,32 @@ def apply_dev_loop_transition(current_phase: str, current_fields: dict[str, Any]
     elif result_phase != current_phase:
         extra["mc_phase_started_at"] = to_iso()
         extra["mc_phase_completed_at"] = None
+
+    current_delivery = normalize_delivery_state(fields.get("mc_delivery_state"), default="queued")
+    if result_status == "done":
+        extra["mc_delivery_state"] = "done"
+    elif result_status == "review":
+        extra["mc_delivery_state"] = "review"
+    elif result_status == "in_progress":
+        extra["mc_delivery_state"] = "in_progress"
+    else:
+        extra["mc_delivery_state"] = current_delivery or "queued"
+
+    proof_ref = ""
+    if artifacts:
+        proof_ref = artifacts[-1]
+    else:
+        proof_ref = str(
+            extra.get("mc_validation_artifact")
+            or extra.get("mc_test_report_artifact")
+            or fields.get("mc_validation_artifact")
+            or fields.get("mc_test_report_artifact")
+            or fields.get("mc_plan_artifact")
+            or fields.get("mc_proof_ref")
+            or ""
+        ).strip()
+    if proof_ref and result_status == "done":
+        extra["mc_proof_ref"] = proof_ref
 
     result = build_phase_update(
         {"status": result_status, "custom_field_values": fields},

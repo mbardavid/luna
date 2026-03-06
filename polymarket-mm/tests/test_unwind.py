@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from execution.ctf_merge import CTFMerger, MergeResult
+from data.public_clob_quote_client import ExecutableQuote
 from execution.unwind import (
     SellResult,
     UnwindConfig,
@@ -36,6 +37,14 @@ def mock_rest_client():
     client.cancel_all_orders = AsyncMock(return_value=True)
     client.get_midpoint = AsyncMock(return_value=Decimal("0.50"))
     client.get_price = AsyncMock(return_value=Decimal("0.50"))
+    client.get_executable_quote = AsyncMock(
+        return_value=ExecutableQuote(
+            token_id="tok-test",
+            action="sell_token",
+            price=Decimal("0.50"),
+            source="test",
+        )
+    )
     client.create_and_post_order = AsyncMock(return_value={"orderID": "test-123"})
     client.get_open_orders = AsyncMock(return_value=[])
     return client
@@ -634,7 +643,7 @@ class TestCTFMerge:
         assert merger.calculate_mergeable(Decimal("30"), Decimal("50")) == Decimal("30")
         assert merger.calculate_mergeable(Decimal("0"), Decimal("50")) == Decimal("0")
         assert merger.calculate_mergeable(Decimal("50"), Decimal("0")) == Decimal("0")
-        assert merger.calculate_mergeable(Decimal("10.5"), Decimal("8.3")) == Decimal("8")
+        assert merger.calculate_mergeable(Decimal("10.5"), Decimal("8.3")) == Decimal("8.300000")
 
 
 # ── Test: Position Manager CLI ──────────────────────────────────────

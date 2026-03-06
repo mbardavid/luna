@@ -18,6 +18,7 @@ MC_LINK="${SCRIPT_DIR}/mc-link-task-session.sh"
 AGENT_IDS_FILE="${SCRIPT_DIR}/../config/mc-agent-ids.json"
 LOG_DIR="${SCRIPT_DIR}/../logs"
 AUDIT_LOG="${LOG_DIR}/mc-spawn-audit.log"
+TOPOLOGY_HELPER="${SCRIPT_DIR}/agent_runtime_topology.py"
 
 usage() {
   cat <<'USAGE'
@@ -141,6 +142,9 @@ while [ "$#" -gt 0 ]; do
 done
 
 # --- Validate ---
+if [ -n "$AGENT" ] && [ -f "$TOPOLOGY_HELPER" ]; then
+  AGENT="$(python3 "$TOPOLOGY_HELPER" normalize "$AGENT" 2>/dev/null || printf '%s' "$AGENT")"
+fi
 # Build structured task spec if fields provided
 if [ -n "$TASK_FILE" ] && [ -f "$TASK_FILE" ]; then
   TASK=$(cat "$TASK_FILE")
@@ -430,42 +434,8 @@ else:
   fi
 }
 
-# Resolve full agent UUID via mc-client (for MC API)
-resolve_agent_full_id() {
-  local agent_name="$1"
-  # mc-client already has the full UUID resolution via config
-  source <(grep -A999 '^mc_cfg()' "$MC_CLIENT" | head -0) 2>/dev/null || true
-  # Use mc_resolve_agent_id from mc-client
-  bash -c "
-    source '$MC_CLIENT' 2>/dev/null
-    mc_resolve_agent_id '$agent_name'
-  " 2>/dev/null || true
-}
-
-# We need the full UUID for the MC API (if available)
-AGENT_FULL_ID=""
-# First try resolving through mc-client's config (has full UUIDs)
-AGENT_FULL_ID=$(python3 -c "
-import json, sys
-with open('${SCRIPT_DIR}/../config/mission-control-ids.json') as f:
-    cfg = json.load(f)
-agents = cfg.get('agents', {})
-name = sys.argv[1].lower().replace('-', '_')
-if name in agents:
-    print(agents[name])
-else:
-    # Try with dashes
-    name2 = sys.argv[1].lower().replace('_', '-')
-    for k, v in agents.items():
-        if k.lower().replace('-', '_') == name or k.lower() == name2:
-            print(v)
-            sys.exit(0)
-    sys.exit(1)
-" "$AGENT" 2>/dev/null) || true
-
-if [ -z "$AGENT_FULL_ID" ]; then
-  echo "Warning: Could not resolve agent '$AGENT' to UUID. Task will be created without assigned_agent_id." >&2
-fi
+# Canonical assignee is resolved by mc-client via the shared topology helper.
+ASSIGNEE="${AGENT:-}"
 
 # --- Slugify title for label ---
 LABEL_SLUG=$(python3 -c "
@@ -489,7 +459,7 @@ fi
 # --- Create MC task (or use existing) ---
 TASK_ID=""
 CREATED_TASK_JSON=""
-ASSIGNEE="${AGENT_FULL_ID:-}"
+ASSIGNEE="${ASSIGNEE:-${AGENT:-}}"
 
 FIELDS_JSON=$(python3 - <<PY
 import json

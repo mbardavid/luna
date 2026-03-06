@@ -36,7 +36,8 @@ class TestCTFAdapterConfig:
         assert cfg.gas_limit_merge == 300_000
         assert cfg.gas_limit_split == 300_000
         assert cfg.usdc_decimals == 6
-        assert cfg.max_gas_price_gwei == Decimal("100")
+        assert cfg.max_gas_price_gwei is None
+        assert cfg.max_gas_cost_usd == Decimal("0.25")
         assert cfg.required_confirmations == 3
 
     def test_custom_values(self) -> None:
@@ -44,10 +45,12 @@ class TestCTFAdapterConfig:
         cfg = CTFAdapterConfig(
             gas_limit_merge=500_000,
             max_gas_price_gwei=Decimal("200"),
+            max_gas_cost_usd=Decimal("0.50"),
             matic_price_usd=Decimal("1.00"),
         )
         assert cfg.gas_limit_merge == 500_000
         assert cfg.max_gas_price_gwei == Decimal("200")
+        assert cfg.max_gas_cost_usd == Decimal("0.50")
 
 
 class TestCTFTxResult:

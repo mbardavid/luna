@@ -6,6 +6,21 @@
 
 ---
 
+## 0A) Snapshot cruzado com o Mission Control (2026-03-05)
+
+Tasks relacionadas no MC remoto:
+- `6e5effc1-a6bf-4d73-9079-74ba9dc52069` - `Autonomy v1: Scheduler + QA runner + Project Epics (Roadmap + Implementation Plan)`
+  - snapshot atual: `awaiting_human + mc_dispatch_policy=auto`
+  - interpretacao correta: card pai de governanca; nao deve ser tratado como leaf auto-dispatchable
+- `1c6ab056-9cd6-484f-8eb5-96ec98579379` - `Research: Incorporate Paperclip / Builderz Mission Control / OpenAI Symphony learnings into Autonomy v1 + Phase 2`
+  - snapshot atual: `inbox + mc_dispatch_policy=auto`
+  - interpretacao correta: planning/spec work; hoje esta elegivel a auto-drain e precisa de classificacao mais segura se permanecer no backlog do MC
+
+Documentos complementares adicionados a este plano:
+- `docs/external-learnings-2026-03-05.md`
+- `docs/autonomy-v1-adoption-plan-2026-03-05.md`
+- `docs/autonomy-v1-mission-control-registration-spec.md`
+
 ## 0) Princípios de design
 
 ### Leituras incorporadas (2026-03-04)
@@ -374,6 +389,81 @@ Checklist de rollback por fase:
 - Painel mínimo de KPIs (fila, WIP, taxa de revisão, falhas, custo)
 
 ---
+
+## 6A) Aprendizados externos incorporados ao roadmap
+
+### Paperclip -> goal ancestry + budget scope
+- Introduzir hierarquia leve: `goal -> epic -> milestone -> leaf task`.
+- Orcamento deve existir por agente, workflow e epico/projeto, nao apenas por task isolada.
+- Nao adotar agora org-chart/company-OS completo; o ganho imediato esta na rastreabilidade estrategica.
+
+### builderz Mission Control -> delivery substate + visibilidade real-time
+- Manter os status canonicos do runtime (`inbox`, `in_progress`, `review`, `awaiting_human`, `done`, etc.).
+- Adicionar uma maquina de entrega ortogonal ao status, via comments/custom fields/artifacts:
+  - `queued -> dispatched -> linked -> in_progress -> review -> done`
+- Melhorar a visibilidade no Mission Control para dispatch, claim, retry, QA e lineage de sessao/run.
+
+### Symphony -> workflow contract + proof-of-work + run lineage
+- Cada fluxo relevante (`direct_exec`, `dev_loop_v1`) deve ter contrato versionado.
+- Cada tentativa precisa de lineage claro: `task -> run/attempt -> session -> artifacts`.
+- Nenhuma task deve fechar sem proof-of-work ou override humano explicito.
+
+## 6B) Integracao com Mission Control - regra operacional atualizada
+
+### Status model (canonico)
+Este roadmap passa a assumir os status canonicos ja reconhecidos pelo `heartbeat-v3`:
+- `inbox`
+- `in_progress`
+- `review`
+- `awaiting_human`
+- `done`
+- `failed`
+- `blocked`
+- `stalled`
+- `retry`
+
+Importante:
+- `queued`, `dispatched` e `linked` **nao** sao novos status do MC.
+- Eles sao **subestados de entrega** que devem ser refletidos em comments/custom fields/artifacts.
+- `needs_approval` deve continuar tratado apenas como alias legado de leitura para `awaiting_human`.
+
+### Goal ancestry e estrutura de projeto
+Para Autonomy V1, a estrutura recomendada passa a ser:
+- `goal`
+- `epic`
+- `milestone`
+- `leaf task`
+
+Regras:
+- cards pai de goal/epic nao entram em auto-dispatch
+- apenas leaf tasks podem virar `mc_dispatch_policy=auto`
+- milestones e epics podem existir no MC como backlog governado, mas nao como execucao automatica
+
+### Proof-of-work minimo por leaf task
+Toda leaf task auto-dispatchable deve produzir:
+- artefato de execucao (`plan`, `report`, `diff` ou `result brief`)
+- artefato de verificacao (`test report`, `validation artifact` ou equivalente)
+- prova de run/link (`mc_session_key` ou equivalente)
+- identificador de tentativa/run para retry e recovery
+
+### Politica de registro no MC para evitar auto-drain acidental
+- `human_hold`: usar para governanca, planning, spec, research planning e qualquer card ainda nao executavel
+- `backlog`: usar para trabalho real, aprovado, mas intencionalmente nao drenado ainda
+- `auto`: usar **somente** para leaf tasks com criterios, verificacoes, artifacts esperados e owner de execucao
+- `review`: reservado para Luna/judge/QA; nao usar para cards de planejamento
+- `awaiting_human`: gate explicito de decisao humana; nunca auto-drain
+
+### Recomendacao explicita para as tasks atuais
+- `Autonomy v1` (`6e5effc1...`): manter como card pai de governanca, idealmente `awaiting_human + human_hold`
+- `Research: Incorporate ...` (`1c6ab056...`): se continuar sendo planning/spec, mover de `auto` para `human_hold`; se virar implementacao aprovada mas ainda estacionada, usar `backlog`
+
+## 6C) Criterios adicionais de validacao deste roadmap
+
+Este plano so deve ser considerado pronto para implementacao quando:
+1. o pacote de planejamento estiver refletido nos docs adicionados em 2026-03-05;
+2. houver distincao explicita entre cards de governanca e leaf tasks executaveis;
+3. o heartbeat dry-run confirmar que `human_hold`, `backlog` e `awaiting_human` nao drenam;
+4. toda proposta de `auto` incluir criterios de aceite, verificacoes e expectativa de artifacts.
 
 ### Estado do plano
 

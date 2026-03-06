@@ -53,5 +53,13 @@
       "RESOURCE_EXHAUSTED",
       "capacity"
     ]
+  },
+  "project_autonomy": {
+    "enabled": true,
+    "lane_floor_ratio": 0.25,
+    "lane_cap_ratio": 0.5,
+    "max_active_workstreams": 3,
+    "max_auto_leaf_tasks_per_workstream": 2,
+    "max_new_leaf_tasks_per_cycle": 3
   }
 }

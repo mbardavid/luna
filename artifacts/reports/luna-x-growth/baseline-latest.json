@@ -1,0 +1,26 @@
+{
+  "generated_at": "2026-03-06T04:15:18Z",
+  "session_state": "ok",
+  "home_url": "https://x.com/home",
+  "title": "Home / X",
+  "profile_url": "https://x.com/lunabardabot",
+  "mode": "baseline",
+  "account": {
+    "handle": "@lunabardabot",
+    "handle_raw": "lunabardabot",
+    "display_name": "To view keyboard shortcuts, press question mark",
+    "profile_url": "https://x.com/lunabardabot"
+  },
+  "profile": {
+    "followers": 0,
+    "following": 0
+  },
+  "analytics": {
+    "available": true,
+    "profile_visits_recent": null,
+    "impressions_recent": null
+  },
+  "recent_posts": [],
+  "recent_themes": [],
+  "recent_formats": {}
+}

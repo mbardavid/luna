@@ -167,7 +167,7 @@ Falha em qualquer uma dessas regras => handoff bloqueado com auditoria (`decisio
   "intent": {
     "operation": "swap.jupiter",
     "summary": "Executar swap SOL->USDC com limite de slippage",
-    "inputSchemaRef": "agents/blockchain-operator/config/execution-plane.schema.v1.json",
+    "inputSchemaRef": "workspace-crypto-sage/config/execution-plane.schema.v1.json",
     "input": {
       "chain": "solana",
       "inAsset": "SOL",
@@ -194,7 +194,7 @@ Falha em qualquer uma dessas regras => handoff bloqueado com auditoria (`decisio
   },
   "rollback": {
     "required": true,
-    "planRef": "agents/blockchain-operator/docs/runbook.md",
+    "planRef": "workspace-crypto-sage/docs/runbook.md",
     "trigger": "Qualquer erro live ou desvio de política"
   },
   "audit": {
@@ -218,7 +218,7 @@ Falha em qualquer uma dessas regras => handoff bloqueado com auditoria (`decisio
     "sessionId": "agent:main:subagent:proxy-44"
   },
   "target": {
-    "agentId": "blockchain-operator",
+    "agentId": "crypto-sage",
     "capability": "execution-plane"
   },
   "routing": {
@@ -231,7 +231,7 @@ Falha em qualquer uma dessas regras => handoff bloqueado com auditoria (`decisio
     "delegationPolicy": {
       "policyRef": "policies/delegation/user-main-v1.json",
       "allowAgents": [
-        "blockchain-operator"
+        "crypto-sage"
       ],
       "allowChannels": [
         "discord:channel:1473392629055098942"
@@ -252,7 +252,7 @@ Falha em qualquer uma dessas regras => handoff bloqueado com auditoria (`decisio
       },
       "scope": {
         "agents": [
-          "blockchain-operator"
+          "crypto-sage"
         ],
         "channels": [
           "discord:channel:1473392629055098942"
@@ -281,7 +281,7 @@ Falha em qualquer uma dessas regras => handoff bloqueado com auditoria (`decisio
       "channel": "discord:channel:1473392629055098942",
       "messageId": "1473395000000000001",
       "originBotId": "decision-router",
-      "targetBotId": "blockchain-operator",
+      "targetBotId": "crypto-sage",
       "observedAt": "2026-02-18T19:36:58Z",
       "ttlSeconds": 300,
       "dedupeBy": "messageId"
@@ -289,7 +289,7 @@ Falha em qualquer uma dessas regras => handoff bloqueado com auditoria (`decisio
   },
   "intent": {
     "operation": "transfer",
-    "inputSchemaRef": "agents/blockchain-operator/config/execution-plane.schema.v1.json",
+    "inputSchemaRef": "workspace-crypto-sage/config/execution-plane.schema.v1.json",
     "input": {
       "chain": "solana",
       "asset": "SOL",
@@ -312,7 +312,7 @@ Falha em qualquer uma dessas regras => handoff bloqueado com auditoria (`decisio
   },
   "rollback": {
     "required": true,
-    "planRef": "agents/blockchain-operator/docs/runbook.md",
+    "planRef": "workspace-crypto-sage/docs/runbook.md",
     "trigger": "Falha live ou decisão de risco indevida"
   },
   "audit": {

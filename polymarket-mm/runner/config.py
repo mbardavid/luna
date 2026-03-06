@@ -48,6 +48,30 @@ class UnifiedMarketConfig:
     spread_min_bps: int = 50
     max_position_size: Decimal = Decimal("500")
     enabled: bool = True
+    execution_mode: str = "rewards_farming"
+    reward_min_size_usdc: Decimal | None = None
+    reward_max_spread_cents: Decimal | None = None
+    expected_reward_yield_bps_day: float | None = None
+    expected_fill_rate_pct: float | None = None
+    max_inventory_per_side: Decimal | None = None
+    order_size_override: Decimal | None = None
+    half_spread_bps_override: int | None = None
+    min_quote_lifetime_s: float | None = None
+    max_requote_rate_per_min: float | None = None
+    health_score_threshold: float | None = None
+    directional_side: str | None = None
+    entry_price_limit: Decimal | None = None
+    model_probability: float | None = None
+    market_implied_probability: float | None = None
+    edge_bps: float | None = None
+    confidence: float | None = None
+    stake_usdc: Decimal | None = None
+    max_slippage_bps: int | None = None
+    ttl_seconds: int | None = None
+    stop_rule: str | None = None
+    take_profit_rule: str | None = None
+    source_evidence_ids: list[str] = field(default_factory=list)
+    disable_reason: str = ""
 
 
 @dataclass

@@ -158,3 +158,7 @@
 
 - **Infra event-driven (Polymarket) entregue em modo paper-only:** pacote `research/polymarket_event_driven_infra/` com ingestion/scoring (mispricing), sizing (Kelly), execução paper com idempotência/dedupe e tracking de PnL (payloads p/ Supabase), com suíte de testes passando.
 - **PMM rewards-optimized plan documentado:** `docs/pmm-rewards-optimized-plan.md` define objetivo (compliance de thresholds/tempo no book), métricas e guardrails fortes de “no live por default”, além de roadmap de escala.
+
+## 2026-03-06
+
+- **Browser tool depende de Chromium/Chrome disponível no host**: healthcheck reportou falha do `browser` tool quando não há binário suportado; mitigação é instalar Chromium/Google Chrome ou configurar `browser.executablePath` para um executável existente.

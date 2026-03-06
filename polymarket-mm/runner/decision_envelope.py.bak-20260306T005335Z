@@ -1,0 +1,475 @@
+"""DecisionEnvelope v1 for Quant -> PMM runner handoff."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from decimal import Decimal
+from pathlib import Path
+from typing import Any, Literal
+
+
+def _decimal(value: Any, *, field_name: str) -> Decimal:
+    try:
+        return Decimal(str(value))
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError(f"invalid decimal for {field_name}: {value!r}") from exc
+
+
+def _float(value: Any, *, field_name: str) -> float:
+    try:
+        return float(value)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError(f"invalid float for {field_name}: {value!r}") from exc
+
+
+def _int(value: Any, *, field_name: str) -> int:
+    try:
+        return int(value)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError(f"invalid int for {field_name}: {value!r}") from exc
+
+
+def _bool(value: Any, *, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "y", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "n", "off"}:
+            return False
+    raise ValueError(f"invalid bool for {field_name}: {value!r}")
+
+
+def _parse_dt(value: str | datetime, *, field_name: str) -> datetime:
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _require_non_empty(value: Any, *, field_name: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        raise ValueError(f"missing {field_name}")
+    return text
+
+
+def _market_type(value: Any) -> str:
+    text = str(value or "OTHER").strip().upper()
+    if not text:
+        return "OTHER"
+    return text
+
+
+@dataclass(slots=True)
+class CapitalPolicy:
+    total_capital_usdc: Decimal
+    rewards_capital_usdc: Decimal
+    directional_capital_usdc: Decimal
+    reserve_capital_usdc: Decimal
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "CapitalPolicy":
+        item = cls(
+            total_capital_usdc=_decimal(raw.get("total_capital_usdc"), field_name="total_capital_usdc"),
+            rewards_capital_usdc=_decimal(raw.get("rewards_capital_usdc"), field_name="rewards_capital_usdc"),
+            directional_capital_usdc=_decimal(raw.get("directional_capital_usdc"), field_name="directional_capital_usdc"),
+            reserve_capital_usdc=_decimal(raw.get("reserve_capital_usdc"), field_name="reserve_capital_usdc"),
+        )
+        if item.total_capital_usdc <= 0:
+            raise ValueError("capital_policy.total_capital_usdc must be > 0")
+        if item.rewards_capital_usdc < 0 or item.directional_capital_usdc < 0 or item.reserve_capital_usdc < 0:
+            raise ValueError("capital_policy values must be >= 0")
+        allocated = item.rewards_capital_usdc + item.directional_capital_usdc + item.reserve_capital_usdc
+        if allocated > item.total_capital_usdc + Decimal("0.000001"):
+            raise ValueError("capital_policy allocated capital exceeds total_capital_usdc")
+        return item
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "total_capital_usdc": str(self.total_capital_usdc),
+            "rewards_capital_usdc": str(self.rewards_capital_usdc),
+            "directional_capital_usdc": str(self.directional_capital_usdc),
+            "reserve_capital_usdc": str(self.reserve_capital_usdc),
+        }
+
+
+@dataclass(slots=True)
+class ModeAllocations:
+    rewards_enabled: bool = True
+    directional_enabled: bool = False
+    directional_max_pct: int = 10
+    priority_order: list[str] = field(
+        default_factory=lambda: ["rewards_farming", "event_driven"]
+    )
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any] | None) -> "ModeAllocations":
+        raw = raw or {}
+        item = cls(
+            rewards_enabled=_bool(raw.get("rewards_enabled", True), field_name="rewards_enabled"),
+            directional_enabled=_bool(raw.get("directional_enabled", False), field_name="directional_enabled"),
+            directional_max_pct=_int(raw.get("directional_max_pct", 10), field_name="directional_max_pct"),
+            priority_order=[str(v) for v in raw.get("priority_order", ["rewards_farming", "event_driven"])],
+        )
+        if item.directional_max_pct < 0 or item.directional_max_pct > 100:
+            raise ValueError("mode_allocations.directional_max_pct must be between 0 and 100")
+        if item.priority_order != ["rewards_farming", "event_driven"]:
+            raise ValueError("mode_allocations.priority_order must be ['rewards_farming', 'event_driven']")
+        return item
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class RiskLimits:
+    max_active_rewards_markets: int = 5
+    max_active_directional_markets: int = 3
+    directional_live_requires_direct: bool = True
+    allow_directional_live: bool = False
+    enforce_balance_allowance_check: bool = True
+    max_structural_rejects: int = 1
+    max_cancel_unknown_order: int = 1
+    max_reject_rate_pct: float = 1.0
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any] | None) -> "RiskLimits":
+        raw = raw or {}
+        return cls(
+            max_active_rewards_markets=_int(raw.get("max_active_rewards_markets", 5), field_name="max_active_rewards_markets"),
+            max_active_directional_markets=_int(raw.get("max_active_directional_markets", 3), field_name="max_active_directional_markets"),
+            directional_live_requires_direct=_bool(raw.get("directional_live_requires_direct", True), field_name="directional_live_requires_direct"),
+            allow_directional_live=_bool(raw.get("allow_directional_live", False), field_name="allow_directional_live"),
+            enforce_balance_allowance_check=_bool(raw.get("enforce_balance_allowance_check", True), field_name="enforce_balance_allowance_check"),
+            max_structural_rejects=_int(raw.get("max_structural_rejects", 1), field_name="max_structural_rejects"),
+            max_cancel_unknown_order=_int(raw.get("max_cancel_unknown_order", 1), field_name="max_cancel_unknown_order"),
+            max_reject_rate_pct=_float(raw.get("max_reject_rate_pct", 1.0), field_name="max_reject_rate_pct"),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class KillSwitches:
+    halt_on_order_rejected: bool = True
+    halt_on_balance_allowance: bool = True
+    halt_on_cancel_unknown_order: bool = True
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any] | None) -> "KillSwitches":
+        raw = raw or {}
+        return cls(
+            halt_on_order_rejected=_bool(raw.get("halt_on_order_rejected", True), field_name="halt_on_order_rejected"),
+            halt_on_balance_allowance=_bool(raw.get("halt_on_balance_allowance", True), field_name="halt_on_balance_allowance"),
+            halt_on_cancel_unknown_order=_bool(raw.get("halt_on_cancel_unknown_order", True), field_name="halt_on_cancel_unknown_order"),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class RewardMarketDecision:
+    mode: Literal["rewards_farming"]
+    market_id: str
+    condition_id: str
+    token_id_yes: str
+    token_id_no: str
+    reward_min_size_usdc: Decimal
+    reward_max_spread_cents: Decimal
+    expected_reward_yield_bps_day: float
+    expected_fill_rate_pct: float
+    max_inventory_per_side: Decimal
+    order_size: Decimal
+    half_spread_bps: int
+    min_quote_lifetime_s: float
+    max_requote_rate_per_min: float
+    disable_reason: str = ""
+    description: str = ""
+    market_type: str = "OTHER"
+    tick_size: Decimal = Decimal("0.01")
+    min_order_size: Decimal = Decimal("5")
+    neg_risk: bool = False
+    health_score_threshold: float = 0.0
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "RewardMarketDecision":
+        item = cls(
+            mode="rewards_farming",
+            market_id=_require_non_empty(raw.get("market_id"), field_name="market_id"),
+            condition_id=_require_non_empty(raw.get("condition_id"), field_name="condition_id"),
+            token_id_yes=_require_non_empty(raw.get("token_id_yes"), field_name="token_id_yes"),
+            token_id_no=_require_non_empty(raw.get("token_id_no"), field_name="token_id_no"),
+            reward_min_size_usdc=_decimal(raw.get("reward_min_size_usdc", 0), field_name="reward_min_size_usdc"),
+            reward_max_spread_cents=_decimal(raw.get("reward_max_spread_cents", 0), field_name="reward_max_spread_cents"),
+            expected_reward_yield_bps_day=_float(raw.get("expected_reward_yield_bps_day", 0.0), field_name="expected_reward_yield_bps_day"),
+            expected_fill_rate_pct=_float(raw.get("expected_fill_rate_pct", 0.0), field_name="expected_fill_rate_pct"),
+            max_inventory_per_side=_decimal(raw.get("max_inventory_per_side"), field_name="max_inventory_per_side"),
+            order_size=_decimal(raw.get("order_size"), field_name="order_size"),
+            half_spread_bps=_int(raw.get("half_spread_bps"), field_name="half_spread_bps"),
+            min_quote_lifetime_s=_float(raw.get("min_quote_lifetime_s", 30.0), field_name="min_quote_lifetime_s"),
+            max_requote_rate_per_min=_float(raw.get("max_requote_rate_per_min", 2.0), field_name="max_requote_rate_per_min"),
+            disable_reason=str(raw.get("disable_reason", "") or ""),
+            description=str(raw.get("description", "") or ""),
+            market_type=_market_type(raw.get("market_type", "OTHER")),
+            tick_size=_decimal(raw.get("tick_size", "0.01"), field_name="tick_size"),
+            min_order_size=_decimal(raw.get("min_order_size", "5"), field_name="min_order_size"),
+            neg_risk=bool(raw.get("neg_risk", False)),
+            health_score_threshold=_float(raw.get("health_score_threshold", 0.0), field_name="health_score_threshold"),
+        )
+        if item.order_size <= 0 or item.max_inventory_per_side <= 0:
+            raise ValueError("rewards_farming order_size and max_inventory_per_side must be > 0")
+        return item
+
+    @property
+    def enabled(self) -> bool:
+        return not self.disable_reason
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "market_id": self.market_id,
+            "condition_id": self.condition_id,
+            "token_id_yes": self.token_id_yes,
+            "token_id_no": self.token_id_no,
+            "reward_min_size_usdc": str(self.reward_min_size_usdc),
+            "reward_max_spread_cents": str(self.reward_max_spread_cents),
+            "expected_reward_yield_bps_day": self.expected_reward_yield_bps_day,
+            "expected_fill_rate_pct": self.expected_fill_rate_pct,
+            "max_inventory_per_side": str(self.max_inventory_per_side),
+            "order_size": str(self.order_size),
+            "half_spread_bps": self.half_spread_bps,
+            "min_quote_lifetime_s": self.min_quote_lifetime_s,
+            "max_requote_rate_per_min": self.max_requote_rate_per_min,
+            "disable_reason": self.disable_reason,
+            "description": self.description,
+            "market_type": self.market_type,
+            "tick_size": str(self.tick_size),
+            "min_order_size": str(self.min_order_size),
+            "neg_risk": self.neg_risk,
+            "health_score_threshold": self.health_score_threshold,
+        }
+
+
+@dataclass(slots=True)
+class EventDrivenMarketDecision:
+    mode: Literal["event_driven"]
+    market_id: str
+    condition_id: str
+    token_id_yes: str
+    token_id_no: str
+    side: Literal["YES", "NO"]
+    entry_price_limit: Decimal
+    model_probability: float
+    market_implied_probability: float
+    edge_bps: float
+    confidence: float
+    stake_usdc: Decimal
+    max_slippage_bps: int
+    ttl_seconds: int
+    stop_rule: str
+    take_profit_rule: str
+    source_evidence_ids: list[str] = field(default_factory=list)
+    disable_reason: str = ""
+    description: str = ""
+    market_type: str = "OTHER"
+    tick_size: Decimal = Decimal("0.01")
+    min_order_size: Decimal = Decimal("5")
+    neg_risk: bool = False
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "EventDrivenMarketDecision":
+        side = str(raw.get("side", "YES")).strip().upper()
+        if side not in {"YES", "NO"}:
+            raise ValueError("event_driven.side must be YES or NO")
+        item = cls(
+            mode="event_driven",
+            market_id=_require_non_empty(raw.get("market_id"), field_name="market_id"),
+            condition_id=_require_non_empty(raw.get("condition_id"), field_name="condition_id"),
+            token_id_yes=_require_non_empty(raw.get("token_id_yes"), field_name="token_id_yes"),
+            token_id_no=_require_non_empty(raw.get("token_id_no"), field_name="token_id_no"),
+            side=side,
+            entry_price_limit=_decimal(raw.get("entry_price_limit"), field_name="entry_price_limit"),
+            model_probability=_float(raw.get("model_probability"), field_name="model_probability"),
+            market_implied_probability=_float(raw.get("market_implied_probability"), field_name="market_implied_probability"),
+            edge_bps=_float(raw.get("edge_bps"), field_name="edge_bps"),
+            confidence=_float(raw.get("confidence"), field_name="confidence"),
+            stake_usdc=_decimal(raw.get("stake_usdc"), field_name="stake_usdc"),
+            max_slippage_bps=_int(raw.get("max_slippage_bps"), field_name="max_slippage_bps"),
+            ttl_seconds=_int(raw.get("ttl_seconds"), field_name="ttl_seconds"),
+            stop_rule=str(raw.get("stop_rule", "") or ""),
+            take_profit_rule=str(raw.get("take_profit_rule", "") or ""),
+            source_evidence_ids=[str(v) for v in raw.get("source_evidence_ids", [])],
+            disable_reason=str(raw.get("disable_reason", "") or ""),
+            description=str(raw.get("description", "") or ""),
+            market_type=_market_type(raw.get("market_type", "OTHER")),
+            tick_size=_decimal(raw.get("tick_size", "0.01"), field_name="tick_size"),
+            min_order_size=_decimal(raw.get("min_order_size", "5"), field_name="min_order_size"),
+            neg_risk=bool(raw.get("neg_risk", False)),
+        )
+        if item.confidence < 0 or item.confidence > 1:
+            raise ValueError("event_driven.confidence must be between 0 and 1")
+        if item.stake_usdc <= 0:
+            raise ValueError("event_driven.stake_usdc must be > 0")
+        return item
+
+    @property
+    def enabled(self) -> bool:
+        return not self.disable_reason
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "market_id": self.market_id,
+            "condition_id": self.condition_id,
+            "token_id_yes": self.token_id_yes,
+            "token_id_no": self.token_id_no,
+            "side": self.side,
+            "entry_price_limit": str(self.entry_price_limit),
+            "model_probability": self.model_probability,
+            "market_implied_probability": self.market_implied_probability,
+            "edge_bps": self.edge_bps,
+            "confidence": self.confidence,
+            "stake_usdc": str(self.stake_usdc),
+            "max_slippage_bps": self.max_slippage_bps,
+            "ttl_seconds": self.ttl_seconds,
+            "stop_rule": self.stop_rule,
+            "take_profit_rule": self.take_profit_rule,
+            "source_evidence_ids": list(self.source_evidence_ids),
+            "disable_reason": self.disable_reason,
+            "description": self.description,
+            "market_type": self.market_type,
+            "tick_size": str(self.tick_size),
+            "min_order_size": str(self.min_order_size),
+            "neg_risk": self.neg_risk,
+        }
+
+
+DecisionMarket = RewardMarketDecision | EventDrivenMarketDecision
+
+
+@dataclass(slots=True)
+class DecisionEnvelope:
+    decision_id: str
+    generated_at: datetime
+    expires_at: datetime
+    transport_policy: Literal["direct_preferred", "direct_only", "proxy_fallback"]
+    capital_policy: CapitalPolicy
+    mode_allocations: ModeAllocations
+    markets: list[DecisionMarket]
+    risk_limits: RiskLimits = field(default_factory=RiskLimits)
+    kill_switches: KillSwitches = field(default_factory=KillSwitches)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "DecisionEnvelope":
+        decision_id = _require_non_empty(raw.get("decision_id"), field_name="decision_id")
+        generated_at = _parse_dt(raw.get("generated_at"), field_name="generated_at")
+        expires_at = _parse_dt(raw.get("expires_at"), field_name="expires_at")
+        transport_policy = str(raw.get("transport_policy", "direct_preferred")).strip()
+        if transport_policy not in {"direct_preferred", "direct_only", "proxy_fallback"}:
+            raise ValueError("transport_policy must be direct_preferred, direct_only or proxy_fallback")
+        capital_policy = CapitalPolicy.from_dict(raw.get("capital_policy") or {})
+        mode_allocations = ModeAllocations.from_dict(raw.get("mode_allocations"))
+        markets: list[DecisionMarket] = []
+        for market in raw.get("markets", []):
+            mode = str(market.get("mode", "rewards_farming")).strip()
+            if mode == "rewards_farming":
+                markets.append(RewardMarketDecision.from_dict(market))
+            elif mode == "event_driven":
+                markets.append(EventDrivenMarketDecision.from_dict(market))
+            else:
+                raise ValueError(f"unsupported market mode: {mode}")
+
+        if not markets:
+            raise ValueError("decision envelope must contain at least one market")
+
+        item = cls(
+            decision_id=decision_id,
+            generated_at=generated_at,
+            expires_at=expires_at,
+            transport_policy=transport_policy,
+            capital_policy=capital_policy,
+            mode_allocations=mode_allocations,
+            markets=markets,
+            risk_limits=RiskLimits.from_dict(raw.get("risk_limits")),
+            kill_switches=KillSwitches.from_dict(raw.get("kill_switches")),
+            metadata=dict(raw.get("metadata") or {}),
+        )
+        if item.generated_at >= item.expires_at:
+            raise ValueError("generated_at must be before expires_at")
+        directional_pct = (
+            item.capital_policy.directional_capital_usdc / item.capital_policy.total_capital_usdc * Decimal("100")
+        )
+        if directional_pct > Decimal(str(item.mode_allocations.directional_max_pct)) + Decimal("0.000001"):
+            raise ValueError("directional_capital_usdc exceeds directional_max_pct cap")
+        return item
+
+    @classmethod
+    def load(cls, path: str | Path) -> "DecisionEnvelope":
+        with open(path) as handle:
+            raw = json.load(handle)
+        return cls.from_dict(raw)
+
+    @property
+    def rewards_markets(self) -> list[RewardMarketDecision]:
+        return [m for m in self.markets if isinstance(m, RewardMarketDecision)]
+
+    @property
+    def directional_markets(self) -> list[EventDrivenMarketDecision]:
+        return [m for m in self.markets if isinstance(m, EventDrivenMarketDecision)]
+
+    def is_expired(self, now: datetime | None = None) -> bool:
+        current = now or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        return current.astimezone(timezone.utc) >= self.expires_at
+
+    def require_live_ready(self, now: datetime | None = None) -> None:
+        if self.is_expired(now):
+            raise ValueError(f"decision envelope {self.decision_id} is expired")
+        if not self.mode_allocations.rewards_enabled and not self.mode_allocations.directional_enabled:
+            raise ValueError("decision envelope disables all modes")
+        if not any(m.enabled for m in self.markets):
+            raise ValueError("decision envelope has no enabled markets")
+
+    def enabled_markets(self, mode: str | None = None) -> list[DecisionMarket]:
+        items: list[DecisionMarket] = [m for m in self.markets if m.enabled]
+        if mode is None:
+            return items
+        return [m for m in items if m.mode == mode]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "decision_id": self.decision_id,
+            "generated_at": self.generated_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+            "transport_policy": self.transport_policy,
+            "capital_policy": self.capital_policy.to_dict(),
+            "mode_allocations": self.mode_allocations.to_dict(),
+            "markets": [m.to_dict() for m in self.markets],
+            "risk_limits": self.risk_limits.to_dict(),
+            "kill_switches": self.kill_switches.to_dict(),
+            "metadata": self.metadata,
+        }
+
+    def save(self, path: str | Path) -> None:
+        payload = self.to_dict()
+        output = Path(path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        tmp = output.with_suffix(output.suffix + ".tmp")
+        with open(tmp, "w") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=False)
+        tmp.replace(output)
+
+
+def envelope_to_json(envelope: DecisionEnvelope) -> str:
+    return json.dumps(envelope.to_dict(), indent=2, sort_keys=False)

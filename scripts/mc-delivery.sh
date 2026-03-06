@@ -11,6 +11,7 @@ MESSAGE_TIMEOUT="${MC_MESSAGE_TIMEOUT:-8}"
 exec python3 - "$MC_CLIENT" "$OPENCLAW_BIN" "$DELIVER_CHANNEL" "$DRYRUN_FLAG" "$MESSAGE_TIMEOUT" "$@" <<'PY'
 import argparse
 import json
+import os
 import subprocess
 import sys
 import re
@@ -32,6 +33,8 @@ args = parser.parse_args(argv)
 
 if dryrun_env == "1":
   args.dry_run = True
+
+STATE_FILE = os.environ.get("MC_DELIVERY_STATE_FILE", "/tmp/.mc-delivery-state.json")
 
 
 def run(cmd):
@@ -59,6 +62,35 @@ def mc_update_task(task_id, status=None, fields=None, comment=None):
   if fields is not None:
     cmd += ["--fields", json.dumps(fields)]
   run(cmd)
+
+
+def load_state():
+  if not os.path.exists(STATE_FILE):
+    return {"delivered": {}}
+  try:
+    with open(STATE_FILE, "r", encoding="utf-8") as fp:
+      data = json.load(fp)
+    if isinstance(data, dict):
+      data.setdefault("delivered", {})
+      return data
+  except Exception:
+    pass
+  return {"delivered": {}}
+
+
+def save_state(state):
+  tmp = f"{STATE_FILE}.tmp"
+  os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+  with open(tmp, "w", encoding="utf-8") as fp:
+    json.dump(state, fp, indent=2, sort_keys=True)
+  os.replace(tmp, STATE_FILE)
+
+
+def delivery_key(task_id, channel):
+  return f"{task_id}:{channel}"
+
+
+state = load_state()
 
 
 def is_false(value):
@@ -136,6 +168,7 @@ pending = [
   task
   for task in tasks
   if is_false((task.get("custom_field_values") or {}).get("mc_delivered", False))
+  and delivery_key(task.get("id"), args.channel) not in state.get("delivered", {})
 ]
 
 delivered_count = 0
@@ -147,6 +180,10 @@ for task in pending[: args.max_to_deliver]:
   try:
     payload = summarize_text(task)
     send_message(args.channel, payload)
+    state.setdefault("delivered", {})[delivery_key(task.get("id"), args.channel)] = {
+      "status": args.status,
+    }
+    save_state(state)
     mc_update_task(
       task.get("id"),
       status="done",

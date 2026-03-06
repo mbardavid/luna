@@ -56,6 +56,7 @@ def _make_rest_client() -> CLOBRestClient:
         api_key=api_key,
         api_secret=api_secret,
         api_passphrase=api_passphrase,
+        proxy_url=os.environ.get("POLYMARKET_PROXY", "socks5://127.0.0.1:9050"),
         rate_limit_rps=5.0,
     )
 

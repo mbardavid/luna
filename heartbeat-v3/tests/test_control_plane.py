@@ -10,11 +10,15 @@ sys.path.insert(0, _scripts_dir)
 from mc_control import (
     apply_dev_loop_transition,
     claim_review,
+    is_executable_leaf_task,
     normalize_dispatch_policy,
     normalize_status,
     queue_key_for_task,
     route_dev_loop_intake,
+    task_card_type,
+    task_delivery_state,
     task_dispatch_policy,
+    task_lane,
 )
 
 
@@ -119,3 +123,58 @@ class TestDevLoopRouting(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestAutonomyMetadata(unittest.TestCase):
+    def test_leaf_card_defaults_to_leaf_task(self):
+        task = {"title": "Leaf", "status": "inbox", "custom_field_values": {}}
+        self.assertEqual(task_card_type(task), "leaf_task")
+
+    def test_project_scope_inferrs_project_lane(self):
+        task = {
+            "title": "Milestone",
+            "status": "inbox",
+            "custom_field_values": {
+                "mc_card_type": "milestone",
+                "mc_project_id": "project-1",
+                "mc_milestone_id": "milestone-1",
+            },
+        }
+        self.assertEqual(task_lane(task), "project")
+
+    def test_executable_leaf_requires_project_contract(self):
+        task = {
+            "title": "Backtest strategy",
+            "status": "inbox",
+            "assigned_agent_id": "luan",
+            "custom_field_values": {
+                "mc_card_type": "leaf_task",
+                "mc_project_id": "project-1",
+                "mc_milestone_id": "milestone-1",
+                "mc_workstream_id": "workstream-1",
+                "mc_acceptance_criteria": "Produce summary and metrics",
+                "mc_qa_checks": "pytest -q",
+                "mc_expected_artifacts": "artifacts/report.md",
+            },
+        }
+        self.assertTrue(is_executable_leaf_task(task))
+
+    def test_route_dev_loop_sets_review_delivery_state(self):
+        task = {
+            "id": "12345678-aaaa-bbbb-cccc-1234567890ab",
+            "title": "Implement feature",
+            "status": "inbox",
+            "custom_field_values": {"mc_workflow": "dev_loop_v1"},
+        }
+        update = route_dev_loop_intake(task)
+        self.assertEqual(update["fields"]["mc_delivery_state"], "review")
+
+    def test_done_transition_sets_proof_ref(self):
+        result = apply_dev_loop_transition(
+            "luna_final_validation",
+            {"mc_workflow": "dev_loop_v1", "mc_phase_retry_count": 0},
+            "done",
+            artifacts=["artifacts/mc/final-qa.md"],
+        )
+        self.assertEqual(result["fields"]["mc_proof_ref"], "artifacts/mc/final-qa.md")
+        self.assertEqual(task_delivery_state({"status": result["status"], "custom_field_values": result["fields"]}), "done")
+

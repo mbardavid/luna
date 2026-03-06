@@ -3,7 +3,7 @@
   "counts": {
     "pending": 0,
     "active": 0,
-    "done_json": 1,
+    "done_json": 3,
     "done_meta": 0,
     "failed": 5
   },
@@ -12,6 +12,16 @@
   "invalid_done_samples": [],
   "duplicate_meta_markers_total": 0,
   "duplicate_meta_samples": [],
-  "duplicate_groups_total": 0,
-  "duplicate_groups_top": []
+  "duplicate_groups_total": 1,
+  "duplicate_groups_top": [
+    {
+      "identity": "1c6ab056-9cd6-484f-8eb5-96ec98579379|dispatch|inbox|direct_exec|49fbc724de27",
+      "files": [
+        "20260305T200816-dispatch-1c6ab056.json",
+        "20260305T231015-dispatch-1c6ab056.json",
+        "20260306T021517-dispatch-1c6ab056.json"
+      ],
+      "count": 3
+    }
+  ]
 }

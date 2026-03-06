@@ -28,6 +28,7 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import inspect
 import os
 import time
 from dataclasses import dataclass, field
@@ -36,6 +37,8 @@ from decimal import Decimal
 from typing import Any
 
 import structlog
+
+from runner.position_tracker import PositionTracker
 
 logger = structlog.get_logger("startup.reconciler")
 
@@ -110,6 +113,9 @@ class ReconciliationResult:
 
     # Phase 2: Position sync
     positions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    discovered_positions: list[dict[str, Any]] = field(default_factory=list)
+    unmatched_positions: list[dict[str, Any]] = field(default_factory=list)
+    position_source: str = "legacy"
     usdc_balance: Decimal = _ZERO
 
     # Phase 3: Market state
@@ -144,10 +150,12 @@ class StartupReconciler:
         rest_client: Any,
         market_configs: list[Any],
         config: StartupReconciliationConfig | None = None,
+        supabase_logger: Any | None = None,
     ) -> None:
         self._rest = rest_client
         self._markets = market_configs
         self._config = config or StartupReconciliationConfig()
+        self._supabase_logger = supabase_logger
 
     @property
     def config(self) -> StartupReconciliationConfig:
@@ -319,11 +327,9 @@ class StartupReconciler:
         """Read on-chain balances for all configured token IDs + USDC."""
         logger.info("startup.phase2.position_sync.begin")
 
-        # Read USDC.e balance
         try:
             balance_info = await self._rest.get_balance_allowance("COLLATERAL")
             raw_balance = Decimal(str(balance_info.get("balance", "0")))
-            # Lesson 3: Normalize micro-units at API boundary
             result.usdc_balance = raw_balance / _MICRO_UNITS
             logger.info(
                 "startup.phase2.usdc_balance",
@@ -334,7 +340,52 @@ class StartupReconciler:
             logger.warning("startup.phase2.usdc_balance_error", error=str(e))
             result.usdc_balance = _ZERO
 
-        # Read conditional token balances for each market
+        wallet_address = await self._resolve_wallet_address()
+        if wallet_address:
+            try:
+                tracker = PositionTracker(self._rest, self._markets)
+                snapshot = await tracker.collect(wallet_address)
+                result.position_source = snapshot.source
+                result.positions = {
+                    market_id: {
+                        "yes_shares": data["yes_shares"],
+                        "no_shares": data["no_shares"],
+                        "token_id_yes": data["token_id_yes"],
+                        "token_id_no": data["token_id_no"],
+                    }
+                    for market_id, data in snapshot.market_positions.items()
+                }
+                result.discovered_positions = snapshot.discovered_positions
+                result.unmatched_positions = snapshot.unmatched_positions
+
+                if snapshot.unmatched_positions:
+                    result.safety_warnings.append(
+                        f"discovered {len(snapshot.unmatched_positions)} untracked CTF positions"
+                    )
+                for warning in snapshot.warnings:
+                    if warning not in result.safety_warnings:
+                        result.safety_warnings.append(warning)
+
+                for market_id, pos_data in result.positions.items():
+                    logger.info(
+                        "startup.position_sync",
+                        market_id=market_id,
+                        yes=str(pos_data["yes_shares"]),
+                        no=str(pos_data["no_shares"]),
+                        usdc_available=str(result.usdc_balance),
+                        source=snapshot.source,
+                    )
+
+                self._log_position_snapshot(wallet_address, result)
+                return
+            except Exception as e:
+                logger.warning("startup.phase2.position_tracker_error", error=str(e))
+
+        await self._legacy_position_sync(result)
+
+    async def _legacy_position_sync(self, result: ReconciliationResult) -> None:
+        result.position_source = "legacy"
+
         for mc in self._markets:
             market_id = mc.market_id
             token_id_yes = mc.token_id_yes
@@ -376,14 +427,38 @@ class StartupReconciler:
                 "token_id_no": token_id_no,
             }
 
-            # Lesson 1: Log YES + NO as pair, not individually
             logger.info(
                 "startup.position_sync",
                 market_id=market_id,
                 yes=str(yes_shares),
                 no=str(no_shares),
                 usdc_available=str(result.usdc_balance),
+                source="legacy",
             )
+
+    async def _resolve_wallet_address(self) -> str | None:
+        try:
+            address = self._rest.clob_client.get_address()
+            if inspect.isawaitable(address):
+                address = await address
+            return str(address)
+        except Exception:
+            return None
+
+    def _log_position_snapshot(self, wallet_address: str, result: ReconciliationResult) -> None:
+        if not self._supabase_logger:
+            return
+        try:
+            self._supabase_logger.log_position_snapshot(
+                wallet_address=wallet_address,
+                phase="startup_reconciliation",
+                source=result.position_source,
+                usdc_balance=result.usdc_balance,
+                positions=result.discovered_positions,
+                warnings=result.safety_warnings,
+            )
+        except Exception as e:
+            logger.warning("startup.phase2.snapshot_log_error", error=str(e))
 
     # ── Phase 3: Market State Refresh ────────────────────────────
 

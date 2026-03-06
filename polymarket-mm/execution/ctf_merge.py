@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from typing import Any
 
 import structlog
@@ -30,6 +30,8 @@ class MergeResult:
     gas_cost_usd: Decimal
     tx_hash: str
     success: bool
+    route: str = "normal"
+    fallback_required: bool = False
     error: str | None = None
     timestamp: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
@@ -43,6 +45,8 @@ class MergeResult:
             "gas_cost_usd": str(self.gas_cost_usd),
             "tx_hash": self.tx_hash,
             "success": self.success,
+            "route": self.route,
+            "fallback_required": self.fallback_required,
             "error": self.error,
             "timestamp": self.timestamp,
         }
@@ -94,6 +98,8 @@ class CTFMerger:
                 gas_cost_usd=Decimal("0"),
                 tx_hash="",
                 success=False,
+                route="neg_risk" if neg_risk else "normal",
+                fallback_required=True,
                 error="Amount must be positive",
             )
 
@@ -105,6 +111,8 @@ class CTFMerger:
                 gas_cost_usd=Decimal("0"),
                 tx_hash="",
                 success=False,
+                route="neg_risk" if neg_risk else "normal",
+                fallback_required=True,
                 error="CTF adapter not configured",
             )
 
@@ -130,6 +138,8 @@ class CTFMerger:
                 gas_cost_usd=tx_result.cost_usd,
                 tx_hash=tx_result.tx_hash,
                 success=success,
+                route="neg_risk" if neg_risk else "normal",
+                fallback_required=not success,
                 error=tx_result.error,
             )
 
@@ -147,6 +157,8 @@ class CTFMerger:
                 gas_cost_usd=Decimal("0"),
                 tx_hash="",
                 success=False,
+                route="neg_risk" if neg_risk else "normal",
+                fallback_required=True,
                 error=str(exc),
             )
 
@@ -157,8 +169,7 @@ class CTFMerger:
     ) -> Decimal:
         """Calculate how many pairs can be merged.
 
-        Returns the minimum of YES and NO quantities (floor to integer).
+        Returns the minimum of YES and NO quantities, preserving CTF micro-units.
         """
         mergeable = min(qty_yes, qty_no)
-        # Floor to integer since CTF merge works in whole token units
-        return Decimal(str(int(mergeable)))
+        return mergeable.quantize(Decimal("0.000001"), rounding=ROUND_DOWN)

@@ -4,7 +4,7 @@
 # Runs every 15min via cron. Reads PMM logs and updates the MC card
 # with current stats (PnL, fills, rejections, uptime, positions).
 #
-# Also restarts PMM if it crashed (auto-recovery).
+# Does not restart PMM. Lifecycle authority belongs to pmm-supervisor.sh.
 #
 set -euo pipefail
 
@@ -157,42 +157,4 @@ curl -s -X PATCH "$MC_API_URL/api/v1/boards//tasks/$PMM_TASK_ID" \
 
 log "Updated MC card: $MC_STATUS, progress=$PROGRESS"
 
-# ─── 5. Auto-recovery: restart PMM if crashed ───────────────────────────────
-
-if [ "$PMM_RUNNING" = "false" ]; then
-    # Check if there's a PID file indicating it SHOULD be running
-    PID_FILE="$PMM_DIR/paper/data/production_trading.pid"
-    if [ -f "$PID_FILE" ]; then
-        EXPECTED_PID=$(cat "$PID_FILE")
-        if ! kill -0 "$EXPECTED_PID" 2>/dev/null; then
-            log "PMM crashed! PID $EXPECTED_PID not running. Attempting recovery..."
-            
-            # Use the production config (fixed — ls -t picked wrong config when mtimes are equal)
-            LAST_CONFIG="$PMM_DIR/paper/runs/prod-003.yaml"
-
-            if [ -f "$LAST_CONFIG" ]; then
-                cd "$PMM_DIR"
-                nohup python3 -m runner --mode live --config "$LAST_CONFIG" \
-                    >> "logs/production.log" 2>&1 &
-                NEW_PID=$!
-                echo "$NEW_PID" > "$PID_FILE"
-                
-                sleep 3
-                if kill -0 "$NEW_PID" 2>/dev/null; then
-                    log "PMM recovered! New PID: $NEW_PID, config: $LAST_CONFIG"
-                    
-                    # Update MC card
-                    curl -s -X PATCH "$MC_API_URL/api/v1/boards//tasks/$PMM_TASK_ID" \
-                        -H "Authorization: Bearer $MC_TOKEN" \
-                        -H "Content-Type: application/json" \
-                        -d "{\"status\":\"in_progress\",\"description\":\"🔄 PMM auto-recovered at $(date -u '+%H:%M:%S UTC'). New PID: $NEW_PID\"}" \
-                        > /dev/null 2>&1
-                else
-                    log "PMM recovery FAILED"
-                fi
-            fi
-        fi
-    fi
-fi
-
-log "PMM status update complete"
+log "PMM status update complete (restart authority: pmm-supervisor.sh)"

@@ -219,6 +219,19 @@
 
 **Causa raiz:** A sessão `606fef55` do agente `main` ficou ativa por **6 dias e meio** (23/02 → 01/03) sem ser rotacionada. Acumulou **3.386 entradas** (11 compactações realizadas, insuficientes) e chegou a **9.8MB no disco** — tudo carregado em memória pelo gateway. O conteúdo era heterogêneo: cron events, mensagens do Discord, tasks do MC, orquestração do Polymarket MM — tudo no mesmo contexto.
 
+## 2026-03-05: PMM / Quant pré-live hardening
+
+- **CLOB privado deve ser proxy-only.** Leituras públicas diretas funcionam do VPS de Curaçao, mas posting autenticado direto retorna `403 Trading restricted in your region`. Todo tráfego privado do CLOB (`create/post/cancel`, leituras autenticadas, balance/allowance) deve sair por `POLYMARKET_PROXY`.
+- **Dados públicos do CLOB devem ser diretos e sem py-clob-client.** O path estável é `httpx` direto para `/price`, `/midpoint`, `/spread`, `/last-trade-price` e `/book`. Misturar `direct + proxy` no mesmo cliente global mascarou bugs de execução e geoblock.
+- **`/price` é o quote executável; `last-trade-price` não é.** Para vender token, usar `GET /price?side=buy`. Para comprar token, usar `GET /price?side=sell`. `get_price()` não pode mais fingir que `last trade` é preço executável.
+- **Lucro histórico recente não provou edge de market making.** O ganho relevante veio de carry/inventário direcional (principalmente `India YES`), não de spread capture estrutural. O Quant deve tratar esse histórico como sinal de risco de inventário, não como validação da estratégia.
+- **`free collateral` é a métrica de gating, não equity total.** Patrimônio preso em posições CTF não conta como capital disponível para o próximo ciclo. O Quant deve separar `free_collateral_usdc`, `recoverable_inventory_usdc`, `dust_inventory_usdc` e `total_wallet_equity_usdc`.
+- **Inventário recuperável deve bloquear live.** Se existir inventário acima do threshold de dust, o envelope deve sair `standby` com motivo explícito até flatten/recovery terminar.
+- **Merge CTF precisa de `negRisk` real e custo em USD, não teto fixo em gwei.** Houve merge válido bloqueado por `max_gas_price_gwei=100` mesmo com custo econômico aceitável. O guardrail correto é `max_gas_cost_usd`.
+- **Merge CTF precisa respeitar 6 decimais e nonce pendente.** `calculate_mergeable()` não pode truncar para inteiro. Sequências de merge precisam usar nonce `pending`/serializado para evitar `nonce too low`.
+- **Revert de merge não é motivo para loop cego.** Se merge falhar, registrar `fallback_required` e cair para unwind via CLOB. No caso `India`, merge on-chain revertou mesmo com `negRisk=True`; a saída correta foi venda proxy no CLOB.
+- **Poeira operacional não deve bloquear live.** Residual abaixo de `< 5 shares` por token e `< $1` agregado deve ser classificado como `dust`, não como posição operacional aberta.
+
 **Agravantes:**
 - VmPeak do processo chegou a 23GB (alocação/liberação acumulada)
 - Sem swap configurado no servidor → qualquer estouro vai direto ao OOM killer

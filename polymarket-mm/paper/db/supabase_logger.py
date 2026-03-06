@@ -57,17 +57,22 @@ class SupabaseLogger:
     def __init__(self, run_id: str = "unknown", enabled: bool = True) -> None:
         self._run_id = run_id
         self._enabled = enabled
+        self._disabled_reason: str | None = None
 
         self._supabase_url = os.environ.get("SUPABASE_URL", "")
-        self._supabase_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        self._supabase_key = (
+            os.environ.get("SUPABASE_SERVICE_KEY", "")
+            or os.environ.get("SUPABASE_ANON_KEY", "")
+        )
 
         # If env vars missing → disable silently
         if not self._supabase_url or not self._supabase_key:
             self._enabled = False
+            self._disabled_reason = "supabase_credentials_missing"
             if enabled:  # only warn if user explicitly enabled
                 _log.warning(
                     "supabase_logger.disabled",
-                    reason="SUPABASE_URL or SUPABASE_SERVICE_KEY not set",
+                    reason="SUPABASE_URL and SUPABASE_SERVICE_KEY/SUPABASE_ANON_KEY not set",
                 )
 
         self._client: Any = None  # httpx.AsyncClient, lazy
@@ -85,6 +90,13 @@ class SupabaseLogger:
     @property
     def enabled(self) -> bool:
         return self._enabled
+
+    def _disable(self, reason: str, **details: Any) -> None:
+        if not self._enabled:
+            return
+        self._enabled = False
+        self._disabled_reason = reason
+        _log.warning("supabase_logger.disabled", reason=reason, **details)
 
     # ── Lifecycle ───────────────────────────────────────────────
 
@@ -244,6 +256,36 @@ class SupabaseLogger:
         }
         self._fire_update("pmm_runs", f"run_id=eq.{self._run_id}", payload)
 
+
+    def log_position_snapshot(
+        self,
+        *,
+        wallet_address: str,
+        phase: str,
+        source: str,
+        usdc_balance: float | str | Decimal,
+        positions: list[dict[str, Any]],
+        warnings: list[str] | None = None,
+    ) -> None:
+        """Log a CTF position snapshot (fire-and-forget)."""
+        if not self._enabled:
+            return
+        try:
+            safe_positions = json.loads(json.dumps(positions, cls=_DecimalEncoder))
+        except Exception:
+            safe_positions = []
+        payload = {
+            "run_id": self._run_id,
+            "wallet_address": wallet_address,
+            "phase": phase,
+            "source": source,
+            "usdc_balance": float(Decimal(str(usdc_balance))),
+            "positions": safe_positions,
+            "positions_count": len(safe_positions),
+            "warnings": list(warnings or []),
+        }
+        self._fire("pmm_position_snapshots", payload)
+
     # ── Internal plumbing ───────────────────────────────────────
 
     def _fire(self, table: str, payload: dict) -> None:
@@ -279,6 +321,13 @@ class SupabaseLogger:
                 )
                 if resp.status_code < 300:
                     return
+                if resp.status_code in {401, 403}:
+                    self._disable(
+                        "supabase_auth_failed",
+                        table=table,
+                        status=resp.status_code,
+                    )
+                    return
                 _log.debug(
                     "supabase_logger.post_error",
                     table=table,
@@ -308,6 +357,13 @@ class SupabaseLogger:
                     url, content=body, headers=self._headers,
                 )
                 if resp.status_code < 300:
+                    return
+                if resp.status_code in {401, 403}:
+                    self._disable(
+                        "supabase_auth_failed",
+                        table=table,
+                        status=resp.status_code,
+                    )
                     return
                 _log.debug(
                     "supabase_logger.patch_error",

@@ -56,3 +56,11 @@
 - `docs/agent-orchestration-a2a.md` — seções 3.7 (review loop v1.1) e 3.8 (anti-impersonation)
 - `docs/agent-standard.md` — checklist atualizado com governança v1.1 e review loop
 - `AGENTS.md` — tabela de agentes persistentes registrados
+
+## 2026-03-05 | Cutover workspace-only de agentes persistentes
+
+- Runtime canônico do `cto-ops` migrado para `workspace-cto-ops`.
+- Helper compartilhado de topologia/aliases criado em `scripts/agent_runtime_topology.py`.
+- `mission-control-ids.local.json` e `mc-agent-ids.json` passaram a usar UUIDs reais (`cto-ops` = `717382de-e289-4bcd-a4b8-e850a808fe68`, `quant-strategist` = `b66bda58-1962-4759-88b9-7836dbac9c63`).
+- `heartbeat-v3.py`, `mc-client.sh`, `mc-spawn.sh` e `mc-fast-dispatch.sh` passaram a resolver nomes via helper único.
+- `workspace/agents/cto-ops` foi congelado como stub legado.

@@ -83,7 +83,7 @@ Para qualquer task de produção com impacto em gateway/infra:
 - Ajustar status semântico e pipeline review.
 
 ### Fase 2 — Agentes persistentes
-- Criar `luan-dev` e `cto-ops`.
+- Operar `workspace-luan` e `workspace-cto-ops`; manter aliases legados apenas por compatibilidade.
 - Registrar identidade, memória e heartbeat.
 
 ### Fase 3 — Núcleo operacional

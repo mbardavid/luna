@@ -1,12 +1,12 @@
 # Checklist Operacional — Novo Agente Orquestrador do Crypto-Sage
 
-Use este checklist sempre que criar/onboard um novo agente que delega execução ao **crypto-sage** (`agents/blockchain-operator`).
+Use este checklist sempre que criar/onboard um novo agente que delega execução ao **crypto-sage** (`workspace-crypto-sage`; alias legado `blockchain-operator`).
 
 ## 0) Pré-requisitos
 
 - [ ] Leu `docs/agent-standard.md`
 - [ ] Leu `docs/agent-orchestration-a2a.md`
-- [ ] Leu `agents/blockchain-operator/docs/a2a-protocol.md`
+- [ ] Leu `workspace-crypto-sage/docs/a2a-protocol.md`
 - [ ] Confirmou modo inicial em `dev` (nunca iniciar direto em `live`)
 
 ## 1) Contrato de handoff (TaskSpec)

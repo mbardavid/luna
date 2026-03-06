@@ -565,3 +565,37 @@ class TestHelpers:
         assert StartupReconciler._extract_field({"price": "0.50"}, "price") == "0.50"
         assert StartupReconciler._extract_field({"side": "BUY"}, "side") == "BUY"
         assert StartupReconciler._extract_field({}, "price", "N/A") == "N/A"
+
+
+@pytest.mark.asyncio
+async def test_position_tracker_sync_populates_unmatched_positions(mock_rest_client, market_configs):
+    class Snapshot:
+        source = "blockscout"
+        market_positions = {
+            "test-cond-001": {
+                "yes_shares": Decimal("12"),
+                "no_shares": Decimal("3"),
+                "token_id_yes": "tok-yes-001",
+                "token_id_no": "tok-no-001",
+            }
+        }
+        discovered_positions = [
+            {"token_id": "tok-yes-001", "shares": Decimal("12"), "price": Decimal("0.6"), "value_usd": Decimal("7.2")}
+        ]
+        unmatched_positions = [
+            {"token_id": "tok-unknown", "shares": Decimal("1"), "price": Decimal("0.1"), "value_usd": Decimal("0.1")}
+        ]
+        warnings = ["market=test-cond-001: complement price mismatch yes+no=1.1"]
+
+    with patch("paper.startup_reconciler.PositionTracker") as tracker_cls:
+        tracker_cls.return_value.collect = AsyncMock(return_value=Snapshot())
+        mock_rest_client.clob_client = MagicMock()
+        mock_rest_client.clob_client.get_address.return_value = "0xabc"
+
+        reconciler = StartupReconciler(mock_rest_client, market_configs)
+        result = await reconciler.reconcile()
+
+    assert result.positions["test-cond-001"]["yes_shares"] == Decimal("12")
+    assert len(result.unmatched_positions) == 1
+    assert result.position_source == "blockscout"
+    assert any("untracked CTF positions" in warning for warning in result.safety_warnings)

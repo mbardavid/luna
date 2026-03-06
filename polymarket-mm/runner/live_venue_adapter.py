@@ -77,6 +77,9 @@ class LiveVenueAdapter(VenueAdapter):
         """Set wallet adapter reference (for position checks in routing)."""
         self._wallet = wallet_adapter
 
+    def drain_execution_alerts(self) -> list[dict]:
+        return [alert.to_dict() for alert in self._execution.drain_alerts()]
+
     async def connect(self) -> None:
         await self._rest_client.connect()
 
@@ -176,7 +179,10 @@ class LiveVenueAdapter(VenueAdapter):
             open_orders = await self._execution.get_open_orders()
             for oo in open_orders:
                 if oo.market_id == market_id:
-                    await self._execution.cancel_order(oo.client_order_id)
+                    if oo.exchange_order_id:
+                        await self._rest_client.cancel_order(oo.exchange_order_id)
+                    else:
+                        await self._execution.cancel_order(oo.client_order_id)
         except Exception as e:
             logger.warning("live_venue.cancel_market_error",
                            market_id=market_id, error=str(e))

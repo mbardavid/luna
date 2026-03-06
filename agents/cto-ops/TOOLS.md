@@ -1,16 +1,9 @@
-# TOOLS.md — CTO-ops
+# TOOLS — Legacy Stub
 
-## Ambiente local
-- `OPENCLAW_BIN`: utilitário principal (`openclaw`)
-- `MC_CLIENT`: `scripts/mc-client.sh`
-- `MC_POLICY`: `config/cto-risk-policy.json`
+Este path foi descontinuado como runtime canônico.
 
-## Aliases úteis
-- `bash scripts/mc-resource-monitor.sh`
-- `bash scripts/gateway-health-sentinel.sh`
-- `bash scripts/heartbeat-v2.sh`
-- `bash scripts/mc-watchdog.sh`
-- `bash scripts/mc-cron-guard.sh kill-switch`
+- Runtime ativo: `/home/openclaw/.openclaw/workspace-cto-ops`
+- Nome canônico do agente: `cto-ops`
+- `workspace/agents/cto-ops` permanece apenas como ponte legada de documentação.
 
-## Operação segura
-- Nenhuma ação destrutiva sem validação de `kill-switch` e trilha em `docs/AGENT_AUDIT_LOG.md`.
+Se este arquivo for aberto por engano durante execução, redirecione imediatamente para o workspace canônico.
