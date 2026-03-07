@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "514ecf91-e0da-4ab1-97a9-b79004f9566d",
+  "filename": "20260307T025019-dispatch-514ecf91.json",
+  "created_at": "2026-03-07T02:50:19.219913+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM: reward-adjusted PnL turned negative",
+  "agent": "quant-strategist",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "The latest diagnosis shows negative reward-adjusted PnL, indicating the current market selection or quoting policy may be unprofitable.\n\nOwner: quant-strategist\nRun: prod-004\nDecision: quant-20260306T230134Z\nPaths:\n- runtime: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/pmm_runtime_state.json\n- latest: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_latest.json\n- applied: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_ap",
+    "eligible_count": 9,
+    "in_progress_count": 2,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": null,
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "514ecf91-a1-20260307T025019Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "quant-strategist",
+    "task_id": "514ecf91-e0da-4ab1-97a9-b79004f9566d",
+    "title": "PMM: reward-adjusted PnL turned negative",
+    "description": "The latest diagnosis shows negative reward-adjusted PnL, indicating the current market selection or quoting policy may be unprofitable.\n\nOwner: quant-strategist\nRun: prod-004\nDecision: quant-20260306T230134Z\nPaths:\n- runtime: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/pmm_runtime_state.json\n- latest: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_latest.json\n- applied: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_ap",
+    "priority": "high"
+  },
+  "queue_key": "514ecf91-e0da-4ab1-97a9-b79004f9566d|dispatch|inbox|direct_exec|f21154dc9cf3",
+  "completed_at": "2026-03-07T02:51:21.197808Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "quant-strategist",
+    "session_id": "agent:quant-strategist:subagent:01889102-7a36-4188-b04e-0b67b35aa292"
+  }
+}

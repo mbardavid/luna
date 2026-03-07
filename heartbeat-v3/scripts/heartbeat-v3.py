@@ -79,9 +79,15 @@ from mc_control import (
     build_queue_key,
     build_run_id,
     claim_review,
+    is_actionable_review_task,
     is_claim_active,
+    is_execution_task,
     is_executable_leaf_task,
+    is_governance_card,
+    is_running_execution_task,
+    is_ready_to_run,
     is_luna_review_task,
+    requires_session_link,
     load_metrics,
     metrics_increment,
     metrics_record_cron,
@@ -97,17 +103,25 @@ from mc_control import (
     task_card_type,
     task_dispatch_policy,
     task_fields,
+    task_gate_reason,
     task_lane,
     task_milestone_id,
     task_phase,
     task_phase_owner,
     task_phase_state,
     task_project_id,
+    task_repair_source_task_id,
+    task_review_agent,
     task_status,
     task_workflow,
     task_workstream_id,
 )
-from project_autonomy import choose_next_dispatch_task, plan_project_autonomy
+from project_autonomy import choose_next_dispatch_task, detect_blocked_autonomy_execution, plan_project_autonomy
+from scheduler_v2 import (
+    build_scheduler_snapshot,
+    scheduler_mode_owns_lane,
+    write_scheduler_state,
+)
 from agent_runtime_topology import build_assigned_agent_lookup, resolve_assigned_agent
 
 
@@ -141,6 +155,7 @@ QUEUE_FAILED = os.path.join(QUEUE_DIR, "failed")
 
 SCRIPTS_DIR = os.path.join(WORKSPACE, "scripts")
 MC_CLIENT = os.path.join(SCRIPTS_DIR, "mc-client.sh")
+OPEN_REPAIR_BUNDLE = os.path.join(SCRIPTS_DIR, "open-repair-bundle.py")
 OPENCLAW_BIN = os.environ.get("OPENCLAW_BIN", "openclaw")
 OPENCLAW_CONFIG = os.environ.get("OPENCLAW_CONFIG", "/home/openclaw/.openclaw/openclaw.json")
 GATEWAY_URL = os.environ.get("MC_GATEWAY_URL", "ws://127.0.0.1:18789")
@@ -152,6 +167,8 @@ LOCK_FILE = "/tmp/.heartbeat-check.lock"
 LOG_DIR = os.path.join(WORKSPACE, "logs")
 LOG_FILE = os.path.join(LOG_DIR, "heartbeat-v3.log")
 METRICS_FILE = os.path.join(WORKSPACE, "state", "control-loop-metrics.json")
+SCHEDULER_STATE_FILE = os.path.join(WORKSPACE, "state", "scheduler-state.json")
+AUTONOMY_RUNTIME_FILE = os.path.join(WORKSPACE, "state", "autonomy-runtime.json")
 
 # Agent mapping file
 AGENT_IDS_FILE = os.path.join(WORKSPACE, "config", "mc-agent-ids.json")
@@ -196,6 +213,15 @@ PROJECT_LANE_CAP_RATIO = float(PROJECT_AUTONOMY_CONFIG.get("lane_cap_ratio", 0.5
 PROJECT_AUTONOMY_MAX_ACTIVE_WORKSTREAMS = int(PROJECT_AUTONOMY_CONFIG.get("max_active_workstreams", 3) or 3)
 PROJECT_AUTONOMY_MAX_AUTO_PER_WORKSTREAM = int(PROJECT_AUTONOMY_CONFIG.get("max_auto_leaf_tasks_per_workstream", 2) or 2)
 PROJECT_AUTONOMY_MAX_NEW_LEAF_TASKS_PER_CYCLE = int(PROJECT_AUTONOMY_CONFIG.get("max_new_leaf_tasks_per_cycle", 3) or 3)
+AUTONOMY_EXECUTION_STALL_MINUTES = int(PROJECT_AUTONOMY_CONFIG.get("execution_stall_minutes", 30) or 30)
+JUDGE_AGENT_DEFAULT = str(V3_CONFIG.get("judge_agent_default", "luna-judge") or "luna-judge")
+SCHEDULER_V2_CONFIG = V3_CONFIG.get("scheduler_v2", {})
+SCHEDULER_V2_MODE = str(SCHEDULER_V2_CONFIG.get("mode", "full") or "full")
+SCHEDULER_V2_SLOT_LIMITS = {
+    "healthy": int(SCHEDULER_V2_CONFIG.get("healthy_slots", 4) or 4),
+    "degraded": int(SCHEDULER_V2_CONFIG.get("degraded_slots", 2) or 2),
+    "critical": int(SCHEDULER_V2_CONFIG.get("critical_slots", 1) or 1),
+}
 
 # Dry-run support
 DRY_RUN = "--dry-run" in sys.argv
@@ -261,6 +287,82 @@ def save_state(state: dict) -> None:
                 os.unlink(tmp_path)
             except Exception:
                 pass
+
+
+def save_json_file(path: str, payload: dict) -> None:
+    tmp_path = None
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
+        with os.fdopen(fd, "w") as f:
+            json.dump(payload, f, indent=2)
+        os.replace(tmp_path, path)
+    except Exception as e:
+        log(f"WARN: failed to save json file {path}: {e}")
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+
+def save_autonomy_runtime_snapshot(plan: dict) -> None:
+    project = plan.get("project") or {}
+    milestone = plan.get("milestone") or {}
+    workstreams = plan.get("workstreams") or []
+    payload = {
+        "last_tick": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "project_id": str(project.get("id") or ""),
+        "milestone_id": str(milestone.get("id") or ""),
+        "workstream_ids": [str(item.get("id") or "") for item in workstreams],
+        "reason": str(plan.get("reason") or ""),
+        "lane_budget": plan.get("lane_budget") or {},
+        "current_window": int(plan.get("current_window", 0) or 0),
+        "planned_actions": [
+            {
+                "type": str(action.get("type") or ""),
+                "task_id": str(action.get("task_id") or ""),
+                "title": str(action.get("title") or ""),
+            }
+            for action in (plan.get("actions") or [])
+        ],
+    }
+    save_json_file(AUTONOMY_RUNTIME_FILE, payload)
+
+
+def touch_scheduler_liveness(reason: str, *, phase: str = "", extra: dict | None = None) -> None:
+    snapshot: dict = {}
+    if os.path.exists(SCHEDULER_STATE_FILE):
+        try:
+            with open(SCHEDULER_STATE_FILE, "r", encoding="utf-8") as handle:
+                loaded = json.load(handle)
+            if isinstance(loaded, dict):
+                snapshot = dict(loaded)
+        except Exception:
+            snapshot = {}
+    stamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    snapshot["last_tick"] = stamp
+    snapshot["generated_at"] = stamp
+    snapshot["mode"] = str(snapshot.get("mode") or SCHEDULER_V2_MODE)
+    snapshot["last_heartbeat_reason"] = str(reason or "heartbeat")
+    if phase:
+        snapshot["last_heartbeat_phase"] = phase
+    if extra:
+        snapshot.update(extra)
+    try:
+        write_scheduler_state(SCHEDULER_STATE_FILE, snapshot)
+    except Exception as exc:
+        log(f"WARN: failed to refresh scheduler liveness: {exc}")
+
+
+def last_dispatch_record_for_task(state: dict, task_id: str) -> dict | None:
+    matches = [
+        entry for entry in (state.get("dispatch_history") or [])
+        if str(entry.get("task_id") or "").strip() == str(task_id or "").strip()
+    ]
+    if not matches:
+        return None
+    return max(matches, key=lambda entry: int(entry.get("at", 0) or 0))
 
 
 def ensure_state_fields(state: dict) -> dict:
@@ -407,6 +509,118 @@ def mc_create_task(title: str, description: str, assignee: str = "", priority: s
     except Exception as e:
         log(f"ERROR: mc-create failed: {e}")
         return {}
+
+
+def open_repair_bundle(source_task_id: str, anomaly: str, reason: str) -> dict:
+    if not source_task_id:
+        return {}
+    cmd = [
+        OPEN_REPAIR_BUNDLE,
+        "--source-task-id",
+        source_task_id,
+        "--anomaly",
+        anomaly,
+        "--reason",
+        reason,
+        "--json",
+    ]
+    if DRY_RUN:
+        log(f"DRY-RUN repair-bundle: {' '.join(cmd[:-1])} --json")
+        return {
+            "bundle_id": f"dryrun-repair-{source_task_id[:8]}",
+            "source_task_id": source_task_id,
+            "fingerprint": f"{source_task_id}:{anomaly}",
+            "reused": False,
+        }
+    try:
+        raw = run_cmd(cmd, timeout=45)
+        data = json.loads(raw or "{}")
+        return data if isinstance(data, dict) else {}
+    except Exception as e:
+        log(f"ERROR: repair-bundle open failed for {source_task_id[:8]}: {e}")
+        return {}
+
+
+def _repair_bundle_children(tasks: list[dict], bundle_id: str) -> list[dict]:
+    return [
+        task for task in tasks
+        if str(task_fields(task).get("mc_parent_task_id") or "") == bundle_id
+    ]
+
+
+def progress_repair_bundle(tasks: list[dict], bundle: dict) -> list[dict]:
+    bundle_id = str(bundle.get("id") or "").strip()
+    source_task_id = task_repair_source_task_id(bundle)
+    if not bundle_id or not source_task_id:
+        return []
+    actions: list[dict] = []
+    children = _repair_bundle_children(tasks, bundle_id)
+    diagnose = next((t for t in children if str(t.get("title", "")).startswith("Diagnose")), None)
+    repair = next((t for t in children if str(t.get("title", "")).startswith("Repair")), None)
+    validate = next((t for t in children if task_card_type(t) == "review_bundle"), None)
+    source = next((t for t in tasks if str(t.get("id", "")) == source_task_id), None)
+
+    if diagnose and task_status(diagnose) == "done" and repair and task_status(repair) == "inbox" and task_dispatch_policy(repair) == "backlog":
+        repair_fields = dict(task_fields(repair))
+        repair_fields.update({
+            "mc_dispatch_policy": "auto",
+            "mc_gate_reason": "",
+            "mc_last_error": "",
+        })
+        actions.append({
+            "task_id": str(repair.get("id") or ""),
+            "status": "inbox",
+            "comment": f"[repair-bundle] diagnosis completed; repair task promoted for `{bundle_id[:8]}`.",
+            "fields": repair_fields,
+        })
+
+    if repair and task_status(repair) == "done" and validate and task_status(validate) == "inbox":
+        validate_fields = dict(task_fields(validate))
+        validate_fields.update({
+            "mc_review_agent": task_review_agent(validate, default=JUDGE_AGENT_DEFAULT),
+            "mc_gate_reason": "",
+            "mc_last_error": "",
+        })
+        actions.append({
+            "task_id": str(validate.get("id") or ""),
+            "status": "review",
+            "comment": f"[repair-bundle] repair completed; judge validation requested for `{bundle_id[:8]}`.",
+            "fields": validate_fields,
+        })
+
+    if validate and task_status(validate) == "done":
+        bundle_fields = dict(task_fields(bundle))
+        bundle_fields.update({
+            "mc_repair_state": "resolved",
+            "mc_phase": "repair_bundle_resolved",
+            "mc_phase_state": "completed",
+            "mc_chairman_state": "completed",
+            "mc_last_error": "",
+        })
+        actions.append({
+            "task_id": bundle_id,
+            "status": "done",
+            "comment": f"[repair-bundle] resolved after judge validation for source task `{source_task_id[:8]}`.",
+            "fields": bundle_fields,
+        })
+        if source:
+            source_fields = dict(task_fields(source))
+            source_fields.update({
+                "mc_gate_reason": "",
+                "mc_last_error": "",
+                "mc_repair_bundle_id": None,
+                "mc_repair_reason": "",
+                "mc_repair_fingerprint": "",
+                "mc_dispatch_policy": "auto" if task_project_id(source) else "backlog",
+                "mc_delivery_state": "queued",
+            })
+            actions.append({
+                "task_id": source_task_id,
+                "status": "inbox",
+                "comment": f"[repair-bundle] repair validated; source task `{source_task_id[:8]}` is eligible again.",
+                "fields": source_fields,
+            })
+    return actions
 
 
 def _hash_qa_handoff(task_id: str, reason: str, evidence: str) -> str:
@@ -826,7 +1040,7 @@ def trigger_judge_loop(task_id: str = "", dry_run: bool = False) -> bool:
     if dry_run or DRY_RUN:
         cmd += ["--dry-run"]
     try:
-        run_cmd(cmd, timeout=40)
+        run_cmd(cmd, timeout=180)
         return True
     except Exception as e:
         log(f"WARN: judge loop trigger failed for {task_id[:8] if task_id else 'all'}: {e}")
@@ -1513,6 +1727,13 @@ def detect_stale_and_completions(tasks: list, sessions_by_key: dict, state: dict
         if any(str(title).startswith(pfx) for pfx in SERVICE_TITLE_PREFIXES):
             continue
 
+        if task_gate_reason(task):
+            continue
+        if status == "in_progress" and not requires_session_link(task):
+            continue
+        if status == "review" and not is_actionable_review_task(task):
+            continue
+
         if not session_key:
             # ORPHAN — task without executor
             results.append({
@@ -1600,6 +1821,7 @@ metrics = load_metrics(METRICS_FILE)
 metrics_increment(metrics, "heartbeat_runs")
 metrics_record_cron(metrics, "heartbeat-v3", "running")
 save_metrics(METRICS_FILE, metrics)
+touch_scheduler_liveness("heartbeat_start", phase="startup")
 
 # Handle --reset-circuit-breaker
 if RESET_CB:
@@ -1872,14 +2094,14 @@ else:
 # ============================================================
 # Exclude SERVICE tasks (persistent, never complete — e.g. PMM bot)
 SERVICE_TITLE_PREFIXES = ["PMM Service:", "🤖 PMM"]
-in_progress = [
+execution_in_progress = [
     t for t in tasks
-    if str(t.get("status", "")).lower() == "in_progress"
+    if is_running_execution_task(t)
     and not any(str(t.get("title", "")).startswith(pfx) for pfx in SERVICE_TITLE_PREFIXES)
 ]
-if len(in_progress) >= MAX_CONCURRENT_IN_PROGRESS:
-    titles = [t.get("title", "?")[:40] for t in in_progress[:3]]
-    log(f"Phase 5: inbox drain will be blocked by {len(in_progress)} in_progress task(s): {', '.join(titles)}")
+if len(execution_in_progress) >= MAX_CONCURRENT_IN_PROGRESS:
+    titles = [t.get("title", "?")[:40] for t in execution_in_progress[:3]]
+    log(f"Phase 5: inbox drain will be blocked by {len(execution_in_progress)} execution task(s): {', '.join(titles)}")
 
 active_subagents = [
     s for s in sessions
@@ -1892,13 +2114,13 @@ if len(active_subagents) >= MAX_CONCURRENT_IN_PROGRESS:
     labels = [s.get("label", s.get("key", "?"))[:40] for s in active_subagents[:3]]
     log(f"Phase 5: observed {len(active_subagents)} active subagent(s): {', '.join(labels)}")
 
-log(f"Phase 5: {len(in_progress)} in_progress, {len(active_subagents)} active subagents")
+log(f"Phase 5: {len(execution_in_progress)} execution in_progress, {len(active_subagents)} active subagents")
 
 # ============================================================
 # PHASE 5.5: Stale dispatch detection + Completion pending QA
 # ============================================================
 # First: existing stale dispatch rollback for recently dispatched tasks
-for t in in_progress:
+for t in execution_in_progress:
     task_id_check = t.get("id", "")
     fields = t.get("custom_field_values") or {}
     session_key = str(fields.get("mc_session_key", "") or "").strip()
@@ -1907,7 +2129,10 @@ for t in in_progress:
         # In queue-only mode, only keep "in_progress" if proof exists.
         # Otherwise rollback to inbox (auditably) to avoid silent orphans.
         if DISABLE_FAST_DISPATCH and not has_dispatch_proof(task_id_check, tasks, sessions_by_key):
-            dispatch_age = now_ms - state.get("dispatched_at", 0)
+            dispatch_record = last_dispatch_record_for_task(state, task_id_check)
+            if not dispatch_record:
+                continue
+            dispatch_age = now_ms - int(dispatch_record.get("at", 0) or 0)
             if dispatch_age > DISPATCH_STALE_MS:
                 title = t.get("title", "?")
                 log(f"STALE: task {task_id_check[:8]} in_progress without proof for {dispatch_age // 60000}min")
@@ -1975,9 +2200,16 @@ for result in stale_results:
         qa_review_count += 1
 
     elif rtype == "orphan":
-        # NOTE: "review" without executor is expected (QA is performed by Luna),
-        # so label it as QA pending to avoid false-alarm wording.
+        task_obj = next((t for t in tasks if str(t.get("id", "")) == str(rtask_id)), None)
         status = str(result.get("status", "?")).lower()
+        if task_obj and (is_governance_card(task_obj) or task_card_type(task_obj) == "review_bundle"):
+            metrics_increment(metrics, "ignored_governance_reviews")
+            log(f"Phase 5.5: ignoring governance/review-bundle orphan {rtask_id[:8]}")
+            continue
+        if status == "review" and task_obj and not is_actionable_review_task(task_obj):
+            metrics_increment(metrics, "ignored_governance_reviews")
+            log(f"Phase 5.5: ignoring non-actionable review orphan {rtask_id[:8]}")
+            continue
         if status == "review":
             msg = (
                 f"🟡 **QA Pending**: `{rtask_id[:8]}` — **{rtitle}** (review): aguardando QA"
@@ -1998,6 +2230,82 @@ if stale_results:
 log(f"Phase 5.5: {qa_review_count} qa-review, {orphan_count} orphan, {stale_count} stale")
 
 # ============================================================
+# PHASE 5.6: Autonomy troubleshooting for linked executions with no progress
+# ============================================================
+blocked_autonomy = detect_blocked_autonomy_execution(
+    execution_in_progress,
+    sessions_by_key,
+    workspace_root=WORKSPACE,
+    now=datetime.now(timezone.utc),
+    stall_minutes=AUTONOMY_EXECUTION_STALL_MINUTES,
+)
+if blocked_autonomy:
+    blocked = blocked_autonomy[0]
+    blocked_task_id = str(blocked.get("task_id", "")).strip()
+    blocked_title = str(blocked.get("title", "?")).strip() or "?"
+    age_minutes = int(blocked.get("age_minutes", 0) or 0)
+    reason = str(blocked.get("reason", "no_progress_timeout")).strip() or "no_progress_timeout"
+    repair = open_repair_bundle(
+        blocked_task_id,
+        "autonomy_no_progress_timeout",
+        (
+            f"Linked execution showed no observable progress for {age_minutes}min "
+            f"({reason}). Open repair trail before re-promoting the source task."
+        ),
+    )
+    metrics_increment(metrics, "autonomy_stall_detected")
+    if repair:
+        metrics_increment(metrics, "autonomy_stall_recoveries")
+        metrics_increment(metrics, "repair_bundle_reused" if repair.get("reused") else "repair_bundle_opened")
+    save_metrics(METRICS_FILE, metrics)
+    state["last_dispatched_id"] = ""
+    save_state(state)
+    send_operational_message(
+        (
+            f"🛠️ **Autonomy Troubleshooter**: `{blocked_task_id[:8]}` — **{blocked_title}** "
+            f"opened repair bundle `{str(repair.get('bundle_id', ''))[:8]}` after {age_minutes}min without progress ({reason})."
+        ),
+        state=state,
+        dedupe_key=f"autonomy-stall:{blocked_task_id}",
+        cooldown_ms=60 * 60 * 1000,
+    )
+    log(
+        f"Phase 5.6: autonomy blocked execution {blocked_task_id[:8]} detected after {age_minutes}min "
+        f"({reason}) repair_bundle={str(repair.get('bundle_id', ''))[:8] if repair else 'none'}"
+    )
+    if repair:
+        sys.exit(0)
+
+# ============================================================
+# PHASE 5.65: Repair bundle progression
+# ============================================================
+repair_bundles = [
+    task for task in tasks
+    if task_card_type(task) == "repair_bundle"
+    and task_status(task) not in {"done", "failed"}
+]
+repair_actions_applied = 0
+for bundle in repair_bundles:
+    for action in progress_repair_bundle(tasks, bundle):
+        changed = mc_update_task(
+            action["task_id"],
+            status=action["status"],
+            comment=action["comment"],
+            fields=action["fields"],
+        )
+        if not changed:
+            continue
+        repair_actions_applied += 1
+        if action["status"] == "done":
+            metrics_increment(metrics, "repair_bundle_resolved")
+        elif action["status"] == "review":
+            metrics_increment(metrics, "actionable_review_claims")
+save_metrics(METRICS_FILE, metrics)
+if repair_actions_applied:
+    save_state(state)
+    log(f"Phase 5.65: progressed {repair_actions_applied} repair-bundle action(s)")
+    sys.exit(0)
+
 # ============================================================
 # PHASE 5.7: QA rejection handoff
 # If a review task has been rejected by QA (manual or marker-based),
@@ -2007,6 +2315,8 @@ log(f"Phase 5.5: {qa_review_count} qa-review, {orphan_count} orphan, {stale_coun
 qa_handoff_handled = 0
 for task in tasks:
     if str(task.get("status", "")).lower() != "review":
+        continue
+    if not is_actionable_review_task(task):
         continue
 
     task_id = task.get("id", "")
@@ -2084,7 +2394,7 @@ for task in tasks:
         if qa_handoff_handled > 0:
             sys.exit(0)
 
-# PHASE 6: Review always drains before inbox
+# PHASE 6: Layered scheduling inputs (review + project autonomy + inbox)
 # ============================================================
 review_tasks = [
     t for t in tasks
@@ -2093,8 +2403,17 @@ review_tasks = [
 ]
 review_tasks.sort(key=lambda t: t.get("updated_at", t.get("created_at", "")), reverse=True)
 
+invalid_reviews = [t for t in review_tasks if not is_actionable_review_task(t)]
+if invalid_reviews:
+    metrics_increment(metrics, "ignored_governance_reviews", len(invalid_reviews))
+    log(
+        "Phase 6: ignoring non-actionable review cards: "
+        + ", ".join(f"{str(t.get('id', ''))[:8]}:{task_card_type(t)}" for t in invalid_reviews[:10])
+    )
+
+actionable_reviews = [t for t in review_tasks if is_actionable_review_task(t)]
 eligible_reviews = []
-for t in review_tasks:
+for t in actionable_reviews:
     tid = t.get("id", "")
     title_check = t.get("title", "?")
     created_at = t.get("created_at", "")
@@ -2111,46 +2430,18 @@ for t in review_tasks:
         continue
     eligible_reviews.append(t)
 
-if eligible_reviews:
-    next_review = eligible_reviews[0]
-    task_id = next_review.get("id", "")
-    title = next_review.get("title", "(sem título)")
-    review_dispatched = state.get("review_dispatched", {})
-    review_dispatched[task_id] = {"at": now_ms, "agent": "main"}
-    state["review_dispatched"] = {
-        k: v for k, v in review_dispatched.items()
-        if isinstance(v, dict) and now_ms - v.get("at", 0) < 7 * 24 * 3600 * 1000
-    }
-    save_state(state)
-    trigger_judge_loop(task_id, dry_run=DRY_RUN)
-    metrics_record_phase_transition(metrics, task_id, task_phase(next_review))
-    save_metrics(METRICS_FILE, metrics)
-    send_operational_message(
-        f"🔍 **Heartbeat V3** review claim: `{task_id[:8]}` — **{title}**\n"
-        f"Phase: `{task_phase(next_review)}` | Judge loop acionado.",
-        state=state,
-    )
-    log(f"REVIEW CLAIM: {task_id[:8]} → judge loop")
-    log("heartbeat-v3 complete")
-    sys.exit(0)
-
-if review_tasks:
-    log(f"Phase 6: {len(review_tasks)} review task(s) pending/claimed — blocking inbox drain")
-    save_state(state)
-    save_metrics(METRICS_FILE, metrics)
-    sys.exit(0)
-
 autonomy_plan = {"project": None, "milestone": None, "workstreams": [], "actions": [], "reason": "disabled"}
 if PROJECT_AUTONOMY_ENABLED:
     autonomy_plan = plan_project_autonomy(
         tasks,
-        max_concurrent_in_progress=MAX_CONCURRENT_IN_PROGRESS,
+        max_concurrent_in_progress=SCHEDULER_V2_SLOT_LIMITS.get("healthy", MAX_CONCURRENT_IN_PROGRESS),
         floor_ratio=PROJECT_LANE_FLOOR_RATIO,
         cap_ratio=PROJECT_LANE_CAP_RATIO,
         max_active_workstreams=PROJECT_AUTONOMY_MAX_ACTIVE_WORKSTREAMS,
         max_auto_leaf_tasks_per_workstream=PROJECT_AUTONOMY_MAX_AUTO_PER_WORKSTREAM,
         max_new_leaf_tasks_per_cycle=PROJECT_AUTONOMY_MAX_NEW_LEAF_TASKS_PER_CYCLE,
     )
+    save_autonomy_runtime_snapshot(autonomy_plan)
     active_project = autonomy_plan.get("project")
     active_milestone = autonomy_plan.get("milestone")
     if active_project:
@@ -2161,6 +2452,7 @@ if PROJECT_AUTONOMY_ENABLED:
         )
     created_actions = []
     promoted_actions = []
+    completed_actions = []
     for action in autonomy_plan.get("actions", []):
         if action.get("type") == "create_leaf_task":
             created = mc_create_task(
@@ -2181,34 +2473,37 @@ if PROJECT_AUTONOMY_ENABLED:
             updated_fields.update(action.get("fields", {}))
             if mc_update_task(str(action.get("task_id", "")), comment=action.get("comment"), fields=updated_fields):
                 promoted_actions.append(action)
-    if created_actions or promoted_actions:
+        elif action.get("type") == "complete_card":
+            task_obj = next((task for task in tasks if str(task.get("id", "")) == str(action.get("task_id", ""))), None)
+            if not task_obj:
+                continue
+            updated_fields = dict(task_fields(task_obj))
+            updated_fields.update(action.get("fields", {}))
+            if mc_update_task(str(action.get("task_id", "")), status=action.get("status", "done"), comment=action.get("comment"), fields=updated_fields):
+                completed_actions.append(action)
+    if created_actions or promoted_actions or completed_actions:
         if created_actions:
             metrics_increment(metrics, "autonomy_creations", len(created_actions))
         if promoted_actions:
             metrics_increment(metrics, "autonomy_promotions", len(promoted_actions))
+        if completed_actions:
+            metrics_increment(metrics, "governance_repair_actions", len(completed_actions))
         save_metrics(METRICS_FILE, metrics)
         summary = []
         if created_actions:
             summary.append(f"created {len(created_actions)}")
         if promoted_actions:
             summary.append(f"promoted {len(promoted_actions)}")
+        if completed_actions:
+            summary.append(f"completed {len(completed_actions)}")
         milestone_title = str((autonomy_plan.get("milestone") or {}).get("title", "current milestone") or "current milestone")
         send_operational_message(
-            f"🧭 **Autonomy Loop**: {' and '.join(summary)} leaf task(s) for **{milestone_title}**.",
+            f"🧭 **Autonomy Loop**: {' and '.join(summary)} card(s) for **{milestone_title}**.",
             state=state,
         )
         save_state(state)
         log(f"Phase 6.5: autonomy actions applied ({', '.join(summary)})")
         sys.exit(0)
-
-# ============================================================
-# PHASE 7: Pull oldest inbox task (FIFO) only when idle
-# ============================================================
-if INBOX_REQUIRES_IDLE and in_progress:
-    log(f"Phase 7: blocking inbox because {len(in_progress)} task(s) still in_progress")
-    save_state(state)
-    save_metrics(METRICS_FILE, metrics)
-    sys.exit(0)
 
 inbox = [t for t in tasks if task_status(t) == "inbox"]
 inbox.sort(key=lambda t: t.get("created_at", ""))
@@ -2248,6 +2543,15 @@ for t in inbox:
     if card_type in {"project", "milestone", "workstream"}:
         log(f"FILTER: {tid[:8]} {card_type} container — never auto-drain")
         continue
+    if card_type == "repair_bundle":
+        log(f"FILTER: {tid[:8]} repair bundle container — never auto-drain")
+        continue
+    if task_gate_reason(t):
+        log(f"FILTER: {tid[:8]} gated ({task_gate_reason(t)})")
+        continue
+    if not is_execution_task(t):
+        log(f"FILTER: {tid[:8]} non-execution card type {card_type}")
+        continue
     if lane == "project":
         if not autonomy_active_project or not autonomy_active_milestone:
             log(f"FILTER: {tid[:8]} project leaf without active autonomy scope")
@@ -2264,6 +2568,13 @@ for t in inbox:
         if not is_executable_leaf_task(t):
             log(f"FILTER: {tid[:8]} project leaf missing executability contract")
             continue
+    elif lane == "repair":
+        if not is_executable_leaf_task(t):
+            log(f"FILTER: {tid[:8]} repair leaf missing executability contract")
+            continue
+    elif not is_ready_to_run(t):
+        log(f"FILTER: {tid[:8]} ambient leaf not ready to run")
+        continue
     if tid in blocked_ids:
         log(f"FILTER: {tid[:8]} blocked (human-gate): {title[:40]}")
         continue
@@ -2284,26 +2595,137 @@ for t in inbox:
 
     eligible.append(t)
 
-if not eligible:
+legacy_action = {"type": "idle", "task_id": "", "lane": "", "reason": "no_eligible_work"}
+if eligible_reviews:
+    legacy_action = {"type": "review", "task_id": str(eligible_reviews[0].get("id") or ""), "lane": "review", "reason": "review_priority"}
+elif actionable_reviews:
+    legacy_action = {"type": "idle", "task_id": "", "lane": "review", "reason": "review_claimed"}
+elif INBOX_REQUIRES_IDLE and execution_in_progress:
+    legacy_action = {"type": "idle", "task_id": "", "lane": "", "reason": "execution_in_progress_block"}
+elif eligible:
+    legacy_task = choose_next_dispatch_task(
+        eligible,
+        tasks,
+        max_concurrent_in_progress=SCHEDULER_V2_SLOT_LIMITS.get("healthy", MAX_CONCURRENT_IN_PROGRESS),
+        floor_ratio=PROJECT_LANE_FLOOR_RATIO,
+        cap_ratio=PROJECT_LANE_CAP_RATIO,
+        max_active_workstreams=PROJECT_AUTONOMY_MAX_ACTIVE_WORKSTREAMS,
+    ) or eligible[0]
+    legacy_action = {
+        "type": "dispatch",
+        "task_id": str(legacy_task.get("id") or ""),
+        "lane": task_lane(legacy_task),
+        "reason": "legacy_dispatch",
+    }
+
+scheduler_snapshot = build_scheduler_snapshot(
+    tasks=tasks,
+    actionable_reviews=eligible_reviews,
+    eligible_dispatch_tasks=eligible,
+    resource_level=resource_level,
+    gateway_healthy=True,
+    slot_limits=SCHEDULER_V2_SLOT_LIMITS,
+    mode=SCHEDULER_V2_MODE,
+    legacy_action=legacy_action,
+)
+write_scheduler_state(SCHEDULER_STATE_FILE, scheduler_snapshot)
+if scheduler_snapshot.get("shadow_diff_vs_legacy"):
+    metrics_increment(metrics, "shadow_diff_count", len(scheduler_snapshot.get("shadow_diff_vs_legacy") or []))
+eligible_by_lane = scheduler_snapshot.get("eligible_by_lane") or {}
+running_by_lane = scheduler_snapshot.get("running_by_lane") or {}
+reserved_slots = scheduler_snapshot.get("reserved_slots") or {}
+if (
+    int(eligible_by_lane.get("project", 0) or 0) > 0
+    and int(running_by_lane.get("project", 0) or 0) < int(reserved_slots.get("project", 0) or 0)
+    and scheduler_snapshot.get("dispatch_decision", {}).get("type") == "idle"
+):
+    metrics_increment(metrics, "project_starvation_events")
+if (
+    int(eligible_by_lane.get("repair", 0) or 0) > 0
+    and int(running_by_lane.get("repair", 0) or 0) < int(reserved_slots.get("repair", 0) or 0)
+    and scheduler_snapshot.get("dispatch_decision", {}).get("type") == "idle"
+):
+    metrics_increment(metrics, "repair_starvation_events")
+save_metrics(METRICS_FILE, metrics)
+
+selected_action = dict(legacy_action)
+scheduler_decision = scheduler_snapshot.get("dispatch_decision") or {}
+decision_lane = str(scheduler_decision.get("lane") or "")
+if decision_lane and scheduler_mode_owns_lane(SCHEDULER_V2_MODE, decision_lane):
+    selected_action = {
+        "type": str(scheduler_decision.get("type") or "idle"),
+        "task_id": str(scheduler_decision.get("task_id") or ""),
+        "lane": decision_lane,
+        "reason": "scheduler_v2",
+    }
+elif SCHEDULER_V2_MODE == "full" and str(scheduler_decision.get("type") or "idle") == "idle":
+    selected_action = {"type": "idle", "task_id": "", "lane": "", "reason": "scheduler_v2_blocked"}
+
+if selected_action["type"] == "review":
+    next_review = next((task for task in eligible_reviews if str(task.get("id") or "") == selected_action["task_id"]), None)
+    if not next_review:
+        next_review = eligible_reviews[0] if eligible_reviews else None
+    if not next_review:
+        log("Phase 7: scheduler selected review but no eligible review task was found")
+        save_state(state)
+        save_metrics(METRICS_FILE, metrics)
+        sys.exit(0)
+    task_id = next_review.get("id", "")
+    title = next_review.get("title", "(sem título)")
+    review_agent = task_review_agent(next_review, default=JUDGE_AGENT_DEFAULT)
+    review_dispatched = state.get("review_dispatched", {})
+    review_dispatched[task_id] = {"at": now_ms, "agent": review_agent}
+    state["review_dispatched"] = {
+        k: v for k, v in review_dispatched.items()
+        if isinstance(v, dict) and now_ms - v.get("at", 0) < 7 * 24 * 3600 * 1000
+    }
+    save_state(state)
+    trigger_judge_loop(task_id, dry_run=DRY_RUN)
+    metrics_increment(metrics, "actionable_review_claims")
+    metrics_increment(metrics, "judge_dispatch_main_legacy" if review_agent == "main" else "judge_dispatch_luna_judge")
+    metrics_record_cron(metrics, "judge-loop-trigger", "ok")
+    metrics_record_phase_transition(metrics, task_id, task_phase(next_review))
+    save_metrics(METRICS_FILE, metrics)
+    send_operational_message(
+        f"🔍 **Heartbeat V3** review claim: `{task_id[:8]}` — **{title}**\n"
+        f"Phase: `{task_phase(next_review)}` | Judge loop acionado via `{review_agent}`.",
+        state=state,
+    )
+    log(f"REVIEW CLAIM: {task_id[:8]} → judge loop via {review_agent}")
+    log("heartbeat-v3 complete")
+    sys.exit(0)
+
+if selected_action["type"] != "dispatch":
+    blocked_reasons = scheduler_snapshot.get("blocked_reasons") or []
+    if blocked_reasons:
+        log("Phase 7: scheduler blocked dispatch — " + "; ".join(blocked_reasons[:6]))
+    elif actionable_reviews and not eligible_reviews:
+        log(f"Phase 7: actionable review tasks already claimed ({len(actionable_reviews)})")
+    else:
+        log(f"IDLE: no scheduler-eligible work ({len(inbox)} inbox total)")
+    save_state(state)
+    save_metrics(METRICS_FILE, metrics)
+    sys.exit(0)
+
+next_task = next((task for task in eligible if str(task.get("id") or "") == selected_action["task_id"]), None)
+if not next_task:
+    next_task = eligible[0] if eligible else None
+if not next_task:
     log(f"IDLE: no eligible inbox tasks ({len(inbox)} total)")
     save_state(state)
     save_metrics(METRICS_FILE, metrics)
     sys.exit(0)
 
-next_task = choose_next_dispatch_task(
-    eligible,
-    tasks,
-    max_concurrent_in_progress=MAX_CONCURRENT_IN_PROGRESS,
-    floor_ratio=PROJECT_LANE_FLOOR_RATIO,
-    cap_ratio=PROJECT_LANE_CAP_RATIO,
-    max_active_workstreams=PROJECT_AUTONOMY_MAX_ACTIVE_WORKSTREAMS,
-) or eligible[0]
 task_id = next_task.get("id", "")
 title = next_task.get("title", "(sem título)")
 workflow = task_workflow(next_task)
 dispatch_type = "inbox"
 
-log(f"Phase 7: Eligible inbox task: {task_id[:8]} — {title} (lane={task_lane(next_task)})")
+log(
+    "Phase 7: Scheduler selected task: "
+    f"{task_id[:8]} — {title} (lane={task_lane(next_task)} mode={SCHEDULER_V2_MODE} "
+    f"slots={scheduler_snapshot.get('slots_total', 0)} running={scheduler_snapshot.get('running_by_lane', {})})"
+)
 
 # ============================================================
 # PHASE 8/9: Route inbox either to dev loop intake or queue dispatch
@@ -2323,7 +2745,7 @@ if workflow == "dev_loop_v1":
     state["dispatch_history"].append({
         "task_id": task_id,
         "at": now_ms,
-        "agent": "main",
+        "agent": JUDGE_AGENT_DEFAULT,
         "method": "judge-loop",
         "queue_file": "judge-loop",
     })
@@ -2360,9 +2782,31 @@ dispatch_task = dict(next_task)
 dispatch_task["custom_field_values"] = dispatch_fields
 assigned_uuid = str(next_task.get("assigned_agent_id", "") or "")
 agent_name = resolve_agent_name(assigned_uuid, agent_mapping)
+if is_execution_task(next_task) and task_dispatch_policy(next_task) == "auto" and agent_name == "main":
+    repair = open_repair_bundle(
+        task_id,
+        "auto_dispatch_to_main",
+        (
+            f"Auto-dispatch for lane `{task_lane(next_task)}` resolved to `main`. "
+            "Execution agents must not depend on the chairman session."
+        ),
+    )
+    metrics_increment(metrics, "main_dispatch_blocked")
+    if repair:
+        metrics_increment(metrics, "repair_bundle_reused" if repair.get("reused") else "repair_bundle_opened")
+    save_metrics(METRICS_FILE, metrics)
+    send_operational_message(
+        f"🚫 **Heartbeat V3** blocked auto-dispatch of `{task_id[:8]}` — **{title}** because target agent resolved to `main`.",
+        state=state,
+        dedupe_key=f"main-dispatch-blocked:{task_id}",
+        cooldown_ms=60 * 60 * 1000,
+    )
+    log(f"Phase 9: blocked auto-dispatch to main for {task_id[:8]} lane={task_lane(next_task)}")
+    save_state(state)
+    sys.exit(0)
 dispatch_fields["mc_assigned_agent"] = agent_name
 dispatch_task["custom_field_values"] = dispatch_fields
-dispatch_payload = build_dispatch_payload(dispatch_task, agent_name, len(eligible), len(in_progress))
+dispatch_payload = build_dispatch_payload(dispatch_task, agent_name, len(eligible), len(execution_in_progress))
 dispatch_payload["queue_key"] = queue_key_for_task(dispatch_task, "dispatch")
 queue_filename = write_queue_item("dispatch", task_id, dispatch_payload, tasks=tasks, sessions_by_key=sessions_by_key)
 
@@ -2403,7 +2847,7 @@ metrics_increment(metrics, "tasks_dispatched")
 save_metrics(METRICS_FILE, metrics)
 send_operational_message(
     f"📋 **Heartbeat V3** queue dispatch: `{task_id[:8]}` — **{title}** → `{agent_name}`\n"
-    f"Queue file: `{queue_filename}` | Eligible: {len(eligible)} | In-progress: {len(in_progress)}",
+    f"Queue file: `{queue_filename}` | Eligible: {len(eligible)} | In-progress: {len(execution_in_progress)}",
     state=state,
 )
 

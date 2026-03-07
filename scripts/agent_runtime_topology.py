@@ -21,6 +21,7 @@ MC_SHORT_IDS_PATH = WORKSPACE / 'config' / 'mc-agent-ids.json'
 
 PERSISTENT_CANONICAL = [
     'main',
+    'luna-judge',
     'luan',
     'crypto-sage',
     'quant-strategist',
@@ -29,6 +30,7 @@ PERSISTENT_CANONICAL = [
 ]
 RUNTIME_WORKSPACES = {
     'main': str(ROOT / 'workspace-main'),
+    'luna-judge': str(ROOT / 'workspace-luna-judge'),
     'luan': str(ROOT / 'workspace-luan'),
     'crypto-sage': str(ROOT / 'workspace-crypto-sage'),
     'quant-strategist': str(ROOT / 'workspace-quant-strategist'),
@@ -54,6 +56,7 @@ PLACEHOLDERS = {
 }
 ALIASES = {
     'luna': 'main',
+    'luna_judge': 'luna-judge',
     'luan-dev': 'luan',
     'luan_dev': 'luan',
     'blockchain-operator': 'crypto-sage',

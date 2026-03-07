@@ -68,6 +68,7 @@ def test_render_board_packet_summarizes_active_project() -> None:
     assert "Run backtest" in packet
     assert "Chairman gate" in packet
     assert "Review 1 high-risk task(s)." in packet
+    assert "Runtime Anomalies" in packet
 
 
 
@@ -105,3 +106,24 @@ def test_render_board_packet_includes_outcome_snapshot(tmp_path: Path) -> None:
     assert "@luna" in packet
     assert "delta=13" in packet
     assert "Suggested action: `continue`" in packet
+
+
+
+def test_render_board_packet_flags_governance_runtime_anomalies() -> None:
+    project = _task(
+        "project-1",
+        "Luna Growth",
+        "review",
+        mc_card_type="project",
+        mc_chairman_state="active",
+        mc_claimed_by="judge-loop-worker",
+        mc_claim_expires_at="2099-03-06T15:00:00Z",
+        mc_last_error="missing_session_key",
+    )
+    milestone = _task("milestone-1", "M0", mc_card_type="milestone", mc_project_id="project-1", mc_chairman_state="active")
+
+    packet = render_board_packet([project, milestone])
+
+    assert "Governance card in review" in packet
+    assert "missing_session_key" in packet
+    assert "claimed by judge loop" in packet

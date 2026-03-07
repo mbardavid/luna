@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "4a5b10a7-419c-4922-9d53-73726580f01e",
+  "filename": "20260307T012511-dispatch-4a5b10a7.json",
+  "created_at": "2026-03-07T01:25:11.441946+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — PMM Live Operations",
+  "agent": "cto-ops",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask executável ficou ativa sem mc_session_key. Abrir trilha de repair antes de re-promover.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 5,
+    "in_progress_count": 3,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/c152c1f2-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "repair",
+    "run_id": "4a5b10a7-a1-20260307T012511Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "cto-ops",
+    "task_id": "4a5b10a7-419c-4922-9d53-73726580f01e",
+    "title": "Diagnose — PMM Live Operations",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask executável ficou ativa sem mc_session_key. Abrir trilha de repair antes de re-promover.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "4a5b10a7-419c-4922-9d53-73726580f01e|dispatch|inbox|direct_exec|addf7aa5efb1",
+  "completed_at": "2026-03-07T01:27:43.489896Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "cto-ops",
+    "session_id": "agent:cto-ops:main"
+  }
+}

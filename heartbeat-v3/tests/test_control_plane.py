@@ -10,10 +10,14 @@ sys.path.insert(0, _scripts_dir)
 from mc_control import (
     apply_dev_loop_transition,
     claim_review,
+    is_actionable_review_task,
     is_executable_leaf_task,
+    is_execution_task,
+    is_governance_card,
     normalize_dispatch_policy,
     normalize_status,
     queue_key_for_task,
+    requires_session_link,
     route_dev_loop_intake,
     task_card_type,
     task_delivery_state,
@@ -101,6 +105,7 @@ class TestDevLoopRouting(unittest.TestCase):
                 "mc_workflow": "dev_loop_v1",
                 "mc_phase": "luna_final_validation",
                 "mc_phase_owner": "luna",
+                "mc_card_type": "leaf_task",
             },
         }
         claim = claim_review(review_task, "judge-loop-worker", lease_minutes=5)
@@ -120,9 +125,6 @@ class TestDevLoopRouting(unittest.TestCase):
         key_b = queue_key_for_task(task, "dispatch")
         self.assertNotEqual(key_a, key_b)
 
-
-if __name__ == "__main__":
-    unittest.main()
 
 class TestAutonomyMetadata(unittest.TestCase):
     def test_leaf_card_defaults_to_leaf_task(self):
@@ -157,6 +159,36 @@ class TestAutonomyMetadata(unittest.TestCase):
             },
         }
         self.assertTrue(is_executable_leaf_task(task))
+        self.assertTrue(is_execution_task(task))
+        self.assertFalse(is_governance_card(task))
+
+    def test_governance_does_not_require_session_link(self):
+        task = {
+            "title": "Project",
+            "status": "in_progress",
+            "custom_field_values": {"mc_card_type": "project"},
+        }
+        self.assertTrue(is_governance_card(task))
+        self.assertFalse(requires_session_link(task))
+        self.assertFalse(is_actionable_review_task(task))
+
+    def test_review_bundle_is_actionable_review(self):
+        task = {
+            "title": "Bundle",
+            "status": "review",
+            "custom_field_values": {"mc_card_type": "review_bundle"},
+        }
+        self.assertTrue(is_actionable_review_task(task))
+        self.assertEqual(task_lane(task), "review")
+
+    def test_governance_review_is_not_actionable(self):
+        task = {
+            "title": "WS",
+            "status": "review",
+            "custom_field_values": {"mc_card_type": "workstream", "mc_phase": "autonomy_active"},
+        }
+        self.assertFalse(is_actionable_review_task(task))
+        self.assertEqual(task_lane(task), "project")
 
     def test_route_dev_loop_sets_review_delivery_state(self):
         task = {
@@ -178,3 +210,6 @@ class TestAutonomyMetadata(unittest.TestCase):
         self.assertEqual(result["fields"]["mc_proof_ref"], "artifacts/mc/final-qa.md")
         self.assertEqual(task_delivery_state({"status": result["status"], "custom_field_values": result["fields"]}), "done")
 
+
+if __name__ == "__main__":
+    unittest.main()

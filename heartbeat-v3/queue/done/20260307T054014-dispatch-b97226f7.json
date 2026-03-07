@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "b97226f7-e51a-460d-a83e-b7494d6bb979",
+  "filename": "20260307T054014-dispatch-b97226f7.json",
+  "created_at": "2026-03-07T05:40:14.135613+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — Diagnose — PMM Live Operations",
+  "agent": "cto-ops",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 62m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 5,
+    "in_progress_count": 2,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/d9a15fac-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "repair",
+    "run_id": "b97226f7-a1-20260307T054014Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "cto-ops",
+    "task_id": "b97226f7-e51a-460d-a83e-b7494d6bb979",
+    "title": "Diagnose — Diagnose — PMM Live Operations",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 62m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "b97226f7-e51a-460d-a83e-b7494d6bb979|dispatch|inbox|direct_exec|4bed68ce0b0f",
+  "completed_at": "2026-03-07T05:42:37.238020Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "cto-ops",
+    "session_id": "agent:cto-ops:main"
+  }
+}

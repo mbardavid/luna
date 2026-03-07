@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "83be878a-8d3a-4d92-aecc-06a787154557",
+  "filename": "20260307T024521-dispatch-83be878a.json",
+  "created_at": "2026-03-07T02:45:21.395009+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — Diagnose — Extract 3-5 content pillars from Luna post history",
+  "agent": "cto-ops",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 68m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 10,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/1283baf4-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "repair",
+    "run_id": "83be878a-a1-20260307T024521Z",
+    "attempt": 1,
+    "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
+    "workstream_id": "0a7aac3a-62a3-4d56-afff-9c34449091f4"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "cto-ops",
+    "task_id": "83be878a-8d3a-4d92-aecc-06a787154557",
+    "title": "Diagnose — Diagnose — Extract 3-5 content pillars from Luna post history",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 68m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "83be878a-8d3a-4d92-aecc-06a787154557|dispatch|inbox|direct_exec|af8dd448d2b3",
+  "completed_at": "2026-03-07T02:48:39.052253Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "cto-ops",
+    "session_id": "agent:cto-ops:main"
+  }
+}

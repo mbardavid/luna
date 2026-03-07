@@ -26,6 +26,8 @@ logger = structlog.get_logger("runner.live_venue_adapter")
 
 # Data directory for trade dedup persistence
 _DATA_DIR = Path(__file__).resolve().parent.parent / "paper" / "data"
+_COLLATERAL_SCALE = Decimal("1000000")
+_COLLATERAL_CACHE_TTL_S = 2.0
 
 
 class LiveVenueAdapter(VenueAdapter):
@@ -67,6 +69,7 @@ class LiveVenueAdapter(VenueAdapter):
         self._trade_dedup_path = _DATA_DIR / "processed_trade_ids.json"
         self._processed_trades: set[str] = set()
         self._last_processed_trade_ts: str = ""
+        self._collateral_balance_cache: tuple[float, Decimal] | None = None
         self._load_trade_dedup()
 
     @property
@@ -104,6 +107,18 @@ class LiveVenueAdapter(VenueAdapter):
             "maker_only": True,
         })
 
+        if order.size < market_cfg.min_order_size:
+            logger.debug(
+                "live_venue.reject_subminimum_order",
+                market_id=market_cfg.market_id,
+                token_id=order.token_id,
+                side=order.side.value,
+                size=str(order.size),
+                min_order_size=str(market_cfg.min_order_size),
+            )
+            order.status = OrderStatus.REJECTED
+            return order
+
         # ── Complement routing ──────────────────────────
         if order.side == Side.SELL and self._wallet is not None:
             token_is_yes = (order.token_id == market_cfg.token_id_yes)
@@ -113,7 +128,26 @@ class LiveVenueAdapter(VenueAdapter):
                 available = pos.qty_yes if token_is_yes else pos.qty_no
 
             if available < order.size:
-                if self._complement_routing:
+                if available >= market_cfg.min_order_size:
+                    logger.debug(
+                        "live_venue.partial_sell_clamped",
+                        market_id=market_cfg.market_id,
+                        requested=str(order.size),
+                        available=str(available),
+                        min_order_size=str(market_cfg.min_order_size),
+                    )
+                    order = order.model_copy(update={"size": available})
+                elif available > Decimal("0"):
+                    logger.debug(
+                        "live_venue.sell_skipped_subminimum_inventory",
+                        market_id=market_cfg.market_id,
+                        requested=str(order.size),
+                        available=str(available),
+                        min_order_size=str(market_cfg.min_order_size),
+                    )
+                    order.status = OrderStatus.REJECTED
+                    return order
+                elif self._complement_routing:
                     complement_token_id = (
                         market_cfg.token_id_no if token_is_yes
                         else market_cfg.token_id_yes
@@ -140,6 +174,18 @@ class LiveVenueAdapter(VenueAdapter):
                     order.status = OrderStatus.REJECTED
                     return order
 
+        if order.size < market_cfg.min_order_size:
+            logger.debug(
+                "live_venue.reject_subminimum_routed_order",
+                market_id=market_cfg.market_id,
+                token_id=order.token_id,
+                side=order.side.value,
+                size=str(order.size),
+                min_order_size=str(market_cfg.min_order_size),
+            )
+            order.status = OrderStatus.REJECTED
+            return order
+
         # ── Position cap ────────────────────────────────
         if order.side == Side.BUY and self._wallet is not None:
             cap_token_is_yes = (order.token_id == market_cfg.token_id_yes)
@@ -158,11 +204,32 @@ class LiveVenueAdapter(VenueAdapter):
                 order.status = OrderStatus.REJECTED
                 return order
 
+        if order.side == Side.BUY:
+            available_collateral = await self._get_available_collateral()
+            required_collateral = order.price * order.size
+            if required_collateral > available_collateral:
+                logger.debug(
+                    "live_venue.insufficient_collateral_preflight",
+                    market_id=market_cfg.market_id,
+                    token_id=order.token_id,
+                    required=str(required_collateral),
+                    available=str(available_collateral),
+                )
+                order.status = OrderStatus.REJECTED
+                return order
+
         # Set tick_size and neg_risk per market
         self._execution._default_tick_size = str(market_cfg.tick_size)
         self._execution._default_neg_risk = market_cfg.neg_risk
 
-        return await self._execution.submit_order(order)
+        submitted = await self._execution.submit_order(order)
+        if submitted.side == Side.BUY and submitted.status in {
+            OrderStatus.OPEN,
+            OrderStatus.PENDING,
+            OrderStatus.PARTIALLY_FILLED,
+        }:
+            self._consume_collateral_cache(submitted.price * submitted.size)
+        return submitted
 
     async def cancel_order(self, client_order_id: UUID) -> bool:
         return await self._execution.cancel_order(client_order_id)
@@ -289,3 +356,34 @@ class LiveVenueAdapter(VenueAdapter):
             tmp.replace(self._trade_dedup_path)
         except Exception as e:
             logger.warning("trade_dedup.save_error", error=str(e))
+
+    async def _get_available_collateral(self) -> Decimal:
+        now = time.monotonic()
+        if self._collateral_balance_cache is not None:
+            cached_at, cached_balance = self._collateral_balance_cache
+            if now - cached_at <= _COLLATERAL_CACHE_TTL_S:
+                return cached_balance
+
+        raw = await self._rest_client.get_balance_allowance("COLLATERAL")
+        balance = self._normalize_collateral_balance(raw)
+
+        if self._wallet is not None:
+            try:
+                balance = min(balance, Decimal(str(self._wallet.available_balance)))
+            except Exception:
+                pass
+
+        self._collateral_balance_cache = (now, balance)
+        return balance
+
+    def _consume_collateral_cache(self, amount: Decimal) -> None:
+        if self._collateral_balance_cache is None:
+            return
+
+        cached_at, cached_balance = self._collateral_balance_cache
+        self._collateral_balance_cache = (cached_at, max(Decimal("0"), cached_balance - amount))
+
+    @staticmethod
+    def _normalize_collateral_balance(raw: dict[str, Any]) -> Decimal:
+        balance = Decimal(str((raw or {}).get("balance", "0")))
+        return balance / _COLLATERAL_SCALE

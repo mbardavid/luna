@@ -114,9 +114,13 @@ def build_seed(
 def project_description() -> str:
     return (
         "Externally validated autonomy canary for Luna's X account.\n\n"
-        "Goal:\n"
+        "Objective:\n"
+        "- prove that the autonomy loop can move a real public account toward growth milestones with daily feedback and tight guardrails\n"
+        "- keep execution aligned with Luna's public identity and OpenClaw's crypto market intelligence mission\n\n"
+        "Success criteria:\n"
         "- M1: +25 net followers from baseline\n"
-        "- M2: +200 net followers from baseline\n\n"
+        "- M2: +200 net followers from baseline\n"
+        "- progress is explained by scorecards, board packets, and auditable artifacts instead of vanity signals alone\n\n"
         "Canonical artifacts:\n"
         f"- {CHARTER_PATH}\n"
         f"- {BASELINE_PATH}\n"
@@ -126,7 +130,13 @@ def project_description() -> str:
 
 
 def milestone_description(goal: str) -> str:
-    return f"Autonomy milestone for the Luna X growth canary.\n\nGoal: {goal}\n"
+    return (
+        "Autonomy milestone for the Luna X growth canary.\n\n"
+        f"Objective:\n- {goal}\n\n"
+        "Validation:\n"
+        "- milestone leaf tasks finish with proof and expected artifacts\n"
+        "- the board packet can explain the resulting state without opening raw logs\n"
+    )
 
 
 def ws1_seeds() -> list[dict[str, Any]]:
@@ -135,8 +145,14 @@ def ws1_seeds() -> list[dict[str, Any]]:
             key="luna-x-m0-charter-audit",
             title="Audit Luna X account and freeze growth charter",
             description=(
-                "Review Luna's current X account posture, align it with the canary objective, and update the charter with approved pillars, "
-                "prohibited actions, and steering triggers."
+                "Objective: audit Luna's current X account posture and freeze the public growth charter for the canary.\n\n"
+                "Deliverables:\n"
+                "- Review the current account identity, tone, and visible history.\n"
+                f"- Update {CHARTER_PATH} with approved pillars, prohibited actions, and steering triggers.\n"
+                "- Reference the canonical baseline/session artifacts.\n\n"
+                "Validation:\n"
+                "- The charter reflects the current account state and can be used as the safety contract for autonomous publishing.\n"
+                "- The file path is referenced in the task output summary."
             ),
             assignee="luna",
             priority="high",
@@ -154,8 +170,13 @@ def ws1_seeds() -> list[dict[str, Any]]:
             key="luna-x-m0-content-pillars",
             title="Extract 3-5 content pillars from Luna post history",
             description=(
-                "Use the latest Luna profile snapshot to identify the strongest content pillars and write a short growth memo "
-                "explaining why they fit the account and the company mission."
+                "Objective: extract 3-5 content pillars from Luna's existing post history that fit the account and company mission.\n\n"
+                "Deliverables:\n"
+                "- Review the current profile snapshot and any visible posts.\n"
+                "- Write artifacts/reports/luna-x-growth/content-pillars.md with 3-5 pillars, supporting evidence, and anti-patterns.\n"
+                "- Tie each pillar to audience fit and reputational safety.\n\n"
+                "Validation:\n"
+                "- Each pillar is justified by observable account evidence and can guide daily content generation."
             ),
             assignee="luna",
             priority="medium",
@@ -176,7 +197,13 @@ def ws2_seeds() -> list[dict[str, Any]]:
             key="luna-x-m0-distribution-map",
             title="Map target accounts and communities for Luna distribution",
             description=(
-                "Map the first batch of target accounts and communities where Luna can engage credibly without leaving the account charter."
+                "Objective: map the first distribution surface for Luna's X canary without leaving the charter.\n\n"
+                "Deliverables:\n"
+                "- Produce artifacts/reports/luna-x-growth/distribution-map.md with at least 30 target accounts or communities.\n"
+                "- Group targets by relevance, engagement style, and reputational risk.\n"
+                "- Include do/don't notes for interaction style.\n\n"
+                "Validation:\n"
+                "- The map is specific enough to drive the first safe engagement plan and avoids spammy or off-brand tactics."
             ),
             assignee="luan",
             priority="medium",
@@ -192,7 +219,13 @@ def ws2_seeds() -> list[dict[str, Any]]:
             key="luna-x-m0-engagement-plan",
             title="Draft day-1 engagement plan for Luna X canary",
             description=(
-                "Create the first day engagement plan using the distribution map, current account tone, and charter constraints."
+                "Objective: create the first day engagement plan for Luna's X canary using the distribution map, current account tone, and charter constraints.\n\n"
+                "Deliverables:\n"
+                "- Select the first set of target accounts or communities from the distribution map.\n"
+                "- Propose candidate replies, interaction timing windows, and escalation notes for sensitive conversations.\n"
+                "- Make the plan specific enough to execute without inventing new policy in the moment.\n\n"
+                "Validation:\n"
+                "- There is a one-day engagement plan with concrete targets, rationale, and clear red lines for reputational safety."
             ),
             assignee="luan",
             priority="medium",
@@ -213,7 +246,13 @@ def ws3_seeds() -> list[dict[str, Any]]:
             key="luna-x-m0-session-recovery",
             title="Restore Luna X automation session and prove home/profile access",
             description=(
-                "Validate or recover the Luna X automation session on the server, then emit the canonical session-health artifact."
+                "Objective: validate or recover the Luna X automation session on the server and prove safe access to the account.\n\n"
+                "Deliverables:\n"
+                "- Validate the canonical browser/session path for Luna on the server.\n"
+                "- Recover the session when needed without public side effects.\n"
+                "- Emit the canonical session-health artifact used by the canary.\n\n"
+                "Validation:\n"
+                "- The session-health artifact reports session_state=ok and proves access to Luna home/profile."
             ),
             assignee="cto-ops",
             priority="critical",
@@ -228,7 +267,13 @@ def ws3_seeds() -> list[dict[str, Any]]:
             key="luna-x-m0-baseline",
             title="Capture Luna X baseline snapshot",
             description=(
-                "Capture the day-0 baseline for Luna's X account, including follower/following counts, recent posts, themes, and the first scorecard."
+                "Objective: capture the day-0 baseline for Luna's X account so future growth can be measured against a stable reference.\n\n"
+                "Deliverables:\n"
+                "- Capture follower/following counts, recent posts, themes, and scorecard inputs.\n"
+                "- Generate the first baseline artifact and the first scorecard.\n"
+                "- Ensure the project board packet can reference both outputs.\n\n"
+                "Validation:\n"
+                "- The baseline artifact exists, the first scorecard exists, and both are consistent with the board packet."
             ),
             assignee="cto-ops",
             priority="high",
@@ -247,7 +292,13 @@ def ws3_seeds() -> list[dict[str, Any]]:
             key="luna-x-m0-daily-scorecard",
             title="Run Luna X daily scorecard and board packet",
             description=(
-                "Refresh the Luna X profile snapshot, render the scorecard, and regenerate the board packet for daily steering."
+                "Objective: refresh the Luna X profile snapshot, scorecard, and board packet for daily steering.\n\n"
+                "Deliverables:\n"
+                "- Refresh the latest profile snapshot from the account.\n"
+                "- Regenerate the scorecard with the latest follower delta and qualitative signals.\n"
+                "- Rebuild the board packet so steering uses the same evidence bundle.\n\n"
+                "Validation:\n"
+                "- The profile snapshot, scorecard, and board packet are refreshed together and agree on the current session state."
             ),
             assignee="cto-ops",
             priority="medium",
@@ -335,7 +386,13 @@ def card_specs() -> dict[str, Any]:
             "assignee": "luna",
             "priority": "high",
             "status": "in_progress",
-            "description": "Define and guard the editorial posture for the Luna X canary, then derive short content guidance from the current account.",
+            "description": (
+                "Own the positioning and content posture for the Luna X canary.\n\n"
+                "Scope:\n"
+                "- freeze the charter and editorial guardrails\n"
+                "- derive content pillars from the current account\n"
+                "- produce short guidance that can steer daily publishing safely\n"
+            ),
             "fields": {
                 "mc_card_type": "workstream",
                 "mc_generation_mode": "manual",
@@ -352,7 +409,13 @@ def card_specs() -> dict[str, Any]:
             "assignee": "luan",
             "priority": "medium",
             "status": "in_progress",
-            "description": "Map the first distribution surface for Luna and propose the first safe engagement moves under the canary charter.",
+            "description": (
+                "Own the first distribution and engagement layer for the Luna X canary.\n\n"
+                "Scope:\n"
+                "- map relevant accounts and communities\n"
+                "- define the first safe engagement plan\n"
+                "- keep interaction strategy inside the charter and reputational guardrails\n"
+            ),
             "fields": {
                 "mc_card_type": "workstream",
                 "mc_generation_mode": "manual",
@@ -369,7 +432,13 @@ def card_specs() -> dict[str, Any]:
             "assignee": "cto-ops",
             "priority": "critical",
             "status": "in_progress",
-            "description": "Own session health, baseline capture, scorecards, and board packet refresh for the Luna X canary.",
+            "description": (
+                "Own the operational analytics loop for the Luna X canary.\n\n"
+                "Scope:\n"
+                "- keep session access healthy and auditable\n"
+                "- maintain baseline, profile snapshots, and scorecards\n"
+                "- refresh the board packet used for daily steering and judge decisions\n"
+            ),
             "fields": {
                 "mc_card_type": "workstream",
                 "mc_generation_mode": "manual",

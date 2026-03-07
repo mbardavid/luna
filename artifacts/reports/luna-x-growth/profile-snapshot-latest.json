@@ -1,19 +1,19 @@
 {
-  "generated_at": "2026-03-06T04:15:18Z",
+  "generated_at": "2026-03-06T18:49:32Z",
   "session_state": "ok",
   "home_url": "https://x.com/home",
-  "title": "Home / X",
-  "profile_url": "https://x.com/lunabardabot",
-  "mode": "baseline",
+  "title": "X",
+  "profile_url": "",
+  "mode": "snapshot",
   "account": {
     "handle": "@lunabardabot",
     "handle_raw": "lunabardabot",
-    "display_name": "To view keyboard shortcuts, press question mark",
+    "display_name": "Luna",
     "profile_url": "https://x.com/lunabardabot"
   },
   "profile": {
-    "followers": 0,
-    "following": 0
+    "followers": 1,
+    "following": 7
   },
   "analytics": {
     "available": true,

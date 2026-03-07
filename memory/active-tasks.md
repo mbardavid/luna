@@ -2,6 +2,13 @@
 *Agent reads this FIRST on restart. Resume autonomously.*
 
 ## In Progress
+- **[auto-compact]** Read and follow `/home/openclaw/.openclaw/workspace/HEARTBEAT.md` strictly (explicitly noted as not yet done in the transcript).
+- **[auto-compact]** Continue HEARTBEAT reporting: do not return `HEARTBEAT_OK` while Mission Control has pending `inbox`, `review`, or `awaiting_human` items.
+- **[auto-compact]** Mission Control pending items currently exist; latest confirmed counts: `{'inbox': 7, 'done': 174, 'review': 5, 'awaiting_human': 1}` with `active` = 0 and `failed` = 0.
+- **[auto-compact]** Latest confirmed `awaiting_human` item:
+- **[auto-compact]** No evidence of reading `HEARTBEAT.md` yet; user’s requested workflow not completed.
+- **[auto-compact]** 1. Open and follow `/home/openclaw/.openclaw/workspace/HEARTBEAT.md` precisely (dedupe rules + criteria for `HEARTBEAT_OK`).
+- **[auto-compact]** 1. Locate and read `HEARTBEAT.md` in the workspace (if present) and follow its instructions strictly.
 - **[auto-compact]** **PMM prod-003 running** (PID 2905224): 2 markets, $222 USDC, market rotation + capital recovery active, Supabase logging. Waiting for fills
 - **[auto-compact]** **OpenClaw built-in heartbeat interval change pending**: Currently 30min, recommended 2min for ~100% uptime. Awaiting Matheus's confirmation to configure
 - **[auto-compact]** Still researching session spawn via bash — docs fetched so far don't show a spawn command

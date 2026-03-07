@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "ce57a9ce-9f7b-4656-90e6-8d9795e9b9d2",
+  "filename": "20260306T224818-dispatch-ce57a9ce.json",
+  "created_at": "2026-03-06T22:48:18.138390+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM Live Operations",
+  "agent": "luan",
+  "priority": "medium",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "Persistent parent card for PMM live operations.\n\nRun: prod-004\nStatus: running\nDecision: quant-20260306T142026Z\nMarket: Will there be no new Supreme Leader of Iran by June 30?\nRuntime: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/pmm_runtime_state.json\nLatest envelope: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_latest.json\nApplied envelope: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_applied.json\nDiagnosis: /home",
+    "eligible_count": 3,
+    "in_progress_count": 2,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": null,
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "ce57a9ce-a1-20260306T224818Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "ce57a9ce-9f7b-4656-90e6-8d9795e9b9d2",
+    "title": "PMM Live Operations",
+    "description": "Persistent parent card for PMM live operations.\n\nRun: prod-004\nStatus: running\nDecision: quant-20260306T142026Z\nMarket: Will there be no new Supreme Leader of Iran by June 30?\nRuntime: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/pmm_runtime_state.json\nLatest envelope: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_latest.json\nApplied envelope: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_applied.json\nDiagnosis: /home",
+    "priority": "medium"
+  },
+  "queue_key": "ce57a9ce-9f7b-4656-90e6-8d9795e9b9d2|dispatch|inbox|direct_exec|d8384f3bbcc8",
+  "completed_at": "2026-03-06T22:51:19.840362Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "luan",
+    "session_id": "agent:luan:subagent:b8acad49-f4ac-4c69-9529-22492fe927b0"
+  }
+}

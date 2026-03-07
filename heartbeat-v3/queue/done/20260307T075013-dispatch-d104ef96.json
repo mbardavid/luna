@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "d104ef96-b22f-47bd-820c-36f029fdb84e",
+  "filename": "20260307T075013-dispatch-d104ef96.json",
+  "created_at": "2026-03-07T07:50:13.865955+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — Diagnose — Diagnose — Extract 3-5 content pillars from Luna post history",
+  "agent": "cto-ops",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 62m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 8,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/e61a4aeb-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "repair",
+    "run_id": "d104ef96-a1-20260307T075013Z",
+    "attempt": 1,
+    "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
+    "workstream_id": "0a7aac3a-62a3-4d56-afff-9c34449091f4"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "cto-ops",
+    "task_id": "d104ef96-b22f-47bd-820c-36f029fdb84e",
+    "title": "Diagnose — Diagnose — Diagnose — Extract 3-5 content pillars from Luna post history",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 62m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "d104ef96-b22f-47bd-820c-36f029fdb84e|dispatch|inbox|direct_exec|14f07bfd6ca1",
+  "completed_at": "2026-03-07T07:51:33.951088Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "cto-ops",
+    "session_id": "agent:cto-ops:main"
+  }
+}

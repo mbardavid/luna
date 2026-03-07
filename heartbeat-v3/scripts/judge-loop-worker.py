@@ -6,10 +6,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
-import time
+from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE = SCRIPT_DIR.parent.parent
@@ -19,6 +18,8 @@ from mc_control import (
     LUNA_REVIEW_PHASES,
     PRIMARY_CHANNEL,
     claim_review,
+    extract_session_key_from_agent_result,
+    is_actionable_review_task,
     is_claim_active,
     load_metrics,
     metrics_increment,
@@ -31,16 +32,18 @@ from mc_control import (
     task_fields,
     task_phase,
     task_phase_owner,
+    task_review_agent,
     task_workflow,
     to_iso,
 )
 
 MC_CLIENT = os.environ.get("MC_CLIENT", str(WORKSPACE / "scripts" / "mc-client.sh"))
 OPENCLAW_BIN = os.environ.get("OPENCLAW_BIN", "openclaw")
-OPENCLAW_CONFIG = os.environ.get("OPENCLAW_CONFIG", "/home/openclaw/.openclaw/openclaw.json")
-GATEWAY_URL = os.environ.get("MC_GATEWAY_URL", "ws://127.0.0.1:18789")
 METRICS_FILE = WORKSPACE / "state" / "control-loop-metrics.json"
 LEASE_MINUTES = int(os.environ.get("MC_REVIEW_LEASE_MINUTES", "20"))
+JUDGE_AGENT_DEFAULT = os.environ.get("MC_JUDGE_AGENT_DEFAULT", "luna-judge")
+SYNC_JUDGE_CONTEXT = os.environ.get("SYNC_LUNA_JUDGE_CONTEXT", str(WORKSPACE / "scripts" / "sync-luna-judge-context.sh"))
+BUILD_JUDGE_CONTEXT = os.environ.get("BUILD_JUDGE_CONTEXT", str(WORKSPACE / "heartbeat-v3" / "scripts" / "build_judge_context.py"))
 
 
 def run(cmd: list[str], timeout: int = 20) -> str:
@@ -78,39 +81,36 @@ def mc_update_task(task_id: str, *, status: str | None = None, comment: str | No
     run(cmd, timeout=30)
 
 
-def load_gateway_token() -> str:
-    token = os.environ.get("MC_GATEWAY_TOKEN", "").strip()
-    if token:
-        return token
-    data = json.loads(Path(OPENCLAW_CONFIG).read_text(encoding="utf-8"))
-    token = data.get("gateway", {}).get("auth", {}).get("token")
-    if not token:
-        raise RuntimeError("gateway token not found")
-    return token
-
-
-def wake_luna(message: str, dry_run: bool = False) -> str:
-    idempotency_key = f"judge-{int(time.time())}"
+def sync_judge_context(dry_run: bool = False) -> str:
     if dry_run:
-        return idempotency_key
-    params = json.dumps({"message": message, "idempotencyKey": idempotency_key})
-    run(
+        return "/home/openclaw/.openclaw/workspace-luna-judge/state/judge-context-sync.json"
+    return run([SYNC_JUDGE_CONTEXT], timeout=30)
+
+
+def build_judge_context(task_id: str, dry_run: bool = False) -> str:
+    if dry_run:
+        return f"/home/openclaw/.openclaw/workspace-luna-judge/artifacts/judge-context/{task_id[:8]}.md"
+    return run([BUILD_JUDGE_CONTEXT, "--task-id", task_id], timeout=45)
+
+
+def dispatch_review(agent: str, message: str, dry_run: bool = False) -> tuple[str, str]:
+    session_key = f"agent:{agent}:{agent}"
+    if dry_run:
+        return session_key, json.dumps({"status": "dry_run", "sessionKey": session_key})
+    raw = run(
         [
             OPENCLAW_BIN,
-            "gateway",
-            "call",
-            "--url",
-            GATEWAY_URL,
-            "--token",
-            load_gateway_token(),
-            "--json",
-            "--params",
-            params,
             "agent",
+            "--agent",
+            agent,
+            "--message",
+            message,
+            "--json",
         ],
-        timeout=25,
+        timeout=60,
     )
-    return idempotency_key
+    extracted = extract_session_key_from_agent_result(raw, agent=agent)
+    return extracted or session_key, raw
 
 
 def ensure_artifact(relative_path: str, title: str, task_id: str, phase: str, description: str) -> str:
@@ -145,25 +145,29 @@ def ensure_artifact(relative_path: str, title: str, task_id: str, phase: str, de
     return relative_path
 
 
-def build_message(task: dict, phase: str, artifact_path: str) -> str:
+def build_message(task: dict, phase: str, artifact_path: str, context_path: str) -> str:
     task_id = str(task.get("id", ""))
     title = str(task.get("title", "(sem titulo)"))
     description = str(task.get("description", "") or "")
     fields = task_fields(task)
     workflow = task_workflow(task)
-    validation = fields.get("mc_validation_artifact", "")
-    test_report = fields.get("mc_test_report_artifact", "")
+    artifact_abs = str((WORKSPACE / artifact_path).resolve()) if not Path(artifact_path).is_absolute() else artifact_path
+    validation = str(fields.get("mc_validation_artifact") or "")
+    validation_abs = str((WORKSPACE / validation).resolve()) if validation and not Path(validation).is_absolute() else (validation or artifact_abs)
+    test_report = str(fields.get("mc_test_report_artifact") or "")
+    test_report_abs = str((WORKSPACE / test_report).resolve()) if test_report and not Path(test_report).is_absolute() else (test_report or "(nao informado)")
+    mc_client = str((WORKSPACE / "scripts" / "mc-client.sh").resolve())
 
     if workflow == "dev_loop_v1" and phase == "luna_task_planning":
-        return f"""Judge loop acionado para PLANEJAMENTO inicial.\n\nTask: {title}\nMC Task ID: {task_id}\nArtifact alvo: {artifact_path}\nCanal operacional: {PRIMARY_CHANNEL}\n\nVoce deve executar AGORA:\n1. Ler a descricao da task.\n2. Escrever o TaskSpec/brief no artifact `{artifact_path}`.\n3. Atualizar o MC card para `in_progress` com `mc_phase=luan_plan_elaboration` usando `mc-task-update.sh` ou `mc-client.sh`.\n4. Incluir criterios objetivos de validacao no artifact.\n\nDescricao original:\n{description[:3000]}\n"""
+        return f"""Judge loop acionado para PLANEJAMENTO inicial.\n\nTask: {title}\nMC Task ID: {task_id}\nContext pack: {context_path}\nArtifact alvo: {artifact_path}\nCanal operacional: {PRIMARY_CHANNEL}\n\nVoce deve executar AGORA:\n1. Ler primeiro o context pack `{context_path}`.\n2. Ler a descricao da task.\n3. Escrever o TaskSpec/brief no artifact `{artifact_path}`.\n4. Atualizar o MC card para `in_progress` com `mc_phase=luan_plan_elaboration` usando `mc-task-update.sh` ou `mc-client.sh`.\n5. Incluir criterios objetivos de validacao no artifact.\n\nDescricao original:\n{description[:3000]}\n"""
 
     if workflow == "dev_loop_v1" and phase == "luna_plan_validation":
-        return f"""Judge loop acionado para VALIDACAO DE PLANO.\n\nTask: {title}\nMC Task ID: {task_id}\nPlan artifact: {artifact_path}\n\nVoce deve executar AGORA:\n1. Ler o plano em `{artifact_path}`.\n2. Aprovar ou rejeitar o plano neste turno.\n3. Se aprovar: mover para `in_progress` com `mc_phase=luan_execution_and_tests`.\n4. Se rejeitar: mover para `in_progress` com `review_reason` explicito para voltar a `luan_plan_elaboration`.\n5. Se depender do humano: mover para `awaiting_human` com `review_reason`.\n"""
+        return f"""Judge loop acionado para VALIDACAO DE PLANO.\n\nTask: {title}\nMC Task ID: {task_id}\nContext pack: {context_path}\nPlan artifact: {artifact_path}\n\nVoce deve executar AGORA:\n1. Ler primeiro o context pack `{context_path}`.\n2. Ler o plano em `{artifact_path}`.\n3. Aprovar ou rejeitar o plano neste turno.\n4. Se aprovar: mover para `in_progress` com `mc_phase=luan_execution_and_tests`.\n5. Se rejeitar: mover para `in_progress` com `review_reason` explicito para voltar a `luan_plan_elaboration`.\n6. Se depender do humano: mover para `awaiting_human` com `review_reason`.\n"""
 
     if workflow == "dev_loop_v1" and phase == "luna_final_validation":
-        return f"""Judge loop acionado para VALIDACAO FINAL.\n\nTask: {title}\nMC Task ID: {task_id}\nValidation artifact: {validation or artifact_path}\nTest report: {test_report or '(nao informado)'}\n\nVoce deve executar AGORA:\n1. Revisar os arquivos modificados.\n2. Rodar os testes relevantes.\n3. Registrar a decisao final no artifact `{validation or artifact_path}`.\n4. Se aprovado: marcar `done`.\n5. Se reprovado: marcar `in_progress` com `review_reason` para voltar a `luan_execution_and_tests`.\n6. Se precisar de decisao humana: marcar `awaiting_human` com `review_reason`.\n"""
+        return f"""Judge loop acionado para VALIDACAO FINAL.\n\nTask: {title}\nMC Task ID: {task_id}\nContext pack: {context_path}\nValidation artifact: {validation_abs}\nTest report: {test_report_abs}\n\nVoce deve executar AGORA:\n1. Ler primeiro o context pack `{context_path}`.\n2. Revisar os arquivos modificados.\n3. Rodar os testes relevantes.\n4. Registrar a decisao final no artifact `{validation_abs}`.\n5. Se aprovado: marcar `done` usando `{mc_client} update-task {task_id} --status done --comment \"[luna-judge] approved final validation\"`.\n6. Se reprovado: marcar `in_progress` com `review_reason` para voltar a `luan_execution_and_tests`.\n7. Se precisar de decisao humana: marcar `awaiting_human` com `review_reason`.\n"""
 
-    return f"""Judge loop acionado para REVIEW legado/direct_exec.\n\nTask: {title}\nMC Task ID: {task_id}\nReview artifact: {artifact_path}\n\nVoce deve executar AGORA:\n1. Revisar a entrega do executor.\n2. Validar criterios objetivos e testes.\n3. Registrar a decisao no artifact `{artifact_path}`.\n4. Se aprovado: marcar `done`.\n5. Se reprovado: devolver para `in_progress` com `review_reason`.\n\nDescricao original:\n{description[:3000]}\n"""
+    return f"""Judge loop acionado para REVIEW legado/direct_exec.\n\nTask: {title}\nMC Task ID: {task_id}\nContext pack: {context_path}\nReview artifact: {artifact_abs}\nMC client: {mc_client}\n\nVoce deve executar AGORA:\n1. Ler primeiro o context pack `{context_path}`.\n2. Revisar a entrega do executor.\n3. Validar criterios objetivos e testes.\n4. Registrar a decisao no artifact `{artifact_abs}`.\n5. Se aprovado: executar `{mc_client} update-task {task_id} --status done --comment \"[luna-judge] approved direct_exec review\"`.\n6. Se reprovado: executar `{mc_client} update-task {task_id} --status in_progress --comment \"[luna-judge] rejected direct_exec review: <review_reason>\"`.\n7. Nao apenas descreva a decisao: atualize o card no Mission Control no mesmo turno.\n\nDescricao original:\n{description[:3000]}\n"""
 
 
 def select_candidates(tasks: list[dict], task_id: str | None = None) -> list[dict]:
@@ -171,7 +175,7 @@ def select_candidates(tasks: list[dict], task_id: str | None = None) -> list[dic
     for task in tasks:
         if task_id and str(task.get("id", "")).strip() != task_id:
             continue
-        if normalize_status(task.get("status"), default="inbox") != "review":
+        if not is_actionable_review_task(task):
             continue
         workflow = normalize_workflow(task_fields(task).get("mc_workflow") or "direct_exec")
         phase = task_phase(task)
@@ -215,6 +219,7 @@ def main() -> int:
         else:
             artifact_key = "mc_validation_artifact"
 
+        review_agent = task_review_agent(task, default=JUDGE_AGENT_DEFAULT)
         artifact_path = ensure_artifact(
             str(fields.get(artifact_key) or plan_artifact_path(task_id, phase)),
             title,
@@ -222,27 +227,61 @@ def main() -> int:
             phase,
             description,
         )
+        sync_state_path = sync_judge_context(dry_run=args.dry_run)
+        context_path = build_judge_context(task_id, dry_run=args.dry_run)
 
         claim = claim_review(task, "judge-loop-worker", lease_minutes=LEASE_MINUTES)
         claim_fields = dict(claim["fields"])
         claim_fields[artifact_key] = artifact_path
-        comment = f"[judge-loop] claimed {phase} for Luna. artifact={artifact_path}"
+        claim_fields["mc_review_agent"] = review_agent
+        comment = (
+            f"[judge-loop] claimed {phase} for {review_agent}. "
+            f"artifact={artifact_path} context={context_path}"
+        )
         mc_update_task(task_id, status=claim["status"], comment=comment, fields=claim_fields, dry_run=args.dry_run)
 
-        message = build_message(task, phase, artifact_path)
-        idempotency_key = wake_luna(message, dry_run=args.dry_run)
+        message = build_message(task, phase, artifact_path, context_path)
+        session_key, dispatch_payload = dispatch_review(review_agent, message, dry_run=args.dry_run)
+        latest_task = mc_get_task(task_id) if not args.dry_run else task
+        latest_fields = dict(task_fields(latest_task or task))
+        latest_fields.setdefault(artifact_key, artifact_path)
+        latest_fields["mc_review_agent"] = review_agent
+        latest_fields["mc_session_key"] = session_key
+        final_status = normalize_status(str((latest_task or task).get("status") or claim["status"]), default=claim["status"])
+        if final_status != "review":
+            latest_fields["mc_claimed_by"] = None
+            latest_fields["mc_claim_expires_at"] = None
+            if str(latest_fields.get("mc_phase_state") or "").strip().lower() == "claimed":
+                latest_fields["mc_phase_state"] = "pending"
+        mc_update_task(
+            task_id,
+            status=final_status,
+            comment=f"[judge-loop] dispatched review to {review_agent} session={session_key}",
+            fields=latest_fields,
+            dry_run=args.dry_run,
+        )
 
         metrics_increment(metrics, "review_claims")
-        metrics_increment(metrics, "judge_wakeups")
+        metrics_increment(metrics, "actionable_review_claims")
+        if review_agent == "luna-judge":
+            metrics_increment(metrics, "judge_dispatch_luna_judge")
+        elif review_agent == "main":
+            metrics_increment(metrics, "judge_dispatch_main_legacy")
+        else:
+            metrics_increment(metrics, "judge_dispatch_other")
         metrics_record_phase_transition(metrics, task_id, phase)
         results.append(
             {
                 "task_id": task_id,
                 "phase": phase,
                 "workflow": workflow,
+                "review_agent": review_agent,
                 "artifact_path": artifact_path,
+                "context_path": context_path,
+                "sync_state_path": sync_state_path,
+                "session_key": session_key,
                 "claim_expires_at": claim_fields.get("mc_claim_expires_at"),
-                "idempotency_key": idempotency_key,
+                "dispatch_payload": dispatch_payload,
             }
         )
 

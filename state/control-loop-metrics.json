@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-03-06T08:30:02Z",
+  "last_updated": "2026-03-07T08:30:02Z",
   "fase2_baseline": {
     "gateway_memory_mb": 450,
     "heartbeat_frequency": "*/5",
@@ -9,22 +9,32 @@
     "timestamp": "2026-03-03T00:03:21Z"
   },
   "counters_today": {
-    "heartbeat_runs": 159,
+    "heartbeat_runs": 463,
     "opus_triggers": 0,
     "tasks_completed": 2,
-    "tasks_dispatched": 4,
+    "tasks_dispatched": 36,
     "failures_detected": 0,
     "qa_reviews_dispatched": 0,
     "pmm_restarts": 0,
     "gateway_restarts": 0,
     "alerts_sent": 0,
     "duplicate_alerts_suppressed": 0,
-    "queue_items_deduped": 83,
-    "queue_items_written": 3,
-    "queue_items_completed": 3,
-    "review_claims": 3,
+    "queue_items_deduped": 89,
+    "queue_items_written": 35,
+    "queue_items_completed": 32,
+    "review_claims": 6,
     "judge_wakeups": 3,
-    "queue_items_invalid_completed": 0
+    "queue_items_invalid_completed": 0,
+    "ignored_governance_reviews": 871,
+    "autonomy_creations": 1,
+    "autonomy_promotions": 2,
+    "actionable_review_claims": 7,
+    "autonomy_stall_detected": 2,
+    "autonomy_stall_recoveries": 1,
+    "judge_dispatch_luna_judge": 3,
+    "shadow_diff_count": 26,
+    "main_dispatch_blocked": 6,
+    "repair_bundle_opened": 6
   },
   "latency": {
     "detect_to_action_samples_ms": [],
@@ -43,11 +53,15 @@
   "cron_health": {
     "heartbeat-v3": {
       "status": "running",
-      "last_run": "2026-03-06T08:30:02Z"
+      "last_run": "2026-03-07T08:30:02Z"
     },
     "judge-loop-worker": {
       "status": "ok",
-      "last_run": "2026-03-05T20:21:01Z"
+      "last_run": "2026-03-06T18:52:34Z"
+    },
+    "judge-loop-trigger": {
+      "status": "ok",
+      "last_run": "2026-03-06T18:25:21Z"
     }
   },
   "phase_transitions": {
@@ -57,17 +71,19 @@
     "34877d8a-3992-4015-a725-f074b47627e9:luna_plan_validation": "2026-03-05T20:23:24Z",
     "3a0d8492-412a-4676-b945-cd3b02885e3f:intake": "2026-03-06T04:06:12Z",
     "fed0a72b-16d0-4daf-aab7-362663a44eda:intake": "2026-03-06T04:10:32Z",
-    "3a0d8492-412a-4676-b945-cd3b02885e3f:autonomy_active": "2026-03-06T08:20:29Z",
-    "fed0a72b-16d0-4daf-aab7-362663a44eda:autonomy_active": "2026-03-06T08:10:30Z",
-    "0a7aac3a-62a3-4d56-afff-9c34449091f4:autonomy_active": "2026-03-06T08:25:18Z",
-    "f71aaca0-06e5-400a-9282-7785b5ae126c:autonomy_active": "2026-03-06T06:05:16Z",
-    "c2dad9a4-6952-4593-b505-62f8617ed604:autonomy_active": "2026-03-06T08:05:23Z"
+    "3a0d8492-412a-4676-b945-cd3b02885e3f:autonomy_active": "2026-03-06T14:25:43Z",
+    "fed0a72b-16d0-4daf-aab7-362663a44eda:autonomy_active": "2026-03-06T14:40:23Z",
+    "0a7aac3a-62a3-4d56-afff-9c34449091f4:autonomy_active": "2026-03-06T14:35:21Z",
+    "f71aaca0-06e5-400a-9282-7785b5ae126c:autonomy_active": "2026-03-06T12:05:39Z",
+    "c2dad9a4-6952-4593-b505-62f8617ed604:autonomy_active": "2026-03-06T14:20:33Z",
+    "ce57a9ce-9f7b-4656-90e6-8d9795e9b9d2:intake": "2026-03-06T16:15:35Z",
+    "4df3a337-ab8f-40b0-a953-d9d5de0d08a4:intake": "2026-03-06T18:52:55Z"
   },
   "queue_audit": {
-    "last_run": "2026-03-06T08:07:01Z",
-    "done_json": 3,
+    "last_run": "2026-03-07T08:07:02Z",
+    "done_json": 29,
     "done_meta": 0,
-    "failed": 5,
+    "failed": 9,
     "pending": 0,
     "active": 0,
     "invalid_done_total": 0,

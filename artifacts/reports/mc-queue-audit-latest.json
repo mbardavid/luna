@@ -3,9 +3,9 @@
   "counts": {
     "pending": 0,
     "active": 0,
-    "done_json": 3,
+    "done_json": 29,
     "done_meta": 0,
-    "failed": 5
+    "failed": 9
   },
   "invalid_done_total": 0,
   "invalid_done_post_recovery": 0,

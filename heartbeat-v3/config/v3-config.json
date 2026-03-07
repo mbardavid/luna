@@ -12,6 +12,7 @@
   "mirror_notifications": false,
   "queue_nudge_enabled": false,
   "queue_wake_enabled": false,
+  "judge_agent_default": "luna-judge",
   "review_lease_minutes": 20,
   "queue_done_dedup_minutes": 180,
   "circuit_breaker_max_failures": 3,
@@ -61,5 +62,11 @@
     "max_active_workstreams": 3,
     "max_auto_leaf_tasks_per_workstream": 2,
     "max_new_leaf_tasks_per_cycle": 3
+  },
+  "scheduler_v2": {
+    "mode": "full",
+    "healthy_slots": 4,
+    "degraded_slots": 2,
+    "critical_slots": 1
   }
 }

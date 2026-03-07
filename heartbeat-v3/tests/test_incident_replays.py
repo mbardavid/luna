@@ -10,14 +10,14 @@ WORKSPACE = ROOT.parent.parent
 sys.path.insert(0, str(WORKSPACE / "heartbeat-v3" / "scripts"))
 sys.path.insert(0, str(WORKSPACE / "scripts"))
 
-from mc_control import is_claim_active, is_luna_review_task, normalize_status, task_dispatch_policy, task_status
+from mc_control import is_actionable_review_task, normalize_status, task_dispatch_policy, task_status
 from mc_queue_audit import audit_queue
 
 
 def select_next_action(tasks: list[dict]) -> tuple[str, str]:
     review_candidates = [
         task for task in sorted(tasks, key=lambda t: t.get("created_at", ""))
-        if is_luna_review_task(task) and not is_claim_active(task)
+        if is_actionable_review_task(task)
     ]
     if review_candidates:
         return ("review", review_candidates[0]["id"])
@@ -46,6 +46,25 @@ class TestIncidentReplays(unittest.TestCase):
         action, task_id = select_next_action(tasks)
         self.assertEqual(action, "review")
         self.assertEqual(task_id, "34877d8a-3992-4015-a725-f074b47627e9")
+
+    def test_governance_review_does_not_block_inbox(self):
+        tasks = [
+            {
+                "id": "project-1",
+                "title": "Project",
+                "status": "review",
+                "created_at": "2026-03-06T00:00:00Z",
+                "custom_field_values": {"mc_card_type": "project", "mc_phase": "autonomy_active"},
+            },
+            {
+                "id": "leaf-1",
+                "title": "Leaf",
+                "status": "inbox",
+                "created_at": "2026-03-06T00:01:00Z",
+                "custom_field_values": {"mc_card_type": "leaf_task", "mc_dispatch_policy": "auto"},
+            },
+        ]
+        self.assertEqual(select_next_action(tasks), ("dispatch", "leaf-1"))
 
     def test_awaiting_human_does_not_auto_dispatch(self):
         task = self.fixtures["awaiting_human_hold"]["task"]

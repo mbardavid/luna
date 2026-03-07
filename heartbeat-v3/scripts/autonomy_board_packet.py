@@ -13,12 +13,15 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from mc_control import task_card_type, task_chairman_state, task_dispatch_policy, task_fields, task_project_id, task_status, task_workstream_id
+from mc_control import is_claim_active, is_governance_card, task_card_type, task_chairman_state, task_dispatch_policy, task_fields, task_project_id, task_review_agent, task_status, task_workstream_id
 from project_autonomy import select_active_milestone, select_active_project, select_active_workstreams
 
 WORKSPACE = Path(__file__).resolve().parent.parent.parent
 MC_CLIENT = WORKSPACE / "scripts" / "mc-client.sh"
 DEFAULT_OUTPUT = WORKSPACE / "artifacts" / "reports" / "autonomy-board-packet-latest.md"
+METRICS_FILE = WORKSPACE / "state" / "control-loop-metrics.json"
+SCHEDULER_STATE_FILE = WORKSPACE / "state" / "scheduler-state.json"
+AUTONOMY_RUNTIME_FILE = WORKSPACE / "state" / "autonomy-runtime.json"
 
 
 def _task_id(task: dict[str, Any]) -> str:
@@ -39,6 +42,21 @@ def _load_json_artifact(path_value: str | None) -> dict[str, Any] | None:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return None
+
+
+def _metric_counter(metrics: dict[str, Any] | None, key: str) -> int:
+    if not metrics:
+        return 0
+    counters = metrics.get("counters_today")
+    if isinstance(counters, dict) and key in counters:
+        try:
+            return int(counters.get(key) or 0)
+        except Exception:
+            return 0
+    try:
+        return int(metrics.get(key) or 0)
+    except Exception:
+        return 0
 
 
 def _render_outcome_snapshot(project: dict[str, Any]) -> list[str]:
@@ -115,6 +133,20 @@ def render_board_packet(tasks: list[dict[str, Any]]) -> str:
         if str(task_fields(task).get("mc_risk_profile") or "").strip().lower() in {"high", "critical"}
         and task_status(task) not in {"done", "failed"}
     ]
+    governance_cards = [
+        task for task in tasks
+        if is_governance_card(task)
+        and (_task_id(task) == project_id or task_project_id(task) == project_id)
+    ]
+    runtime_anomalies: list[str] = []
+    for task in governance_cards:
+        fields = task_fields(task)
+        if task_status(task) == "review":
+            runtime_anomalies.append(f"Governance card in review: **{_task_title(task)}** `{_task_id(task)[:8]}`")
+        if str(fields.get("mc_last_error") or "").strip().lower() == "missing_session_key":
+            runtime_anomalies.append(f"Governance card with missing_session_key: **{_task_title(task)}** `{_task_id(task)[:8]}`")
+        if is_claim_active(task):
+            runtime_anomalies.append(f"Governance card claimed by judge loop: **{_task_title(task)}** `{_task_id(task)[:8]}`")
     steering_tasks = [
         task for task in tasks
         if task_project_id(task) == project_id
@@ -123,6 +155,15 @@ def render_board_packet(tasks: list[dict[str, Any]]) -> str:
             or task_status(task) == "awaiting_human"
         )
     ]
+    open_repairs = [
+        task for task in tasks
+        if task_card_type(task) == "repair_bundle"
+        and task_project_id(task) == project_id
+        and task_status(task) not in {"done", "failed"}
+    ]
+    metrics = _load_json_artifact(str(METRICS_FILE))
+    scheduler_state = _load_json_artifact(str(SCHEDULER_STATE_FILE)) or {}
+    autonomy_runtime = _load_json_artifact(str(AUTONOMY_RUNTIME_FILE)) or {}
     counts = _status_counts(project_leaf_tasks)
     suggestions: list[str] = []
     if not milestone:
@@ -140,6 +181,8 @@ def render_board_packet(tasks: list[dict[str, Any]]) -> str:
         suggestions.append(f"Review {len(risk_tasks)} high-risk task(s).")
     if steering_tasks:
         suggestions.append(f"Resolve steering on {len(steering_tasks)} card(s).")
+    if runtime_anomalies:
+        suggestions.append(f"Repair {len(runtime_anomalies)} runtime anomaly/anomalies before trusting autonomy execution.")
     if not suggestions:
         suggestions.append("Continue execution; no board intervention is currently required.")
 
@@ -172,6 +215,39 @@ def render_board_packet(tasks: list[dict[str, Any]]) -> str:
         *(
             [f"- **{_task_title(task)}** `{_task_id(task)[:8]}` | chairman_state={task_chairman_state(task)} | status={task_status(task)}" for task in steering_tasks]
             or ["- No steering items pending."]
+        ),
+        "",
+        "## Runtime Anomalies",
+        *(runtime_anomalies or ["- No runtime anomalies detected."]),
+        "",
+        "## Judge Runtime",
+        f"- Default review agent: `{task_review_agent(project)}`",
+        f"- judge_dispatch_luna_judge: {_metric_counter(metrics, 'judge_dispatch_luna_judge')}",
+        f"- judge_dispatch_main_legacy: {_metric_counter(metrics, 'judge_dispatch_main_legacy')}",
+        f"- repair_bundle_opened: {_metric_counter(metrics, 'repair_bundle_opened')}",
+        f"- repair_bundle_resolved: {_metric_counter(metrics, 'repair_bundle_resolved')}",
+        "",
+        "## Scheduler Runtime",
+        f"- Mode: `{scheduler_state.get('mode', 'unknown')}` | health=`{scheduler_state.get('health_state', 'unknown')}` | slots={scheduler_state.get('slots_total', 0)}",
+        f"- Reserved slots: `{json.dumps(scheduler_state.get('reserved_slots', {}), sort_keys=True)}`",
+        f"- Running by lane: `{json.dumps(scheduler_state.get('running_by_lane', {}), sort_keys=True)}`",
+        f"- Eligible by lane: `{json.dumps(scheduler_state.get('eligible_by_lane', {}), sort_keys=True)}`",
+        f"- Dispatch decision: `{json.dumps(scheduler_state.get('dispatch_decision', {}), sort_keys=True)}`",
+        f"- Shadow diff count: `{len(scheduler_state.get('shadow_diff_vs_legacy', []) or [])}`",
+        *( [f"- Blocked: `{item}`" for item in (scheduler_state.get('blocked_reasons') or [])[:5]] or ["- Blocked: none"] ),
+        "",
+        "## Autonomy Runtime",
+        f"- Active project id: `{autonomy_runtime.get('project_id', '')[:8]}` | milestone=`{autonomy_runtime.get('milestone_id', '')[:8]}`",
+        f"- Workstreams: `{', '.join(item[:8] for item in (autonomy_runtime.get('workstream_ids') or [])) or 'none'}`",
+        f"- Planner reason: `{autonomy_runtime.get('reason', 'unknown')}` | current_window={autonomy_runtime.get('current_window', 0)}",
+        "",
+        "## Open Repairs",
+        *(
+            [
+                f"- **{_task_title(task)}** `{_task_id(task)[:8]}` | state={task_fields(task).get('mc_repair_state', 'open')} | source={task_fields(task).get('mc_repair_source_task_id', '')[:8]}"
+                for task in open_repairs
+            ]
+            or ["- No open repair bundles."]
         ),
         "",
         "## Suggested Board Decisions",

@@ -24,9 +24,10 @@ openclaw_config = sys.argv[3]
 gateway_url = sys.argv[4]
 argv = sys.argv[5:]
 workspace = Path(mc_client_path).resolve().parent.parent
+repair_bundle_path = workspace / "scripts" / "open-repair-bundle.py"
 sys.path.insert(0, str(workspace / "heartbeat-v3" / "scripts"))
 
-from mc_control import normalize_status, task_phase_owner, task_workflow
+from mc_control import is_actionable_review_task, is_governance_card, normalize_status, requires_session_link, task_card_type, task_phase_owner, task_workflow
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--max-retries", type=int, default=int(os.environ.get("MC_MAX_RETRIES", "2")))
@@ -88,6 +89,47 @@ def mc_update_task(task_id, status=None, comment=None, fields=None):
     cmd += ["--fields", json.dumps(fields)]
   raw = run(cmd)
   return json.loads(raw or "{}") if raw else {}
+
+
+def open_repair_bundle(source_task_id, anomaly, reason):
+  cmd = [
+    str(repair_bundle_path),
+    "--source-task-id", str(source_task_id),
+    "--anomaly", str(anomaly),
+    "--reason", str(reason),
+    "--json",
+  ]
+  if args.dry_run:
+    return {
+      "bundle_id": f"dryrun-repair-{str(source_task_id)[:8]}",
+      "source_task_id": source_task_id,
+      "fingerprint": f"{source_task_id}:{anomaly}",
+      "reused": False,
+    }
+  raw = run(cmd)
+  return json.loads(raw or "{}") if raw else {}
+
+
+def requeue_repair_child(task_id, anomaly, reason):
+  if args.dry_run:
+    return {
+      "dry_run": True,
+      "task_id": task_id,
+      "anomaly": anomaly,
+      "reason": reason,
+    }
+  return mc_update_task(
+    task_id,
+    status="inbox",
+    comment=f"[mc-watchdog] repair child requeued in-place ({anomaly}): {reason}",
+    fields={
+      "mc_session_key": "",
+      "mc_delivery_state": "queued",
+      "mc_last_error": anomaly,
+      "mc_claimed_by": None,
+      "mc_claim_expires_at": None,
+    },
+  )
 
 
 def load_gateway_token():
@@ -246,6 +288,7 @@ stats = {
   "blocked_missing_session_key": 0,
   "auto_completed": 0,
   "session_ended_review": 0,
+  "governance_ignored": 0,
   "errors": 0,
 }
 
@@ -268,33 +311,40 @@ def handle_task(task, sessions_by_key):
   fields = payload["custom_field_values"] or {}
   workflow = task_workflow(task)
   phase_owner = task_phase_owner(task)
+  card_type = task_card_type(task)
+  repair_bundle_id = str(fields.get("mc_repair_bundle_id") or "").strip()
+  is_repair_child = bool(repair_bundle_id) and card_type == "leaf_task"
+
+  if is_governance_card(task) or card_type == "review_bundle":
+    update_counter(stats, "governance_ignored")
+    maybe_log(f"[mc-watchdog] governance/review bundle {t_id} ignored by design")
+    return
+
+  if not requires_session_link(task):
+    if status == "review" and is_actionable_review_task(task):
+      maybe_log(f"[mc-watchdog] actionable review task {t_id} sem session_key e valida por design")
+    return
 
   session_entry = sessions_by_key.get(session_key, {}) if session_key else {}
 
   if not session_key:
-    if status == "review" and phase_owner == "luna":
-      maybe_log(f"[mc-watchdog] review Luna task {t_id} sem session_key e valida por design")
-      return
-    # Missing session linkage is not recoverable automatically: we cannot
-    # reconstruct the session without an explicit link step.
     update_counter(stats, "blocked_missing_session_key")
     last_error = str((fields or {}).get("mc_last_error") or "")
     if last_error != "missing_session_key":
       update_counter(stats, "stalled")
-      mc_update_task(
-        t_id,
-        status="review",
-        comment=(
-          f"[mc-watchdog] {now_iso()} task sem mc_session_key. "
-          "Vincule a sessão com mc-link-task-session.sh (ou re-spawn) para retomar."
-        ),
-        fields={
-          **fields,
-          args.retry_count_field: current_retry,
-          "mc_progress": progress,
-          "mc_last_error": "missing_session_key",
-        },
-      )
+      if is_repair_child:
+        update_counter(stats, "repair_child_requeued")
+        requeue_repair_child(
+          t_id,
+          "missing_session_key",
+          "Repair child perdeu mc_session_key; requeue dentro do mesmo bundle em vez de abrir bundle aninhado.",
+        )
+      else:
+        open_repair_bundle(
+          t_id,
+          "missing_session_key",
+          "Task executável ficou ativa sem mc_session_key. Abrir trilha de repair antes de re-promover.",
+        )
     return
 
   if not session_entry:
@@ -322,58 +372,70 @@ def handle_task(task, sessions_by_key):
       return
 
     if status == "in_progress" and session_key and progress < 80:
-      # Low-confidence: session ended but progress was low. Move to review.
       update_counter(stats, "session_ended_review")
-      mc_update_task(
-        t_id,
-        status="review",
-        comment=(
-          f"[mc-watchdog] {now_iso()} session ended (not in active list) but "
-          f"progress was only {progress}%. Moved to review for manual check."
-        ),
-        fields={
-          args.retry_count_field: current_retry,
-          "mc_progress": progress,
-          "mc_last_error": "session_ended_incomplete",
-        },
-      )
-      maybe_log(f"[mc-watchdog] task {t_id} session ended but progress={progress}%, moved to review")
+      if is_repair_child:
+        update_counter(stats, "repair_child_requeued")
+        requeue_repair_child(
+          t_id,
+          "session_ended_incomplete",
+          f"Repair child terminou sem completar (progress={progress}%). Requeue dentro do bundle atual.",
+        )
+      else:
+        open_repair_bundle(
+          t_id,
+          "session_ended_incomplete",
+          (
+            f"Linked session ended unexpectedly while progress was only {progress}%. "
+            "Repair the execution path before retry."
+          ),
+        )
+      maybe_log(f"[mc-watchdog] task {t_id} session ended but progress={progress}%, opened repair bundle")
       return
 
     if current_retry < args.max_retries:
       update_counter(stats, "recovered")
       next_retry = current_retry + 1
-      mc_update_task(
-        t_id,
-        status="in_progress",
-        comment=(
-          f"[mc-watchdog] {now_iso()} sessão ausente para task {t_id}; "
-          f"tentativa de recuperação #{next_retry}/{args.max_retries}."
-        ),
-        fields={
-          args.retry_count_field: next_retry,
-          "mc_progress": progress,
-          "mc_last_error": "retry",
-        },
-      )
+      if is_repair_child:
+        update_counter(stats, "repair_child_requeued")
+        requeue_repair_child(
+          t_id,
+          "session_missing",
+          (
+            f"Repair child perdeu a sessão `{session_key}`. "
+            f"Requeue dentro do bundle atual (retry virtual #{next_retry}/{args.max_retries})."
+          ),
+        )
+        maybe_log(f"[mc-watchdog] repair child {t_id} session missing, requeued inside existing bundle")
+      else:
+        repair = open_repair_bundle(
+          t_id,
+          "session_missing",
+          (
+            f"Session `{session_key}` ausente para task em execução. "
+            f"Retry virtual #{next_retry}/{args.max_retries} foi substituído por repair trail."
+          ),
+        )
+        maybe_log(f"[mc-watchdog] task {t_id} session missing, repair bundle={repair.get('bundle_id')}")
     else:
       last_error = str(fields.get("mc_last_error", "") or "").strip().lower()
       if last_error != "needs_approval":
         update_counter(stats, "moved_to_needs_approval")
-        mc_update_task(
-          t_id,
-          status="awaiting_human",
-          comment=(
-            f"[mc-watchdog] {now_iso()} sessão ausente após {current_retry} retries; "
-            "requer aprovação para ação manual e retomada."
-          ),
-          fields={
-            args.retry_count_field: current_retry,
-            "mc_progress": progress,
-            "mc_last_error": "needs_approval",
-            "mc_gate_reason": "session_missing_after_retries",
-          },
-        )
+        if is_repair_child:
+          update_counter(stats, "repair_child_requeued")
+          requeue_repair_child(
+            t_id,
+            "session_missing_after_retries",
+            "Repair child continuou sem sessão após retries; requeue no bundle atual para evitar nesting.",
+          )
+        else:
+          open_repair_bundle(
+            t_id,
+            "session_missing_after_retries",
+            (
+              f"Session continuou ausente após {current_retry} tentativas anteriores. "
+              "Escalar via repair trail em vez de depender de gate humano imediato."
+            ),
+          )
       else:
         maybe_log(f"[mc-watchdog] task {t_id} já em needs_approval, ignorando re-mark")
     return
@@ -392,19 +454,25 @@ def handle_task(task, sessions_by_key):
     last_error = str(fields.get("mc_last_error", "") or "").strip().lower()
     if last_error != "stalled":
       update_counter(stats, "stalled")
-      mc_update_task(
-        t_id,
-        status="review",
-        comment=(
-          f"[mc-watchdog] {now_iso()} sem atividade há {int(stale_ms / 60_000)}m; "
-          "marcado como stalled para revisão."
-        ),
-        fields={
-          args.retry_count_field: current_retry,
-          "mc_progress": progress,
-          "mc_last_error": "stalled",
-        },
-      )
+      if is_repair_child:
+        update_counter(stats, "repair_child_requeued")
+        requeue_repair_child(
+          t_id,
+          "stalled",
+          (
+            f"Repair child sem atividade há {int(stale_ms / 60_000)}m. "
+            "Requeue dentro do bundle atual para evitar repair aninhado."
+          ),
+        )
+      else:
+        open_repair_bundle(
+          t_id,
+          "stalled",
+          (
+            f"Task sem atividade observável há {int(stale_ms / 60_000)}m. "
+            "Abrir trilha de repair antes de novo dispatch."
+          ),
+        )
     else:
       maybe_log(f"[mc-watchdog] task {t_id} já marcada stalled, ignorando re-mark")
     return

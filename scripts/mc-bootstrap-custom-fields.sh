@@ -474,6 +474,54 @@ DESIRED_FIELDS='[
     "ui_visibility": "if_set",
     "required": false,
     "default_value": null
+  },
+  {
+    "field_key": "mc_review_agent",
+    "label": "MC Review Agent",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "luna-judge"
+  },
+  {
+    "field_key": "mc_repair_bundle_id",
+    "label": "MC Repair Bundle ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_repair_source_task_id",
+    "label": "MC Repair Source Task ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_repair_reason",
+    "label": "MC Repair Reason",
+    "field_type": "text_long",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_repair_fingerprint",
+    "label": "MC Repair Fingerprint",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_repair_state",
+    "label": "MC Repair State",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "open"
   }
 ]'
 

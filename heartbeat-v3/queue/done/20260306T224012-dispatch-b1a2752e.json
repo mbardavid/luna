@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "b1a2752e-6571-46d6-868c-b1bed393c849",
+  "filename": "20260306T224012-dispatch-b1a2752e.json",
+  "created_at": "2026-03-06T22:40:12.987362+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — Diagnose — PMM: recoverable inventory still trapped",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nLinked session ended unexpectedly while progress was only 0%. Repair the execution path before retry.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 5,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/a89b88f9-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "b1a2752e-a2-20260306T224012Z",
+    "attempt": 2,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "b1a2752e-6571-46d6-868c-b1bed393c849",
+    "title": "Diagnose — Diagnose — PMM: recoverable inventory still trapped",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nLinked session ended unexpectedly while progress was only 0%. Repair the execution path before retry.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "b1a2752e-6571-46d6-868c-b1bed393c849|dispatch|inbox|direct_exec|294540373ba9",
+  "completed_at": "2026-03-06T22:42:16.695095Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "luan",
+    "session_id": "agent:luan:subagent:b1c0be60-6665-4e05-9b2a-9f291629ce0c"
+  }
+}

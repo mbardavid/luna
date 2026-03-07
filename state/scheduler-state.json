@@ -1,0 +1,37 @@
+{
+  "last_tick": "2026-03-07T08:30:02Z",
+  "mode": "full",
+  "health_state": "healthy",
+  "slots_total": 4,
+  "eligible_by_lane": {
+    "repair": 4,
+    "review": 0,
+    "project": 0,
+    "ambient": 0
+  },
+  "running_by_lane": {
+    "repair": 4,
+    "review": 0,
+    "project": 0,
+    "ambient": 0
+  },
+  "reserved_slots": {
+    "repair": 1,
+    "review": 0,
+    "project": 0,
+    "ambient": 0
+  },
+  "dispatch_decision": {
+    "type": "idle",
+    "lane": "",
+    "task_id": "",
+    "status": ""
+  },
+  "blocked_reasons": [
+    "repair: capacity full (4/4) while eligible=4"
+  ],
+  "shadow_diff_vs_legacy": [],
+  "generated_at": "2026-03-07T08:30:02Z",
+  "last_heartbeat_reason": "heartbeat_start",
+  "last_heartbeat_phase": "startup"
+}

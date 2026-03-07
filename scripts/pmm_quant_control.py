@@ -62,7 +62,8 @@ QUANT_PERF_ANALYZER = QUANT_WORKSPACE / "scripts" / "performance-analyzer.py"
 QUANT_HEALTH_MONITOR = QUANT_WORKSPACE / "scripts" / "health-monitor.py"
 LIVE_RUNNER_WRAPPER = SCRIPTS_DIR / "pmm-live-runner.sh"
 MC_CLIENT = SCRIPTS_DIR / "mc-client.sh"
-MC_AGENT_IDS = CONFIG_DIR / "mc-agent-ids.json"
+ALERT_ROUTER = SCRIPTS_DIR / "pmm-alert-router.py"
+TOPOLOGY_HELPER = SCRIPTS_DIR / "agent_runtime_topology.py"
 OPENCLAW_BIN = os.environ.get("OPENCLAW_BIN", "openclaw")
 
 LOCK_ROOT = Path("/tmp")
@@ -103,6 +104,10 @@ def load_decision_envelope_class():
 
 def load_perf_module():
     return _load_module(QUANT_PERF_ANALYZER, "quant_performance_analyzer_runtime")
+
+
+def load_topology_module():
+    return _load_module(TOPOLOGY_HELPER, "agent_runtime_topology_runtime")
 
 
 def utcnow() -> datetime:
@@ -146,6 +151,24 @@ def write_json(path: Path, payload: Any) -> None:
     finally:
         if os.path.exists(tmp_name):
             os.unlink(tmp_name)
+
+
+def write_stale_live_state(
+    *,
+    reason: str,
+    runtime_status: str,
+    desired_envelope: Any | None = None,
+    applied_envelope: Any | None = None,
+) -> None:
+    payload = {
+        "stale": True,
+        "updated_at": iso_now(),
+        "reason": reason,
+        "runtime_status": runtime_status,
+        "run_id": "prod-004",
+        "decision_id": getattr(desired_envelope, "decision_id", None) or getattr(applied_envelope, "decision_id", None),
+    }
+    write_json(LIVE_STATE_PATH, payload)
 
 
 def file_mtime(path: Path) -> float | None:
@@ -588,8 +611,38 @@ def build_luna_message(title: str, task_id: str | None, code: str) -> str:
     )
 
 
+def normalize_wake_target(target: str) -> str:
+    aliases = {
+        "quant": "quant-strategist",
+        "quant-strategist": "quant-strategist",
+        "quant_strategist": "quant-strategist",
+        "crypto-sage": "crypto-sage",
+        "crypto_sage": "crypto-sage",
+        "blockchain-operator": "crypto-sage",
+        "blockchain_operator": "crypto-sage",
+        "luna": "main",
+        "main": "main",
+    }
+    text = str(target or "").strip().lower()
+    if not text:
+        return ""
+    topology = load_topology_module()
+    normalized = aliases.get(text) or topology.normalize_agent_name(text) or text
+    return str(normalized)
+
+
+def resolve_wake_workspace(target: str) -> Path:
+    topology = load_topology_module()
+    canonical = normalize_wake_target(target)
+    workspace = topology.resolve_workspace(canonical)
+    if workspace:
+        return Path(workspace)
+    return QUANT_WORKSPACE if canonical == "quant-strategist" else WORKSPACE
+
+
 def wake_agent(target: str, message: str, *, idempotency_key: str, dry_run: bool = False) -> dict[str, Any]:
-    cwd = QUANT_WORKSPACE if target == "quant" else WORKSPACE
+    canonical_target = normalize_wake_target(target)
+    cwd = resolve_wake_workspace(canonical_target)
     params = {
         "message": message,
         "idempotencyKey": idempotency_key,
@@ -597,7 +650,7 @@ def wake_agent(target: str, message: str, *, idempotency_key: str, dry_run: bool
     if dry_run:
         return {
             "dry_run": True,
-            "target": target,
+            "target": canonical_target,
             "cwd": str(cwd),
             "params": params,
         }
@@ -618,7 +671,8 @@ def wake_agent(target: str, message: str, *, idempotency_key: str, dry_run: bool
         check=False,
     )
     payload: dict[str, Any] = {
-        "target": target,
+        "target": canonical_target,
+        "cwd": str(cwd),
         "returncode": proc.returncode,
         "stdout": proc.stdout.strip(),
         "stderr": proc.stderr.strip(),
@@ -631,11 +685,6 @@ def wake_agent(target: str, message: str, *, idempotency_key: str, dry_run: bool
     return payload
 
 
-def load_agent_id(agent_name: str) -> str:
-    raw = read_json(MC_AGENT_IDS, {})
-    return str(raw.get(agent_name, "") or "")
-
-
 def maybe_open_incident(
     *,
     code: str,
@@ -645,59 +694,61 @@ def maybe_open_incident(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     incidents = cycle_state.setdefault("open_incidents", {})
-    if code in incidents:
-        incidents[code]["last_seen_at"] = iso_now()
-        return incidents[code]
-
-    task_id = ""
-    create_result: dict[str, Any] = {}
-    assignee = load_agent_id("main")
+    cmd = [
+        sys.executable,
+        str(ALERT_ROUTER),
+        "incident",
+        "--code",
+        code,
+        "--title",
+        title,
+        "--description",
+        description,
+    ]
     if dry_run:
-        create_result = {"dry_run": True}
-    elif MC_CLIENT.exists():
-        fields = {
-            "mc_origin": "pmm_v1_control_plane",
-            "incident_code": code,
+        cmd.append("--dry-run")
+
+    if not ALERT_ROUTER.exists():
+        incident = {
+            "code": code,
+            "task_id": "",
+            "opened_at": iso_now(),
+            "last_seen_at": iso_now(),
+            "create_result": {"returncode": 1, "stderr": f"missing alert router: {ALERT_ROUTER}"},
+            "wake_result": {},
         }
-        cmd = [
-            str(MC_CLIENT),
-            "create-task",
-            title,
-            description,
-            assignee,
-            "high",
-            "inbox",
-            json.dumps(fields),
-        ]
-        proc = run_cmd(cmd, cwd=WORKSPACE, timeout=30, check=False)
-        create_result = {
+        incidents[code] = incident
+        return incident
+
+    proc = run_cmd(cmd, cwd=WORKSPACE, timeout=45, check=False)
+    payload: dict[str, Any] = {
+        "code": code,
+        "opened_at": iso_now(),
+        "last_seen_at": iso_now(),
+        "create_result": {
             "returncode": proc.returncode,
             "stdout": proc.stdout.strip(),
             "stderr": proc.stderr.strip(),
-        }
-        if proc.stdout.strip():
-            try:
-                payload = json.loads(proc.stdout)
-                task_id = str(payload.get("id") or payload.get("task_id") or "")
-            except json.JSONDecodeError:
-                task_id = ""
-
-    wake_result = wake_agent(
-        "luna",
-        build_luna_message(title, task_id or None, code),
-        idempotency_key=f"pmm-incident-{code}-{int(time.time())}",
-        dry_run=dry_run,
-    )
-    incident = {
-        "code": code,
-        "task_id": task_id,
-        "opened_at": iso_now(),
-        "last_seen_at": iso_now(),
-        "create_result": create_result,
-        "wake_result": wake_result,
+        },
+        "wake_result": {},
     }
-    incidents[code] = incident
-    return incident
+    if proc.stdout.strip():
+        try:
+            response = json.loads(proc.stdout)
+            incident = response.get("incident") or {}
+            payload.update(
+                {
+                    "task_id": str(incident.get("task_id") or ""),
+                    "owner": incident.get("owner"),
+                    "parent_task_id": response.get("parent_task_id"),
+                    "wake_result": incident.get("wake_result") or {},
+                    "router_result": response,
+                }
+            )
+        except json.JSONDecodeError:
+            payload["task_id"] = ""
+    incidents[code] = payload
+    return payload
 
 
 def update_cycle_state(updates: dict[str, Any]) -> dict[str, Any]:
@@ -867,6 +918,31 @@ def cmd_cycle(args: argparse.Namespace) -> int:
             "material_change_report": report,
         }
 
+        promote_result = None
+        auto_promote_errors = validate_candidate_envelope(candidate_envelope)
+        auto_promote, auto_promote_reason = should_auto_promote_candidate(
+            current_envelope=current_envelope,
+            candidate_envelope=candidate_envelope,
+            report=report,
+            runtime_state=runtime_state,
+        )
+        if auto_promote and not auto_promote_errors:
+            promote_result = promote_envelope_payload(
+                envelope=candidate_envelope,
+                candidate_path=DECISION_CANDIDATE_PATH,
+                cycle_state=cycle_state,
+                dry_run=args.dry_run,
+            )
+            report["auto_promoted"] = True
+            report["auto_promote_reason"] = auto_promote_reason
+            report["current_summary"] = envelope_summary(candidate_envelope)
+            decision_inputs["current_summary"] = report["current_summary"]
+        else:
+            report["auto_promoted"] = False
+            report["auto_promote_reason"] = auto_promote_reason
+            if auto_promote_errors:
+                report["auto_promote_errors"] = auto_promote_errors
+
         wake_result = None
         if report.get("wake_required"):
             wake_result = wake_agent(
@@ -897,15 +973,20 @@ def cmd_cycle(args: argparse.Namespace) -> int:
             updated_state["last_wake_reason_hash"] = report["reason_hash"]
             updated_state["last_wake_candidate_decision_id"] = candidate_envelope.decision_id
             updated_state["last_wake_result"] = wake_result
+        if promote_result:
+            updated_state["last_promoted_at"] = cycle_state.get("last_promoted_at")
+            updated_state["last_promoted_decision_id"] = cycle_state.get("last_promoted_decision_id")
+            updated_state["last_promote_error"] = None
 
         write_json(MATERIAL_CHANGE_PATH, report)
         write_json(DECISION_INPUTS_PATH, decision_inputs)
         write_json(QUANT_CYCLE_STATE_PATH, updated_state)
 
         if args.json:
-            print(json.dumps({"report": report, "wake_result": wake_result}, indent=2))
+            print(json.dumps({"report": report, "wake_result": wake_result, "promote_result": promote_result}, indent=2))
         else:
-            print(f"candidate={candidate_envelope.decision_id} wake_required={report['wake_required']} reasons={','.join(report['reasons'])}")
+            extra = f" auto_promoted={promote_result['decision_id']}" if promote_result else ""
+            print(f"candidate={candidate_envelope.decision_id} wake_required={report['wake_required']} reasons={','.join(report['reasons'])}{extra}")
         return 0
 
 
@@ -992,6 +1073,74 @@ def validate_candidate_envelope(envelope: Any) -> list[str]:
     return errors
 
 
+def promote_envelope_payload(
+    *,
+    envelope: Any,
+    candidate_path: Path,
+    cycle_state: dict[str, Any],
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    if not dry_run:
+        payload = read_json(candidate_path, {})
+        write_json(DECISION_LATEST_PATH, payload)
+    cycle_state["consecutive_promote_failures"] = 0
+    cycle_state["last_promoted_at"] = iso_now()
+    cycle_state["last_promoted_decision_id"] = envelope.decision_id
+    cycle_state["last_promote_error"] = None
+    write_json(QUANT_CYCLE_STATE_PATH, cycle_state)
+
+    if envelope.trading_state == "halted":
+        maybe_open_incident(
+            code="trading_state_halted",
+            title="PMM: promoted envelope halted trading",
+            description=(
+                "A promoted DecisionEnvelope explicitly halted live trading.\n\n"
+                f"Envelope: {DECISION_LATEST_PATH}\n"
+                f"Decision reason: {envelope.decision_reason or '(none)'}"
+            ),
+            cycle_state=cycle_state,
+            dry_run=dry_run,
+        )
+
+    return {
+        "ok": True,
+        "decision_id": envelope.decision_id,
+        "trading_state": envelope.trading_state,
+        "decision_scope": envelope.decision_scope,
+        "latest_path": str(DECISION_LATEST_PATH),
+    }
+
+
+def should_auto_promote_candidate(
+    *,
+    current_envelope: Any | None,
+    candidate_envelope: Any,
+    report: dict[str, Any],
+    runtime_state: dict[str, Any],
+) -> tuple[bool, str]:
+    if current_envelope is None:
+        return True, "no_promoted_envelope"
+
+    current_decision_id = str(getattr(current_envelope, "decision_id", "") or "")
+    if current_decision_id == candidate_envelope.decision_id:
+        return False, "already_promoted"
+
+    current_trading_state = str(getattr(current_envelope, "trading_state", "") or "")
+    candidate_trading_state = str(getattr(candidate_envelope, "trading_state", "") or "")
+    if current_trading_state != "active" and candidate_trading_state == "active":
+        return True, "candidate_restores_active_trading"
+
+    current_expires_at = getattr(current_envelope, "expires_at", None)
+    if current_expires_at and current_expires_at - utcnow() <= timedelta(minutes=15):
+        return True, "current_envelope_expiring"
+
+    runtime_status = str(runtime_state.get("status", "") or "")
+    if runtime_status == "halted":
+        return True, "runtime_halted"
+
+    return False, "healthy_current_envelope"
+
+
 def cmd_promote(args: argparse.Namespace) -> int:
     with file_lock(QUANT_PROMOTE_LOCK):
         cycle_state = read_json(QUANT_CYCLE_STATE_PATH, {}) or {}
@@ -1030,35 +1179,12 @@ def cmd_promote(args: argparse.Namespace) -> int:
                 print(",".join(errors))
             return 1
 
-        if not args.dry_run:
-            payload = read_json(candidate_path, {})
-            write_json(DECISION_LATEST_PATH, payload)
-        cycle_state["consecutive_promote_failures"] = 0
-        cycle_state["last_promoted_at"] = iso_now()
-        cycle_state["last_promoted_decision_id"] = envelope.decision_id
-        cycle_state["last_promote_error"] = None
-        write_json(QUANT_CYCLE_STATE_PATH, cycle_state)
-
-        if envelope.trading_state == "halted":
-            maybe_open_incident(
-                code="trading_state_halted",
-                title="PMM: promoted envelope halted trading",
-                description=(
-                    "A promoted DecisionEnvelope explicitly halted live trading.\n\n"
-                    f"Envelope: {DECISION_LATEST_PATH}\n"
-                    f"Decision reason: {envelope.decision_reason or '(none)'}"
-                ),
-                cycle_state=cycle_state,
-                dry_run=args.dry_run,
-            )
-
-        payload = {
-            "ok": True,
-            "decision_id": envelope.decision_id,
-            "trading_state": envelope.trading_state,
-            "decision_scope": envelope.decision_scope,
-            "latest_path": str(DECISION_LATEST_PATH),
-        }
+        payload = promote_envelope_payload(
+            envelope=envelope,
+            candidate_path=candidate_path,
+            cycle_state=cycle_state,
+            dry_run=args.dry_run,
+        )
         if args.json:
             print(json.dumps(payload, indent=2))
         else:
@@ -1221,6 +1347,13 @@ def cmd_supervisor(args: argparse.Namespace) -> int:
                 action="halt_missing_or_invalid_latest",
                 action_result={"error": latest_error, **stop_result},
             )
+            if not args.dry_run:
+                write_stale_live_state(
+                    reason="halt_missing_or_invalid_latest",
+                    runtime_status="halted",
+                    desired_envelope=None,
+                    applied_envelope=applied_envelope,
+                )
             write_json(PMM_RUNTIME_STATE_PATH, payload)
             cycle_state["runner_down_since"] = cycle_state.get("runner_down_since") or iso_now()
             write_json(QUANT_CYCLE_STATE_PATH, cycle_state)
@@ -1236,14 +1369,25 @@ def cmd_supervisor(args: argparse.Namespace) -> int:
                 stop_result = {"dry_run": True, "would_stop_pid": pid}
             elif running and pid:
                 stop_result = stop_runner(pid, timeout_seconds=args.stop_timeout)
+            if not args.dry_run:
+                write_json(DECISION_APPLIED_PATH, read_json(DECISION_LATEST_PATH, {}))
+                cycle_state["last_applied_decision_id"] = latest_envelope.decision_id
+                cycle_state["last_applied_at"] = iso_now()
             payload = runtime_payload(
                 status=latest_envelope.trading_state,
                 config_path=config_path,
                 desired_envelope=latest_envelope,
-                applied_envelope=applied_envelope,
+                applied_envelope=latest_envelope,
                 action="enforce_non_active_trading_state",
                 action_result=stop_result,
             )
+            if not args.dry_run:
+                write_stale_live_state(
+                    reason=latest_envelope.decision_reason or "non_active_trading_state",
+                    runtime_status=latest_envelope.trading_state,
+                    desired_envelope=latest_envelope,
+                    applied_envelope=latest_envelope,
+                )
             write_json(PMM_RUNTIME_STATE_PATH, payload)
             if latest_envelope.trading_state == "halted":
                 maybe_open_incident(
@@ -1402,6 +1546,13 @@ def cmd_supervisor(args: argparse.Namespace) -> int:
             action="apply_failed",
             action_result={"stop": stop_result, "start": start_result, "wait": wait_result, "rollback": rollback_result},
         )
+        if not args.dry_run:
+            write_stale_live_state(
+                reason="apply_failed",
+                runtime_status="halted",
+                desired_envelope=latest_envelope,
+                applied_envelope=applied_envelope,
+            )
         write_json(PMM_RUNTIME_STATE_PATH, payload)
         write_json(QUANT_CYCLE_STATE_PATH, cycle_state)
         if args.json:
@@ -1473,8 +1624,8 @@ def build_parser() -> argparse.ArgumentParser:
     supervisor.add_argument("--dry-run", action="store_true")
     supervisor.add_argument("--json", action="store_true")
 
-    wake = sub.add_parser("wake", help="Wake Quant or Luna via gateway call agent")
-    wake.add_argument("--target", choices=["quant", "luna"], default="quant")
+    wake = sub.add_parser("wake", help="Wake Quant, Crypto-Sage, or Luna via gateway call agent")
+    wake.add_argument("--target", default="quant")
     wake.add_argument("--reason", type=str, default=None)
     wake.add_argument("--message", type=str, default=None)
     wake.add_argument("--idempotency-key", type=str, default=None)

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 CANONICAL_STATUSES = {
@@ -47,7 +48,7 @@ STATUS_ALIASES = {
 DISPATCH_POLICIES = {"auto", "backlog", "human_hold"}
 WORKFLOWS = {"direct_exec", "dev_loop_v1"}
 PHASE_STATES = {"pending", "claimed", "completed", "rejected"}
-CARD_TYPES = {"project", "milestone", "workstream", "leaf_task", "review_bundle"}
+CARD_TYPES = {"project", "milestone", "workstream", "leaf_task", "review_bundle", "repair_bundle"}
 CARD_TYPE_ALIASES = {
     "project": "project",
     "milestone": "milestone",
@@ -57,12 +58,15 @@ CARD_TYPE_ALIASES = {
     "leaf-task": "leaf_task",
     "review_bundle": "review_bundle",
     "review-bundle": "review_bundle",
+    "repair_bundle": "repair_bundle",
+    "repair-bundle": "repair_bundle",
 }
 GENERATION_MODES = {"manual", "autonomy"}
-LANES = {"ambient", "project", "review"}
+LANES = {"ambient", "project", "review", "repair"}
 DELIVERY_STATES = {"queued", "dispatched", "linked", "in_progress", "review", "done"}
 CHAIRMAN_STATES = {"planned", "active", "steering", "approved", "paused", "completed", "terminated"}
-NON_EXECUTABLE_CARD_TYPES = {"project", "milestone", "workstream"}
+NON_EXECUTABLE_CARD_TYPES = {"project", "milestone", "workstream", "repair_bundle"}
+REPAIR_STATES = {"open", "diagnosing", "repairing", "validating", "resolved", "failed"}
 
 LUNA_REVIEW_PHASES = {
     "luna_task_planning",
@@ -248,6 +252,15 @@ def normalize_chairman_state(value: Any, default: str = "planned") -> str:
     return text if text in CHAIRMAN_STATES else default
 
 
+def normalize_repair_state(value: Any, default: str = "open") -> str:
+    if value is None:
+        return default
+    text = str(value).strip().lower().replace("-", "_")
+    if not text:
+        return default
+    return text if text in REPAIR_STATES else default
+
+
 def task_card_type(task: dict[str, Any]) -> str:
     return normalize_card_type(task_fields(task).get("mc_card_type"), default="leaf_task")
 
@@ -283,6 +296,10 @@ def task_generation_key(task: dict[str, Any]) -> str:
     return ""
 
 
+def task_gate_reason(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_gate_reason") or "").strip()
+
+
 def task_budget_scope(task: dict[str, Any]) -> str:
     fields = task_fields(task)
     value = str(fields.get("mc_budget_scope") or "").strip()
@@ -291,6 +308,37 @@ def task_budget_scope(task: dict[str, Any]) -> str:
     if task_project_id(task):
         return "project"
     return "task"
+
+
+def task_review_agent(task: dict[str, Any], default: str = "luna-judge") -> str:
+    explicit = str(task_fields(task).get("mc_review_agent") or "").strip().lower()
+    if explicit:
+        return explicit
+    if task_card_type(task) == "review_bundle":
+        return default
+    if task_phase_owner(task) == "luna":
+        return default
+    return default
+
+
+def task_repair_bundle_id(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_repair_bundle_id") or "").strip()
+
+
+def task_repair_source_task_id(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_repair_source_task_id") or "").strip()
+
+
+def task_repair_reason(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_repair_reason") or "").strip()
+
+
+def task_repair_fingerprint(task: dict[str, Any]) -> str:
+    return str(task_fields(task).get("mc_repair_fingerprint") or "").strip()
+
+
+def task_repair_state(task: dict[str, Any], default: str = "") -> str:
+    return normalize_repair_state(task_fields(task).get("mc_repair_state"), default=default)
 
 
 def task_chairman_state(task: dict[str, Any]) -> str:
@@ -358,14 +406,62 @@ def task_delivery_state(task: dict[str, Any]) -> str:
     return "queued"
 
 
+def is_governance_card(task: dict[str, Any]) -> bool:
+    return task_card_type(task) in NON_EXECUTABLE_CARD_TYPES
+
+
+def is_repair_bundle(task: dict[str, Any]) -> bool:
+    return task_card_type(task) == "repair_bundle"
+
+
+def is_execution_task(task: dict[str, Any]) -> bool:
+    return task_card_type(task) == "leaf_task"
+
+
+def is_running_execution_task(task: dict[str, Any]) -> bool:
+    if not is_execution_task(task):
+        return False
+    if task_status(task) != "in_progress":
+        return False
+    if task_gate_reason(task):
+        return False
+    if task_delivery_state(task) in {"queued", "done"}:
+        return False
+    return True
+
+
+def requires_session_link(task: dict[str, Any]) -> bool:
+    return is_running_execution_task(task)
+
+
+def is_actionable_review_task(task: dict[str, Any]) -> bool:
+    if task_status(task) != "review":
+        return False
+    card_type = task_card_type(task)
+    if card_type == "review_bundle":
+        return True
+    if card_type != "leaf_task":
+        return False
+    workflow = task_workflow(task)
+    if workflow == "dev_loop_v1":
+        return task_phase(task) in LUNA_REVIEW_PHASES and task_phase_owner(task) == "luna"
+    return True
+
+
 def task_lane(task: dict[str, Any]) -> str:
     fields = task_fields(task)
+    if task_card_type(task) == "repair_bundle":
+        return "repair"
+    if task_repair_bundle_id(task):
+        if task_card_type(task) == "review_bundle":
+            return "review"
+        return "repair"
     explicit = normalize_lane(fields.get("mc_lane"), default="")
     if explicit:
         return explicit
-    if task_status(task) == "review" or task_card_type(task) == "review_bundle":
+    if is_actionable_review_task(task):
         return "review"
-    if task_card_type(task) in NON_EXECUTABLE_CARD_TYPES:
+    if is_governance_card(task):
         return "project"
     if task_project_id(task) or task_milestone_id(task) or task_workstream_id(task):
         return "project"
@@ -394,6 +490,10 @@ def is_leaf_task(task: dict[str, Any]) -> bool:
 def is_executable_leaf_task(task: dict[str, Any]) -> bool:
     if not is_leaf_task(task):
         return False
+    if task_gate_reason(task):
+        return False
+    if task_lane(task) == "repair":
+        return bool(task_execution_owner(task) and task_acceptance_criteria(task) and task_qa_checks(task) and task_expected_artifacts(task))
     if not task_project_id(task) or not task_milestone_id(task) or not task_workstream_id(task):
         return False
     if not task_execution_owner(task):
@@ -407,8 +507,22 @@ def is_executable_leaf_task(task: dict[str, Any]) -> bool:
     return True
 
 
+def is_ready_to_run(task: dict[str, Any]) -> bool:
+    if not is_execution_task(task):
+        return False
+    if task_status(task) != "inbox":
+        return False
+    if task_dispatch_policy(task) != "auto":
+        return False
+    if task_gate_reason(task):
+        return False
+    if task_lane(task) in {"project", "repair"}:
+        return is_executable_leaf_task(task)
+    return True
+
+
 def is_luna_review_task(task: dict[str, Any]) -> bool:
-    return task_status(task) == "review" and task_phase_owner(task) == "luna"
+    return is_actionable_review_task(task) and task_phase_owner(task) == "luna"
 
 
 def is_claim_active(task: dict[str, Any], now: datetime | None = None) -> bool:
@@ -480,12 +594,87 @@ def base_phase_fields(task: dict[str, Any]) -> dict[str, Any]:
     fields.setdefault("mc_attempt", task_attempt(task))
     fields.setdefault("mc_budget_scope", task_budget_scope(task))
     fields.setdefault("mc_chairman_state", task_chairman_state(task))
+    if fields.get("mc_review_agent") or task_card_type(task) in {"review_bundle", "repair_bundle"} or task_phase_owner(task) == "luna":
+        fields.setdefault("mc_review_agent", task_review_agent(task))
+    if (
+        task_card_type(task) == "repair_bundle"
+        or task_repair_bundle_id(task)
+        or task_repair_source_task_id(task)
+        or task_repair_fingerprint(task)
+    ):
+        fields.setdefault("mc_repair_bundle_id", task_repair_bundle_id(task) or None)
+        fields.setdefault("mc_repair_source_task_id", task_repair_source_task_id(task) or None)
+        fields.setdefault("mc_repair_reason", task_repair_reason(task) or None)
+        fields.setdefault("mc_repair_fingerprint", task_repair_fingerprint(task) or None)
+        fields.setdefault("mc_repair_state", task_repair_state(task, default="open"))
     return fields
 
 
 def plan_artifact_path(task_id: str, phase: str) -> str:
     safe_phase = phase.replace("/", "-")
     return f"artifacts/mc/{task_id[:8]}-{safe_phase}.md"
+
+
+def extract_session_key_from_agent_result(payload_text: str, agent: str = "") -> str:
+    def emit_first(value: Any) -> str:
+        return value if isinstance(value, str) and value else ""
+
+    def first_match(value: Any) -> str:
+        if not isinstance(value, str):
+            return ""
+        for pattern in (
+            r"DISPATCHED\s+session=([a-zA-Z0-9:_-]+)",
+            r"session=([a-zA-Z0-9:_-]+)",
+            r"session[:=]{1}([a-zA-Z0-9:_-]+)",
+        ):
+            match = re.search(pattern, value)
+            if match:
+                return match.group(1)
+        return ""
+
+    try:
+        payload = json.loads(payload_text or "{}")
+    except Exception:
+        return ""
+
+    result = payload.get("result") if isinstance(payload, dict) else {}
+    for key in ("sessionKey", "session_id", "sessionId", "session", "targetSession"):
+        value = emit_first(result.get(key) if isinstance(result, dict) else "")
+        if value:
+            return value
+        value = emit_first(payload.get(key) if isinstance(payload, dict) else "")
+        if value:
+            return value
+
+    payloads = []
+    if isinstance(result, dict):
+        payloads.extend(result.get("payloads") or [])
+    if isinstance(payload, dict):
+        payloads.extend(payload.get("payloads") or [])
+
+    for item in payloads:
+        if not isinstance(item, dict):
+            continue
+        for field in ("text", "message"):
+            extracted = first_match(item.get(field))
+            if extracted:
+                return extracted
+
+    for parent in (payload, result if isinstance(result, dict) else {}):
+        report = parent.get("systemPromptReport") if isinstance(parent, dict) else {}
+        value = emit_first((report or {}).get("sessionKey"))
+        if value:
+            return value
+        meta = parent.get("meta") if isinstance(parent, dict) else {}
+        if isinstance(meta, dict):
+            report = meta.get("systemPromptReport") or {}
+            value = emit_first((report or {}).get("sessionKey"))
+            if value:
+                return value
+
+    if agent == "main":
+        return "agent:main:main"
+    return ""
 
 
 def build_phase_update(task: dict[str, Any], phase: str, *, status: str | None = None,
@@ -670,6 +859,9 @@ def load_metrics(metrics_path: str | Path) -> dict[str, Any]:
             "heartbeat_runs": 0,
             "tasks_dispatched": 0,
             "review_claims": 0,
+            "actionable_review_claims": 0,
+            "ignored_governance_reviews": 0,
+            "governance_repair_actions": 0,
             "queue_items_written": 0,
             "queue_items_deduped": 0,
             "queue_items_completed": 0,

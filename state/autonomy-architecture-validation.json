@@ -1,0 +1,207 @@
+{
+  "generated_at": "2026-03-07T08:25:11Z",
+  "overall_status": "PASS",
+  "summary": {
+    "passed": 13,
+    "warnings": 2,
+    "failed": 0,
+    "active_project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "active_milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda"
+  },
+  "active_project": {
+    "id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "title": "Grow Luna X account by +200 followers",
+    "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
+    "milestone_title": "M0 Session Recovery + Baseline + Charter",
+    "workstream_ids": [
+      "0a7aac3a-62a3-4d56-afff-9c34449091f4",
+      "c2dad9a4-6952-4593-b505-62f8617ed604",
+      "f71aaca0-06e5-400a-9282-7785b5ae126c"
+    ],
+    "default_review_agent": "luna-judge"
+  },
+  "scheduler": {
+    "last_tick": "2026-03-07T08:25:11Z",
+    "mode": "full",
+    "health_state": "healthy",
+    "slots_total": 4,
+    "eligible_by_lane": {
+      "repair": 4,
+      "review": 0,
+      "project": 0,
+      "ambient": 0
+    },
+    "running_by_lane": {
+      "repair": 4,
+      "review": 0,
+      "project": 0,
+      "ambient": 0
+    },
+    "reserved_slots": {
+      "repair": 1,
+      "review": 0,
+      "project": 0,
+      "ambient": 0
+    },
+    "dispatch_decision": {
+      "type": "idle",
+      "lane": "",
+      "task_id": "",
+      "status": ""
+    },
+    "blocked_reasons": [
+      "repair: capacity full (4/4) while eligible=4"
+    ],
+    "shadow_diff_vs_legacy": [],
+    "generated_at": "2026-03-07T08:25:11Z"
+  },
+  "autonomy_runtime": {
+    "last_tick": "2026-03-07T08:25:11Z",
+    "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
+    "workstream_ids": [
+      "c2dad9a4-6952-4593-b505-62f8617ed604",
+      "0a7aac3a-62a3-4d56-afff-9c34449091f4",
+      "f71aaca0-06e5-400a-9282-7785b5ae126c"
+    ],
+    "reason": "window_full",
+    "lane_budget": {
+      "capacity": 4,
+      "floor": 1,
+      "cap": 2,
+      "target": 2,
+      "allow_burst": true
+    },
+    "current_window": 3,
+    "planned_actions": []
+  },
+  "artifacts": {
+    "board_packet": "/home/openclaw/.openclaw/workspace/artifacts/reports/autonomy-board-packet-latest.md",
+    "outcome": "/home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/scorecard-latest.json",
+    "session-health-latest.json": "/home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/session-health-latest.json",
+    "baseline-latest.json": "/home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/baseline-latest.json",
+    "board-packet-latest.md": "/home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/board-packet-latest.md"
+  },
+  "checks": [
+    {
+      "id": "active_project_present",
+      "title": "Active project detected",
+      "status": "PASS",
+      "summary": "Active project `3a0d8492` with chairman_state=`active`.",
+      "evidence": [
+        "project=Grow Luna X account by +200 followers",
+        "milestone=M0 Session Recovery + Baseline + Charter"
+      ]
+    },
+    {
+      "id": "governance_not_in_review",
+      "title": "Governance stays out of review",
+      "status": "PASS",
+      "summary": "No governance card is currently in `review`.",
+      "evidence": []
+    },
+    {
+      "id": "governance_not_claimed",
+      "title": "Governance is never claim-driven",
+      "status": "PASS",
+      "summary": "No governance card has an active lease/claim.",
+      "evidence": []
+    },
+    {
+      "id": "review_queue_actionable_only",
+      "title": "Review queue contains only actionable work",
+      "status": "PASS",
+      "summary": "Every card in `review` is actionable by the judge/runtime.",
+      "evidence": []
+    },
+    {
+      "id": "judge_not_using_main",
+      "title": "Judge runtime never falls back to main",
+      "status": "PASS",
+      "summary": "No legacy judge dispatch to `main` was recorded.",
+      "evidence": []
+    },
+    {
+      "id": "review_sessions_not_on_main",
+      "title": "Review sessions avoid main",
+      "status": "PASS",
+      "summary": "No review card is linked to `main`.",
+      "evidence": []
+    },
+    {
+      "id": "auto_dispatch_not_on_main",
+      "title": "Auto execution never lands on main",
+      "status": "PASS",
+      "summary": "No auto-dispatched execution is linked to `main`.",
+      "evidence": []
+    },
+    {
+      "id": "scheduler_state_fresh",
+      "title": "Scheduler state is fresh",
+      "status": "PASS",
+      "summary": "Scheduler state updated 0 minute(s) ago.",
+      "evidence": []
+    },
+    {
+      "id": "scheduler_mode_live",
+      "title": "Scheduler v2 is active",
+      "status": "PASS",
+      "summary": "Scheduler mode is `full`.",
+      "evidence": []
+    },
+    {
+      "id": "repair_lane_served",
+      "title": "Repair lane receives capacity",
+      "status": "PASS",
+      "summary": "Repair work has live capacity via running tasks or the current dispatch decision.",
+      "evidence": [
+        "{\"dispatch\": {\"lane\": \"\", \"status\": \"\", \"task_id\": \"\", \"type\": \"idle\"}, \"eligible\": 4, \"running\": 4}"
+      ]
+    },
+    {
+      "id": "project_lane_coexists_with_ambient",
+      "title": "Project lane coexists with ambient",
+      "status": "WARN",
+      "summary": "Current snapshot does not exercise ambient+project contention at the same time.",
+      "evidence": [
+        "{\"ambient_running\": 0, \"project_eligible\": 0}"
+      ]
+    },
+    {
+      "id": "autonomy_runtime_consistent",
+      "title": "Autonomy runtime matches MC active scope",
+      "status": "PASS",
+      "summary": "Runtime state matches the active project, milestone and workstream window.",
+      "evidence": [
+        "runtime_project=3a0d8492",
+        "runtime_milestone=fed0a72b",
+        "runtime_workstreams=0a7aac3a,c2dad9a4,f71aaca0"
+      ]
+    },
+    {
+      "id": "repair_bundles_integrity",
+      "title": "Repair bundles stay executable",
+      "status": "PASS",
+      "summary": "All 26 open repair bundle(s) have executable children and live work.",
+      "evidence": []
+    },
+    {
+      "id": "repair_gates_valid",
+      "title": "Repair-gated tasks point to live bundles",
+      "status": "PASS",
+      "summary": "All 21 repair-gated task(s) reference open repair bundles.",
+      "evidence": []
+    },
+    {
+      "id": "project_artifacts_fresh",
+      "title": "Project artifacts exist and are fresh",
+      "status": "WARN",
+      "summary": "Required artifacts are healthy, but optional project artifacts are missing or stale.",
+      "evidence": [
+        "session-health-latest.json: stale (1690 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/session-health-latest.json",
+        "baseline-latest.json: stale (1689 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/baseline-latest.json"
+      ]
+    }
+  ],
+  "pytest": null
+}

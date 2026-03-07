@@ -646,6 +646,15 @@ class QuoteEngine:
                     available_qty = position.qty_no
 
                 if available_qty > _ZERO and available_qty < s.size:
+                    if available_qty < min_order_size:
+                        logger.debug(
+                            "quote_engine.ask_filtered_subminimum_position",
+                            token=s.token.value,
+                            available=str(available_qty),
+                            min_order_size=str(min_order_size),
+                        )
+                        continue
+
                     # Partial: resize to what we have
                     s = QuoteSlice(
                         side=s.side,
@@ -774,7 +783,7 @@ class QuoteEngine:
                 sell_price = self._clamp_price(sell_price)
                 if sell_price is not None and sell_price > _ZERO:
                     sell_size = position.qty_yes
-                    if sell_size >= min_order_size or sell_size > _ZERO:
+                    if sell_size >= min_order_size:
                         slices.append(
                             QuoteSlice(
                                 side=QuoteSide.ASK,
@@ -801,7 +810,7 @@ class QuoteEngine:
                 sell_price = self._clamp_price(sell_price)
                 if sell_price is not None and sell_price > _ZERO:
                     sell_size = position.qty_no
-                    if sell_size >= min_order_size or sell_size > _ZERO:
+                    if sell_size >= min_order_size:
                         slices.append(
                             QuoteSlice(
                                 side=QuoteSide.ASK,

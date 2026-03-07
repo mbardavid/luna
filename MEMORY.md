@@ -128,6 +128,7 @@
 ## 2026-03-02 (tarde)
 
 - **A2A Task Lifecycle implementado:** 5 artifacts persistentes por task (specs, plan, plan-review, completion, qa-review) + metadata.json. Script `mc-lifecycle.sh` com 5 gates de enforcement. Documentado em `docs/a2a-task-lifecycle.md`.
+
 - **Completion report estruturado obrigatório:** Luan deve incluir bloco `COMPLETION_STATUS: complete` parseável. Luna's automation depende disso.
 - **QA Review reforçado:** Luna deve inspecionar 2+ arquivos modificados + rodar verification checks ela mesma. Não basta ler o report.
 - **Unify runners DONE:** `runner/` package com VenueAdapter + WalletAdapter ABCs + UnifiedTradingPipeline. 764 testes (47 novos). `python3 -m runner --mode paper|live`.
@@ -162,3 +163,9 @@
 ## 2026-03-06
 
 - **Browser tool depende de Chromium/Chrome disponível no host**: healthcheck reportou falha do `browser` tool quando não há binário suportado; mitigação é instalar Chromium/Google Chrome ou configurar `browser.executablePath` para um executável existente.
+
+## 2026-03-07
+
+- **Safe-restart pode ficar silencioso quando a camada de notificação falha.** Hoje `openclaw message send` para Discord deu timeout (8s) durante restart automático; é preciso ter retry/backoff e/ou artifact local (audit trail) para não perder visibilidade.
+- **Recovery pós-restart pode rebaixar múltiplas tasks de `in_progress`→`inbox`** (10 em lote), exigindo workflow explícito de triagem/dedupe para evitar loops de re-dispatch.
+- **Sinal crítico de saúde:** heartbeat-v3 iniciou ciclo com `gateway unreachable (timeout 15s)` — runbook mínimo de diagnóstico deve existir para restaurar operação com baixa ambiguidade.

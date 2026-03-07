@@ -115,7 +115,7 @@ print(json.dumps({
 }))
 PY
 )
-    curl -s -X PATCH "$MC_API_URL/api/v1/tasks/$task_id" \
+    curl -s -X PATCH "$MC_API_URL/api/v1/boards/$MC_BOARD_ID/tasks/$task_id" \
         -H "Authorization: Bearer $MC_API_TOKEN" \
         -H "Content-Type: application/json" \
         -d "$payload" > /dev/null 2>&1 || true
@@ -129,7 +129,7 @@ if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
     CLI_AGENT="$AGENT"
     CLI_TASK="$TASK"
     CLI_TITLE="$TITLE"
-    MC_DATA=$(curl -s "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \
+    MC_DATA=$(curl -s "$MC_API_URL/api/v1/boards/$MC_BOARD_ID/tasks/$MC_TASK_ID" \
         -H "Authorization: Bearer $MC_API_TOKEN" 2>/dev/null)
 
     if [ -n "$MC_DATA" ]; then
@@ -216,7 +216,7 @@ fi
 if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
     _CURRENT_STATUS="${_MC_STATUS:-}"
     if [ -z "$_CURRENT_STATUS" ]; then
-        _CURRENT_STATUS=$(curl -s "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \
+        _CURRENT_STATUS=$(curl -s "$MC_API_URL/api/v1/boards/$MC_BOARD_ID/tasks/$MC_TASK_ID" \
             -H "Authorization: Bearer $MC_API_TOKEN" 2>/dev/null \
             | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null) || _CURRENT_STATUS=""
     fi
@@ -224,7 +224,7 @@ if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
     if [ "$_CURRENT_STATUS" = "review" ]; then
         log "MC task $MC_TASK_ID stays in review (review tasks are not moved to in_progress)"
     else
-        curl -s -X PATCH "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \
+        curl -s -X PATCH "$MC_API_URL/api/v1/boards/$MC_BOARD_ID/tasks/$MC_TASK_ID" \
             -H "Authorization: Bearer $MC_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"status":"in_progress"}' > /dev/null 2>&1 || true
@@ -233,11 +233,40 @@ if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
 fi
 
 # ─── Dispatch via openclaw agent ────────────────────────────────────────────
+DISPATCH_TARGET_AGENT="dispatcher"
 DISPATCH_MSG="DISPATCH agent=$AGENT\n---\n$TASK"
-log "Sending to dispatcher → $AGENT (timeout: ${TIMEOUT}s)..."
+DISPATCH_MODE="dispatcher"
+
+case "$AGENT" in
+    luan|crypto-sage|quant-strategist)
+        ;;
+    *)
+        DISPATCH_TARGET_AGENT="$AGENT"
+        DISPATCH_MODE="direct"
+        ;;
+esac
+
+if [ "$DISPATCH_MODE" = "direct" ]; then
+    DIRECT_HEADER="Mission Control direct dispatch."
+    if [ "$AGENT" = "main" ]; then
+        DIRECT_HEADER="Mission Control direct dispatch for Luna main session."
+    fi
+    DISPATCH_MSG=$(cat <<EOF
+$DIRECT_HEADER
+
+Title: $TITLE
+MC Task ID: ${MC_TASK_ID:-none}
+
+$TASK
+EOF
+)
+    log "Sending direct dispatch → $AGENT (timeout: ${TIMEOUT}s)..."
+else
+    log "Sending to dispatcher → $AGENT (timeout: ${TIMEOUT}s)..."
+fi
 
 set +e
-RESULT=$($OPENCLAW_BIN agent --agent "dispatcher" --message "$DISPATCH_MSG" --timeout "$TIMEOUT" --json 2>&1)
+RESULT=$($OPENCLAW_BIN agent --agent "$DISPATCH_TARGET_AGENT" --message "$DISPATCH_MSG" --timeout "$TIMEOUT" --json 2>&1)
 OPENCLAW_RC=$?
 set -e
 
@@ -267,7 +296,7 @@ if [ -z "$ACTION_STATUS" ]; then
     ACTION_STATUS="unknown"
 fi
 
-SESSION_ID=$(python3 - "$RESULT_JSON" <<'PY'
+SESSION_ID=$(python3 - "$RESULT_JSON" "$AGENT" <<'PY'
 import json
 import re
 import sys
@@ -275,7 +304,6 @@ import sys
 def first_match(value):
     if not isinstance(value, str):
         return ""
-    # Prefer explicit dispatch payload marker first (agent:session format).
     for pat in (
         r"DISPATCHED\\s+session=([a-zA-Z0-9:_-]+)",
         r"session=([a-zA-Z0-9:_-]+)",
@@ -287,6 +315,7 @@ def first_match(value):
     return ""
 
 payload_text = sys.argv[1]
+agent = sys.argv[2]
 try:
     payload = json.loads(payload_text)
 except Exception:
@@ -295,42 +324,45 @@ except Exception:
 
 result = payload.get("result") if isinstance(payload, dict) else {}
 
-# 1) Prefer explicit dispatch marker from payload first.
+def emit(value):
+    if isinstance(value, str) and value:
+        print(value)
+        sys.exit(0)
+
 def first_payload_match(items):
     for item in items:
         for field in ("text", "message"):
             value = item.get(field)
             m = re.search(r"DISPATCHED\s+session=([a-zA-Z0-9:_-]+)", str(value))
             if m:
-                print(m.group(1))
-                sys.exit(0)
+                emit(m.group(1))
 
 first_payload_match(result.get("payloads", []) or [])
 first_payload_match(payload.get("payloads", []) if isinstance(payload, dict) else [])
 
-# 2) Structured output (session field)
 for key in ("sessionKey", "session_id", "sessionId", "session", "targetSession"):
-    value = result.get(key)
-    if isinstance(value, str) and value:
-        print(value)
-        sys.exit(0)
+    emit(result.get(key))
+    emit(payload.get(key) if isinstance(payload, dict) else None)
 
-# 3) Fallback: generic extraction from any payload text
+emit((payload.get("systemPromptReport") or {}).get("sessionKey") if isinstance(payload, dict) else None)
+emit((result.get("systemPromptReport") or {}).get("sessionKey") if isinstance(result, dict) else None)
+emit((((payload.get("meta") or {}) if isinstance(payload, dict) else {}).get("systemPromptReport") or {}).get("sessionKey"))
+emit((((result.get("meta") or {}) if isinstance(result, dict) else {}).get("systemPromptReport") or {}).get("sessionKey"))
+
 for item in result.get("payloads", []) or []:
     for field in ("text", "message"):
-        value = item.get(field)
-        extracted = first_match(str(value))
+        extracted = first_match(str(item.get(field)))
         if extracted:
-            print(extracted)
-            sys.exit(0)
+            emit(extracted)
 
 for item in payload.get("payloads", []) if isinstance(payload, dict) else []:
     for field in ("text", "message"):
-        value = item.get(field)
-        extracted = first_match(str(value))
+        extracted = first_match(str(item.get(field)))
         if extracted:
-            print(extracted)
-            sys.exit(0)
+            emit(extracted)
+
+if agent == "main":
+    emit("agent:main:main")
 
 print("")
 PY
@@ -362,7 +394,8 @@ is_review = sys.argv[2] == "1"
 payload = {
     "custom_field_values": {
         "mc_session_key": session,
-        "mc_last_error": ""
+        "mc_last_error": "",
+        "mc_delivery_state": "linked"
     },
     "comment": "[heartbeat-v3] dispatcher linked target session",
 }
@@ -371,7 +404,7 @@ if not is_review:
 print(json.dumps(payload))
 PY
 )
-    if ! curl -s -X PATCH "$MC_API_URL/api/v1/tasks/$MC_TASK_ID" \
+    if ! curl -s -X PATCH "$MC_API_URL/api/v1/boards/$MC_BOARD_ID/tasks/$MC_TASK_ID" \
         -H "Authorization: Bearer $MC_API_TOKEN" \
         -H "Content-Type: application/json" \
         -d "$PAYLOAD" > /dev/null 2>&1; then

@@ -155,6 +155,30 @@ async function writeArtifacts(outputPath, payload, heading) {
   await fs.writeFile(markdownPath, `${lines.join('\n')}\n`, 'utf8');
 }
 
+async function loadLatestKnownProfileUrl() {
+  const candidates = [
+    path.join(OUTPUT_DIR, 'profile-snapshot-latest.json'),
+    path.join(OUTPUT_DIR, 'baseline-latest.json'),
+    path.join(OUTPUT_DIR, 'session-health-latest.json'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const payload = JSON.parse(await fs.readFile(candidate, 'utf8'));
+      const accountUrl = String(payload?.account?.profile_url || '').trim();
+      const profileUrl = String(payload?.profile_url || '').trim();
+      if (accountUrl) {
+        return accountUrl;
+      }
+      if (profileUrl) {
+        return profileUrl;
+      }
+    } catch {
+      // Ignore missing or malformed artifacts.
+    }
+  }
+  return '';
+}
+
 async function launchContext() {
   const launchOptions = {
     headless: true,
@@ -351,7 +375,13 @@ async function captureSnapshot(commandArgs, mode) {
       return { payload, exitCode: 2, outputPath };
     }
 
-    const profileUrl = String(commandArgs['profile-url'] || process.env.LUNA_X_PROFILE_URL || session.profile_url || '').trim();
+    const profileUrl = String(
+      commandArgs['profile-url']
+      || process.env.LUNA_X_PROFILE_URL
+      || session.profile_url
+      || await loadLatestKnownProfileUrl()
+      || ''
+    ).trim();
     if (!profileUrl) {
       throw new Error('unable to determine Luna profile url from active session');
     }

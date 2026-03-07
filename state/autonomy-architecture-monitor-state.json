@@ -1,0 +1,16 @@
+{
+  "last_run_at": "2026-03-07T08:25:11Z",
+  "last_source": "heartbeat-v3",
+  "last_overall_status": "PASS",
+  "last_regressions": {
+    "project_artifacts_fresh": {
+      "status": "WARN",
+      "summary": "Required artifacts are healthy, but optional project artifacts are missing or stale."
+    }
+  },
+  "last_regression_fingerprint": "465990ae4cc3688e32e343f20f1a46b87ee1a253",
+  "last_notification_kind": "none",
+  "last_alert_at": "2026-03-07T07:30:20Z",
+  "last_recovery_at": "2026-03-07T04:00:21Z",
+  "last_notified_channels": []
+}

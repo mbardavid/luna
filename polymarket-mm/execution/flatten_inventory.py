@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import copy
+import hashlib
+import hmac
 import json
 import os
+import secrets
+import subprocess
+import tempfile
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
@@ -19,6 +26,9 @@ from web3_infra.ctf_adapter import CTFAdapter, CTFAdapterConfig
 from web3_infra.rpc_manager import RPCManager
 
 PROJECT_ROOT = Path("/home/openclaw/.openclaw/workspace/polymarket-mm")
+CRYPTO_SAGE_ROOT = Path("/home/openclaw/.openclaw/workspace-crypto-sage")
+CRYPTO_SAGE_CLI = CRYPTO_SAGE_ROOT / "src" / "cli.mjs"
+CRYPTO_SAGE_POLICY = CRYPTO_SAGE_ROOT / "config" / "policy.ctf-live.json"
 SYSTEMD_POLYMARKET_ENV = Path("/home/openclaw/.config/systemd/user/openclaw-gateway.service.d/polymarket-env.conf")
 
 DEFAULT_WALLET_ADDRESS = "0xa1464EB4f86958823b0f24B3CF5Ac2b8134D6bb1"
@@ -152,6 +162,177 @@ async def build_merger(rest_client: CLOBRestClient) -> tuple[RPCManager, CTFMerg
         config=CTFAdapterConfig(max_gas_cost_usd=Decimal("0.25")),
     )
     return rpc, CTFMerger(ctf_adapter=adapter)
+
+
+def _machine_id(prefix: str) -> str:
+    return f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+
+
+def _stable_stringify(value: Any) -> str:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+    if isinstance(value, list):
+        return "[" + ",".join(_stable_stringify(item) for item in value) + "]"
+    if isinstance(value, dict):
+        items = []
+        for key in sorted(value.keys()):
+            items.append(json.dumps(str(key), separators=(",", ":"), ensure_ascii=False) + ":" + _stable_stringify(value[key]))
+        return "{" + ",".join(items) + "}"
+    raise TypeError(f"Unsupported value for stable stringify: {type(value)!r}")
+
+
+def _sign_execution_plane_payload(payload: dict[str, Any], *, key_id: str, secret: str, nonce: str, timestamp: str) -> dict[str, Any]:
+    signed = copy.deepcopy(payload)
+    signed["auth"] = {
+        "scheme": "hmac-sha256-v1",
+        "keyId": key_id,
+        "nonce": nonce,
+        "timestamp": timestamp,
+        "signature": "",
+    }
+    canonical = copy.deepcopy(signed)
+    canonical_auth = canonical.get("auth")
+    if isinstance(canonical_auth, dict):
+        canonical_auth.pop("signature", None)
+    digest = hmac.new(secret.encode("utf-8"), _stable_stringify(canonical).encode("utf-8"), hashlib.sha256).hexdigest()
+    signed["auth"]["signature"] = digest
+    return signed
+
+
+async def delegate_merge_to_crypto_sage(
+    *,
+    condition_id: str,
+    amount: Decimal,
+    neg_risk: bool,
+    token_ids: list[str] | None = None,
+    max_gas_cost_usd: Decimal = Decimal("0.25"),
+    dry_run: bool = False,
+    allow_normal_fallback: bool = True,
+) -> dict[str, Any]:
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    key_id = "pmm-router"
+    secret = secrets.token_hex(32)
+    nonce = _machine_id("pmm-ctf-merge-nonce")
+    payload = {
+        "schemaVersion": "v1",
+        "plane": "execution",
+        "operation": "ctf.merge",
+        "requestId": _machine_id("pmm-ctf-merge"),
+        "correlationId": _machine_id("pmm-flatten"),
+        "idempotencyKey": f"pmm-flatten-{condition_id[-12:]}-{str(q6_down(amount))}",
+        "timestamp": timestamp,
+        "dryRun": dry_run,
+        "intent": {
+            "chain": "polygon",
+            "conditionId": condition_id,
+            "amount": str(q6_down(amount)),
+            "negRisk": bool(neg_risk),
+            "maxGasCostUsd": str(max_gas_cost_usd),
+        },
+    }
+    if token_ids:
+        payload["intent"]["tokenIds"] = token_ids
+    if not dry_run:
+        payload = _sign_execution_plane_payload(payload, key_id=key_id, secret=secret, nonce=nonce, timestamp=timestamp)
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        json.dump(payload, handle, indent=2)
+        handle.flush()
+        payload_path = Path(handle.name)
+
+    try:
+        cmd = [
+            "node",
+            str(CRYPTO_SAGE_CLI),
+            "execute-plane",
+            "--payload-file",
+            str(payload_path),
+            "--policy",
+            str(CRYPTO_SAGE_POLICY),
+        ]
+        if dry_run:
+            cmd.append("--dry-run")
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            cmd,
+            cwd=str(CRYPTO_SAGE_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=180,
+            env={
+                **os.environ.copy(),
+                "A2A_SECURITY_MODE": "enforce",
+                "A2A_ALLOW_UNSIGNED_LIVE": "false",
+                "A2A_HMAC_KEYS_JSON": json.dumps({key_id: secret}),
+            },
+        )
+        stdout = proc.stdout.strip()
+        response: dict[str, Any] = {}
+        if stdout:
+            try:
+                response = json.loads(stdout)
+            except Exception:
+                response = {"ok": False, "stdout": stdout}
+
+        result_block = (response.get("result") or {}) if isinstance(response, dict) else {}
+        merge_block = result_block.get("execution") or result_block.get("preflight") or result_block
+        tx_hashes: list[str] = []
+        if isinstance(merge_block, dict):
+            maybe_tx = merge_block.get("txHash") or merge_block.get("tx_hash")
+            if maybe_tx:
+                tx_hashes.append(str(maybe_tx))
+            receipt = merge_block.get("receipt") or {}
+            receipt_tx = receipt.get("transactionHash")
+            if receipt_tx and str(receipt_tx) not in tx_hashes:
+                tx_hashes.append(str(receipt_tx))
+
+        ok = proc.returncode == 0 and bool(response.get("ok"))
+        error_payload = None if ok else (response.get("error") or proc.stderr.strip() or "crypto_sage_merge_failed")
+        error_code = error_payload.get("code") if isinstance(error_payload, dict) else None
+        error_message = error_payload.get("message") if isinstance(error_payload, dict) else str(error_payload)
+
+        if (
+            not ok
+            and neg_risk
+            and allow_normal_fallback
+            and not dry_run
+            and (
+                error_code == "UNHANDLED_ERROR"
+                or "execution reverted" in error_message.lower()
+            )
+        ):
+            fallback = await delegate_merge_to_crypto_sage(
+                condition_id=condition_id,
+                amount=amount,
+                neg_risk=False,
+                token_ids=token_ids,
+                max_gas_cost_usd=max_gas_cost_usd,
+                dry_run=dry_run,
+                allow_normal_fallback=False,
+            )
+            fallback["fallback_required"] = True
+            fallback["fallback_from"] = "neg_risk"
+            fallback["primary_error"] = error_payload
+            return fallback
+
+        return {
+            "type": "merge",
+            "executor": "crypto-sage",
+            "condition_id": condition_id,
+            "shares": str(q6_down(amount)),
+            "route": result_block.get("route") or merge_block.get("route") or ("neg_risk" if neg_risk else "normal"),
+            "tx_hashes": tx_hashes,
+            "amount_recovered": str(q6_down(amount)) if ok and not dry_run else "0",
+            "fallback_required": not ok,
+            "error": error_payload,
+            "response": response,
+            "returncode": proc.returncode,
+        }
+    finally:
+        try:
+            payload_path.unlink()
+        except Exception:
+            pass
 
 
 async def fetch_blockscout_holdings(
@@ -412,9 +593,8 @@ async def flatten_positions(
     load_runtime_env()
     rest_client = await build_rest_client()
     quote_client = PublicClobQuoteClient()
-    rpc: RPCManager | None = None
-    merger: CTFMerger | None = None
     executed_actions: list[dict[str, Any]] = []
+    failed_merge_conditions: set[str] = set()
 
     try:
         before_state = await collect_wallet_state(
@@ -426,19 +606,18 @@ async def flatten_positions(
         )
 
         if execute:
-            rpc, merger = await build_merger(rest_client)
             for item in before_state["recoverable_positions"]:
                 if item["kind"] != "merge_pair":
                     continue
-                result = await merger.merge_positions(
+                result = await delegate_merge_to_crypto_sage(
                     condition_id=item["condition_id"],
                     amount=Decimal(item["shares"]),
                     neg_risk=bool(item.get("neg_risk", False)),
+                    dry_run=False,
                 )
-                executed_actions.append({
-                    "type": "merge",
-                    **result.to_dict(),
-                })
+                executed_actions.append(result)
+                if result.get("error"):
+                    failed_merge_conditions.add(str(item["condition_id"]))
 
             mid_state = await collect_wallet_state(
                 rest_client,
@@ -448,9 +627,42 @@ async def flatten_positions(
                 quote_client=quote_client,
             )
 
-            for item in mid_state["recoverable_positions"]:
-                if item["kind"] != "sell_token":
+            sell_candidates: list[dict[str, Any]] = [
+                item for item in mid_state["recoverable_positions"] if item["kind"] == "sell_token"
+            ]
+            seen_token_ids = {str(item["token_id"]) for item in sell_candidates}
+            for market in mid_state["market_positions"]:
+                if str(market.get("condition_id")) not in failed_merge_conditions:
                     continue
+                for row in market.get("positions", []):
+                    shares = Decimal(str(row.get("shares", "0")))
+                    sell_price = Decimal(str(row.get("sell_price", "0")))
+                    mark_value = Decimal(str(row.get("mark_value_usdc", "0")))
+                    token_id = str(row.get("token_id", ""))
+                    if (
+                        not token_id
+                        or token_id in seen_token_ids
+                        or sell_price <= 0
+                        or (shares < dust_threshold_shares and mark_value < dust_threshold_usdc)
+                    ):
+                        continue
+                    sell_candidates.append(
+                        {
+                            "kind": "sell_token",
+                            "condition_id": market["condition_id"],
+                            "question": market["question"],
+                            "outcome": row["outcome"],
+                            "token_id": token_id,
+                            "shares": str(q6_down(shares)),
+                            "sell_price": str(sell_price),
+                            "last_trade_price": str(row.get("last_trade_price", "0")),
+                            "estimated_value_usdc": str(mark_value),
+                            "source": "merge_fallback",
+                        }
+                    )
+                    seen_token_ids.add(token_id)
+
+            for item in sell_candidates:
                 response = await rest_client.create_and_post_order(
                     token_id=item["token_id"],
                     price=float(Decimal(item["sell_price"])),
@@ -466,6 +678,7 @@ async def flatten_positions(
                     "token_id": item["token_id"],
                     "shares": item["shares"],
                     "price": item["sell_price"],
+                    "source": item.get("source", "wallet_state"),
                     "response": response,
                 })
 
@@ -489,6 +702,4 @@ async def flatten_positions(
         report_path.write_text(json.dumps(report, indent=2))
         return report
     finally:
-        if rpc is not None:
-            await rpc.stop()
         await rest_client.disconnect()

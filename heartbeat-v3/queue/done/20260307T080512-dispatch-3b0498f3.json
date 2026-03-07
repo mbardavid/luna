@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "3b0498f3-2f73-4f0d-a4d9-aaaa5a6edd09",
+  "filename": "20260307T080512-dispatch-3b0498f3.json",
+  "created_at": "2026-03-07T08:05:12.618776+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — PMM: recoverable inventory still trapped",
+  "agent": "cto-ops",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nLinked session ended unexpectedly while progress was only 0%. Repair the execution path before retry.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 6,
+    "in_progress_count": 2,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/7d476f30-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "repair",
+    "run_id": "3b0498f3-a1-20260307T080512Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "cto-ops",
+    "task_id": "3b0498f3-2f73-4f0d-a4d9-aaaa5a6edd09",
+    "title": "Diagnose — PMM: recoverable inventory still trapped",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nLinked session ended unexpectedly while progress was only 0%. Repair the execution path before retry.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "3b0498f3-2f73-4f0d-a4d9-aaaa5a6edd09|dispatch|inbox|direct_exec|76b525632f8a",
+  "completed_at": "2026-03-07T08:06:37.878072Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "cto-ops",
+    "session_id": "agent:cto-ops:main"
+  }
+}

@@ -970,14 +970,10 @@ class TestPositionAwareQuoting:
         assert len(bid_yes) == 0, "BID YES should be suppressed when YES is saturated"
         assert len(bid_no) > 0, "BID NO should still be generated (NO is not saturated)"
 
-    def test_ask_below_min_order_size_resized(
+    def test_ask_below_min_order_size_dropped(
         self, market_state: MarketState, features: FeatureVector,
     ) -> None:
-        """When position is below default size but > 0, ASK is resized to available qty.
-
-        In binary markets, ASKs are always allowed (complement trading),
-        but when the bot holds some tokens, the ASK is resized to what it holds.
-        """
+        """Sub-minimum held inventory should not emit a direct ASK slice."""
         pos = Position(
             market_id="test-market-001",
             token_id_yes="tok_yes_001",
@@ -989,8 +985,30 @@ class TestPositionAwareQuoting:
         plan = engine.generate_quotes(market_state, features, pos)
 
         ask_yes = [s for s in plan.slices if s.side == QuoteSide.ASK and s.token == TokenSide.YES]
-        assert len(ask_yes) > 0, "ASK should be allowed (complement trading)"
-        assert ask_yes[0].size == Decimal("3"), "ASK YES should be resized to available qty"
+        assert len(ask_yes) == 0, "Sub-minimum inventory should not generate direct ASK YES"
+
+    def test_recycle_slice_skips_subminimum_inventory(
+        self, market_state: MarketState, features: FeatureVector,
+    ) -> None:
+        """Capital recovery should not emit ASK dust below venue minimum."""
+        pos = Position(
+            market_id="test-market-001",
+            token_id_yes="tok_yes_001",
+            token_id_no="tok_no_001",
+            qty_yes=Decimal("3"),
+            qty_no=Decimal("0"),
+            avg_entry_yes=Decimal("0.40"),
+        )
+        config = QuoteEngineConfig(recycle_profit_threshold=Decimal("0.01"))
+        engine = self._make_engine(config=config)
+
+        plan = engine.generate_quotes(market_state, features, pos)
+
+        recycle_yes = [
+            s for s in plan.slices
+            if s.side == QuoteSide.ASK and s.token == TokenSide.YES and s.price == Decimal("0.50")
+        ]
+        assert recycle_yes == []
 
 
 class TestDynamicOrderSizing:

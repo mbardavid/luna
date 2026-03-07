@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "f5e70391-da83-4789-9960-39caad8776e7",
+  "filename": "20260306T145514-dispatch-f5e70391.json",
+  "created_at": "2026-03-06T14:55:14.657908+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Audit Luna X account and freeze growth charter",
+  "agent": "main",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "Objective: audit Luna's current X account posture and freeze the public growth charter for the canary.\n\nDeliverables:\n- Review the current account identity, tone, and visible history.\n- Update docs/luna-x-growth-charter.md with approved pillars, prohibited actions, and steering triggers.\n- Reference the canonical baseline/session artifacts.\n\nValidation:\n- The charter reflects the current account state and can be used as the safety contract for autonomous publishing.\n- The file path is referenced",
+    "eligible_count": 2,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "The charter reflects the current Luna account, contains the approved pillars, prohibited actions, and steering triggers, and references the canonical artifact paths for this canary.",
+    "qa_checks": "Update docs/luna-x-growth-charter.md with the current account framing and artifact map.\nReference the latest baseline or session-health artifact when available.",
+    "expected_artifacts": "docs/luna-x-growth-charter.md",
+    "card_type": "leaf_task",
+    "lane": "project",
+    "run_id": "f5e70391-a2-20260306T145514Z",
+    "attempt": 2,
+    "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
+    "workstream_id": "0a7aac3a-62a3-4d56-afff-9c34449091f4"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "main",
+    "task_id": "f5e70391-da83-4789-9960-39caad8776e7",
+    "title": "Audit Luna X account and freeze growth charter",
+    "description": "Objective: audit Luna's current X account posture and freeze the public growth charter for the canary.\n\nDeliverables:\n- Review the current account identity, tone, and visible history.\n- Update docs/luna-x-growth-charter.md with approved pillars, prohibited actions, and steering triggers.\n- Reference the canonical baseline/session artifacts.\n\nValidation:\n- The charter reflects the current account state and can be used as the safety contract for autonomous publishing.\n- The file path is referenced",
+    "priority": "high"
+  },
+  "queue_key": "f5e70391-da83-4789-9960-39caad8776e7|dispatch|inbox|direct_exec|30367af267c8",
+  "mc_last_error": "dispatch script failed (exit 1)"
+}

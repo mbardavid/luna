@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "ef5c0c88-c0ab-4c7a-a953-27cac0ec6069",
+  "filename": "20260306T212012-dispatch-ef5c0c88.json",
+  "created_at": "2026-03-06T21:20:12.863323+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — PMM: recoverable inventory still trapped",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 67m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 5,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/6649f35f-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "ef5c0c88-a2-20260306T212012Z",
+    "attempt": 2,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "ef5c0c88-c0ab-4c7a-a953-27cac0ec6069",
+    "title": "Diagnose — PMM: recoverable inventory still trapped",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 67m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "ef5c0c88-c0ab-4c7a-a953-27cac0ec6069|dispatch|inbox|direct_exec|5cf7227313be",
+  "completed_at": "2026-03-06T21:21:15.953496Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "luan",
+    "session_id": "agent:luan:subagent:7deff562-f5cf-4f27-9837-301ef34320c6"
+  }
+}

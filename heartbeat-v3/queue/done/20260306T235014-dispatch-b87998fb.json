@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "b87998fb-a284-4d20-80ef-d6937c5f148f",
+  "filename": "20260306T235014-dispatch-b87998fb.json",
+  "created_at": "2026-03-06T23:50:14.444768+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — Diagnose — PMM: recoverable inventory still trapped",
+  "agent": "cto-ops",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nLinked session ended unexpectedly while progress was only 0%. Repair the execution path before retry.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 2,
+    "in_progress_count": 3,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/d56eacbb-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "repair",
+    "run_id": "b87998fb-a1-20260306T235014Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "cto-ops",
+    "task_id": "b87998fb-a284-4d20-80ef-d6937c5f148f",
+    "title": "Diagnose — Diagnose — PMM: recoverable inventory still trapped",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nLinked session ended unexpectedly while progress was only 0%. Repair the execution path before retry.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "b87998fb-a284-4d20-80ef-d6937c5f148f|dispatch|inbox|direct_exec|38d45dfec55d",
+  "completed_at": "2026-03-06T23:51:57.868029Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "cto-ops",
+    "session_id": "agent:cto-ops:main"
+  }
+}

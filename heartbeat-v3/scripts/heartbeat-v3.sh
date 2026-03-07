@@ -52,5 +52,27 @@ if [ "$py_major" -lt 3 ] || { [ "$py_major" -eq 3 ] && [ "$py_minor" -lt 10 ]; }
     exit 1
 fi
 
-# Run the Python heartbeat
-exec python3 "$SCRIPT_DIR/heartbeat-v3.py" "$@"
+RUN_VALIDATION_MONITOR=1
+for arg in "$@"; do
+    if [ "$arg" = "--dry-run" ]; then
+        RUN_VALIDATION_MONITOR=0
+        break
+    fi
+done
+if [ "${HEARTBEAT_AUTONOMY_MONITOR:-1}" = "0" ]; then
+    RUN_VALIDATION_MONITOR=0
+fi
+
+set +e
+python3 "$SCRIPT_DIR/heartbeat-v3.py" "$@"
+HEARTBEAT_RC=$?
+set -e
+
+MONITOR_SCRIPT="$WORKSPACE_DIR/scripts/autonomy-validation-monitor.sh"
+MONITOR_LOG="$WORKSPACE_DIR/logs/autonomy-validation-monitor.log"
+if [ "$RUN_VALIDATION_MONITOR" -eq 1 ] && [ -x "$MONITOR_SCRIPT" ]; then
+    mkdir -p "$(dirname "$MONITOR_LOG")"
+    "$MONITOR_SCRIPT" --source heartbeat-v3 >> "$MONITOR_LOG" 2>&1 || true
+fi
+
+exit "$HEARTBEAT_RC"
