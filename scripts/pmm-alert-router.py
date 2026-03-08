@@ -35,6 +35,7 @@ STATE_PATH = DATA_DIR / "pmm_alert_router_state.json"
 
 PARENT_TITLE = "PMM Live Operations"
 SNAPSHOT_CHANNEL = "discord:notifications"
+UNKNOWN_RUN_ID = "unknown"
 REJECT_RATE_THRESHOLD = 1.0
 NO_REWARDS_THRESHOLD = timedelta(hours=2)
 CANDIDATE_PROMOTION_THRESHOLD = timedelta(minutes=10)
@@ -239,14 +240,6 @@ def mc_call(*args: str, timeout: int = 45) -> tuple[dict[str, Any], str]:
     return payload, task_id
 
 
-def mc_get_task(task_id: str) -> dict[str, Any] | None:
-    if not task_id:
-        return None
-    payload, _ = mc_call("get-task", task_id)
-    response = payload.get("response")
-    return response if isinstance(response, dict) else None
-
-
 def wake_agent(owner: str, message: str, *, idempotency_key: str, dry_run: bool = False) -> dict[str, Any]:
     label = owner_label(owner)
     workspace = resolve_workspace(owner)
@@ -334,9 +327,10 @@ def parent_status(runtime_status: str) -> str:
 def parent_fields(snapshot: dict[str, Any]) -> dict[str, Any]:
     runtime = snapshot["runtime"] or {}
     latest = snapshot["latest"] or {}
+    run_id = runtime.get("run_id") or snapshot["live_state"].get("run_id") or UNKNOWN_RUN_ID
     return {
         "mc_origin": "pmm_live_control_plane",
-        "run_id": runtime.get("run_id") or snapshot["live_state"].get("run_id") or "prod-004",
+        "run_id": run_id,
         "environment": "live",
         "decision_id_current": latest.get("decision_id"),
         "operation_channel": SNAPSHOT_CHANNEL,
@@ -348,9 +342,10 @@ def parent_fields(snapshot: dict[str, Any]) -> dict[str, Any]:
 def build_parent_description(snapshot: dict[str, Any]) -> str:
     runtime = snapshot["runtime"] or {}
     latest = snapshot["latest"] or {}
+    run_id = runtime.get("run_id") or snapshot["live_state"].get("run_id") or UNKNOWN_RUN_ID
     return (
         "Persistent parent card for PMM live operations.\n\n"
-        f"Run: {runtime.get('run_id') or snapshot['live_state'].get('run_id') or 'prod-004'}\n"
+        f"Run: {run_id}\n"
         f"Status: {runtime.get('status') or 'unknown'}\n"
         f"Decision: {latest.get('decision_id') or 'n/a'}\n"
         f"Market: {current_market_label(snapshot)}\n"
@@ -391,16 +386,6 @@ def ensure_parent_task(state: dict[str, Any], snapshot: dict[str, Any], *, dry_r
     if task_id:
         parent["task_id"] = task_id
         parent["last_seen_at"] = iso_now()
-        current_task = None if dry_run else mc_get_task(task_id)
-        if current_task:
-            current_fields = current_task.get("custom_field_values") or {}
-            current_gate_reason = str(current_fields.get("mc_gate_reason") or "").strip()
-            current_dispatch_policy = str(current_fields.get("mc_dispatch_policy") or "").strip().lower()
-            if current_gate_reason or current_dispatch_policy == "backlog":
-                desired_status = "inbox"
-                parent["status_frozen_reason"] = current_gate_reason or f"dispatch_policy={current_dispatch_policy}"
-            else:
-                parent.pop("status_frozen_reason", None)
         if dry_run:
             parent["update_result"] = {"dry_run": True}
         else:
@@ -451,7 +436,7 @@ def build_incident_message(incident: dict[str, Any], task_id: str | None, parent
         f"{task_line}"
         f"{parent_line}"
         f"Owner: {incident['owner']}\n"
-        f"Run: {incident.get('run_id') or 'prod-004'}\n"
+        f"Run: {incident.get('run_id') or UNKNOWN_RUN_ID}\n"
         f"Decision: {incident.get('decision_id') or 'n/a'}\n"
         f"Reason: {incident['summary']}\n"
         f"Runtime: {RUNTIME_STATE_PATH}\n"
@@ -471,7 +456,7 @@ def create_incident_task(
     description = (
         f"{incident['summary']}\n\n"
         f"Owner: {incident['owner']}\n"
-        f"Run: {incident.get('run_id') or 'prod-004'}\n"
+        f"Run: {incident.get('run_id') or UNKNOWN_RUN_ID}\n"
         f"Decision: {incident.get('decision_id') or 'n/a'}\n"
         f"Paths:\n"
         f"- runtime: {RUNTIME_STATE_PATH}\n"
@@ -511,7 +496,7 @@ def add_parent_incident_comment(parent_task_id: str | None, incident: dict[str, 
         f"owner={incident['owner']}\n"
         f"task_id={task_id}\n"
         f"decision_id={incident.get('decision_id') or 'n/a'}\n"
-        f"run_id={incident.get('run_id') or 'prod-004'}"
+        f"run_id={incident.get('run_id') or UNKNOWN_RUN_ID}"
     )
     if dry_run:
         return {"dry_run": True, "message": message}
@@ -538,7 +523,7 @@ def incident_from_explicit_args(args: argparse.Namespace, snapshot: dict[str, An
         "title": args.title,
         "summary": args.description,
         "owner": owner,
-        "run_id": runtime.get("run_id") or snapshot["live_state"].get("run_id") or "prod-004",
+        "run_id": runtime.get("run_id") or snapshot["live_state"].get("run_id") or UNKNOWN_RUN_ID,
         "decision_id": latest.get("decision_id") or snapshot["candidate"].get("decision_id"),
         "resolution_criteria": args.resolution_criteria or "The triggering condition no longer appears in runtime, envelope, or diagnosis artifacts.",
         "severity": args.severity,
@@ -561,7 +546,7 @@ def build_runtime_incidents(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     diagnosis = snapshot["diagnosis"] or {}
     cycle_state = snapshot["cycle_state"] or {}
     incidents: list[dict[str, Any]] = []
-    run_id = runtime.get("run_id") or snapshot["live_state"].get("run_id") or "prod-004"
+    run_id = runtime.get("run_id") or snapshot["live_state"].get("run_id") or UNKNOWN_RUN_ID
     decision_id = latest.get("decision_id") or applied.get("decision_id") or candidate.get("decision_id")
     runtime_status = str(runtime.get("status") or "")
     latest_expires = parse_dt(latest.get("expires_at"))

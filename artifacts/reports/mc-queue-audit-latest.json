@@ -3,7 +3,7 @@
   "counts": {
     "pending": 0,
     "active": 0,
-    "done_json": 29,
+    "done_json": 44,
     "done_meta": 0,
     "failed": 9
   },
@@ -12,7 +12,7 @@
   "invalid_done_samples": [],
   "duplicate_meta_markers_total": 0,
   "duplicate_meta_samples": [],
-  "duplicate_groups_total": 1,
+  "duplicate_groups_total": 6,
   "duplicate_groups_top": [
     {
       "identity": "1c6ab056-9cd6-484f-8eb5-96ec98579379|dispatch|inbox|direct_exec|49fbc724de27",
@@ -22,6 +22,49 @@
         "20260306T021517-dispatch-1c6ab056.json"
       ],
       "count": 3
+    },
+    {
+      "identity": "399db025-26a6-40b0-b920-6405cce5175a|dispatch|inbox|direct_exec|9322cb43bc90",
+      "files": [
+        "20260307T042015-dispatch-399db025.json",
+        "20260307T171014-dispatch-399db025.json",
+        "20260307T201532-dispatch-399db025.json"
+      ],
+      "count": 3
+    },
+    {
+      "identity": "b97226f7-e51a-460d-a83e-b7494d6bb979|dispatch|inbox|direct_exec|4bed68ce0b0f",
+      "files": [
+        "20260307T054014-dispatch-b97226f7.json",
+        "20260307T173514-dispatch-b97226f7.json",
+        "20260307T204019-dispatch-b97226f7.json"
+      ],
+      "count": 3
+    },
+    {
+      "identity": "ce9634c6-f141-40a5-9220-a8666a82a272|dispatch|inbox|direct_exec|672b2cd1753e",
+      "files": [
+        "20260307T040111-dispatch-ce9634c6.json",
+        "20260307T165241-dispatch-ce9634c6.json",
+        "20260307T195519-dispatch-ce9634c6.json"
+      ],
+      "count": 3
+    },
+    {
+      "identity": "5fd26634-cf11-4973-89f7-1bc6b4be5241|dispatch|inbox|direct_exec|051d86c4eacb",
+      "files": [
+        "20260307T041014-dispatch-5fd26634.json",
+        "20260307T165510-dispatch-5fd26634.json"
+      ],
+      "count": 2
+    },
+    {
+      "identity": "c22ab8e3-b143-457b-907c-910e36fc7036|dispatch|inbox|direct_exec|57b403e9edee",
+      "files": [
+        "20260307T054523-dispatch-c22ab8e3.json",
+        "20260307T174444-dispatch-c22ab8e3.json"
+      ],
+      "count": 2
     }
   ]
 }

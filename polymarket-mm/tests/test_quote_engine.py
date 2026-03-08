@@ -237,6 +237,57 @@ class TestSpreadModel:
         assert hs_floor == hs_zero
 
 
+def test_passive_bid_only_mode_removes_all_asks(market_state: MarketState, features: FeatureVector, flat_position: Position) -> None:
+    engine = QuoteEngine(
+        config=QuoteEngineConfig(
+            default_order_size=Decimal("5"),
+            rewards_optimized_mode=True,
+            passive_bid_only_mode=True,
+        )
+    )
+    plan = engine.generate_quotes(
+        state=market_state,
+        features=features,
+        position=flat_position,
+        elapsed_hours=Decimal("1"),
+        available_balance=Decimal("50"),
+        max_position_size=Decimal("100"),
+        market_min_spread_bps=Decimal("50"),
+    )
+    assert plan.slices
+    assert all(slice_.side == QuoteSide.BID for slice_ in plan.slices)
+
+
+def test_passive_bid_only_mode_disables_position_recycling(market_state: MarketState, features: FeatureVector) -> None:
+    profitable = Position(
+        market_id="test-market-001",
+        token_id_yes="tok_yes_001",
+        token_id_no="tok_no_001",
+        qty_yes=Decimal("25"),
+        qty_no=Decimal("0"),
+        avg_entry_yes=Decimal("0.20"),
+    )
+    engine = QuoteEngine(
+        config=QuoteEngineConfig(
+            default_order_size=Decimal("5"),
+            rewards_optimized_mode=True,
+            passive_bid_only_mode=True,
+            position_recycling=True,
+            recycle_profit_threshold=Decimal("0.01"),
+        )
+    )
+    plan = engine.generate_quotes(
+        state=market_state,
+        features=features,
+        position=profitable,
+        elapsed_hours=Decimal("1"),
+        available_balance=Decimal("50"),
+        max_position_size=Decimal("100"),
+        market_min_spread_bps=Decimal("50"),
+    )
+    assert all(slice_.side == QuoteSide.BID for slice_ in plan.slices)
+
+
 # ═════════════════════════════════════════════════════════════════════
 # InventorySkew Tests
 # ═════════════════════════════════════════════════════════════════════

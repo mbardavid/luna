@@ -332,6 +332,14 @@ DESIRED_FIELDS='[
     "default_value": "leaf_task"
   },
   {
+    "field_key": "mc_runtime_owner",
+    "label": "MC Runtime Owner",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": "legacy"
+  },
+  {
     "field_key": "mc_parent_task_id",
     "label": "MC Parent Task ID",
     "field_type": "text",
@@ -462,6 +470,38 @@ DESIRED_FIELDS='[
   {
     "field_key": "mc_expected_artifacts",
     "label": "MC Expected Artifacts",
+    "field_type": "text_long",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_planning_intent_id",
+    "label": "MC Planning Intent ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_gap_class",
+    "label": "MC Gap Class",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_source_observation_id",
+    "label": "MC Source Observation ID",
+    "field_type": "text",
+    "ui_visibility": "if_set",
+    "required": false,
+    "default_value": null
+  },
+  {
+    "field_key": "mc_escalation_reason",
+    "label": "MC Escalation Reason",
     "field_type": "text_long",
     "ui_visibility": "if_set",
     "required": false,

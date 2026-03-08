@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-03-08T02:37:00Z",
+  "summary": {
+    "verdict": "capital_not_missing_from_total_stack",
+    "key_point": "The PMM-local collector was narrow. Total stack capital is ~229 USD; PMM-local capital is ~56.75 USD."
+  },
+  "current_capital": {
+    "stack_total_usd": 229.0295550649591,
+    "by_chain_usd": {
+      "solana": 170.18922131891378,
+      "polygon": 58.77837223003278,
+      "arbitrum": 0.06196151601254887,
+      "base": 0.0,
+      "hyperliquid": 0.0
+    },
+    "pmm_local_usd": 56.7522,
+    "pmm_free_collateral_usdc": 56.218396,
+    "pmm_recoverable_inventory_usdc": 0.155,
+    "difference_stack_minus_pmm_usd": 172.27735506495912
+  },
+  "pmm_realized_pnl": {
+    "by_run": {
+      "prod-001": "2.197622656175822291371121991",
+      "prod-002": "0",
+      "prod-003": "0",
+      "prod-004": "-45.92756718350635144829944814",
+      "prod-005": "-0.0875"
+    },
+    "by_decision": {
+      "quant-20260306T033353Z": "36.45343414528616509919779007",
+      "quant-20260306T142026Z": "50.18166115280049487535263558",
+      "quant-20260306T230134Z": "-132.5626624815930114228498738",
+      "quant-20260307T165353Z": "-0.0875"
+    }
+  },
+  "sources": {
+    "stack_capital_latest": "/home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/stack_capital_latest.json",
+    "trades_ledger": "/home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/trades_production.jsonl",
+    "crypto_sage_memory_2026_02_26": "/home/openclaw/.openclaw/workspace-crypto-sage/memory/2026-02-26.md",
+    "workspace_memory_2026_03_02": "/home/openclaw/.openclaw/workspace/memory/2026-03-02.md",
+    "crypto_sage_audit": "/home/openclaw/.openclaw/workspace-crypto-sage/state/audit.jsonl"
+  }
+}

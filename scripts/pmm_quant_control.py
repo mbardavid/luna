@@ -42,8 +42,9 @@ DATA_DIR = PMM_ROOT / "paper" / "data"
 LOG_DIR = WORKSPACE / "logs"
 CONFIG_DIR = WORKSPACE / "config"
 SCRIPTS_DIR = WORKSPACE / "scripts"
+DEFAULT_RUN_ID = os.environ.get("PMM_RUN_ID", "prod-006")
 
-DEFAULT_LIVE_CONFIG = Path(os.environ.get("PMM_LIVE_CONFIG", str(PMM_ROOT / "paper" / "runs" / "prod-004.yaml")))
+DEFAULT_LIVE_CONFIG = Path(os.environ.get("PMM_LIVE_CONFIG", str(PMM_ROOT / "paper" / "runs" / f"{DEFAULT_RUN_ID}.yaml")))
 
 DECISION_INPUTS_PATH = DATA_DIR / "decision_inputs_latest.json"
 DECISION_CANDIDATE_PATH = DATA_DIR / "decision_envelope_candidate.json"
@@ -165,7 +166,7 @@ def write_stale_live_state(
         "updated_at": iso_now(),
         "reason": reason,
         "runtime_status": runtime_status,
-        "run_id": "prod-004",
+        "run_id": DEFAULT_RUN_ID,
         "decision_id": getattr(desired_envelope, "decision_id", None) or getattr(applied_envelope, "decision_id", None),
     }
     write_json(LIVE_STATE_PATH, payload)
@@ -272,15 +273,23 @@ def current_live_config(path_arg: str | None = None) -> Path:
 
 def resolve_current_run_id(config_path: Path, runtime_state: dict[str, Any] | None = None) -> str:
     runtime_state = runtime_state or read_json(PMM_RUNTIME_STATE_PATH, {})
-    if runtime_state.get("run_id"):
-        return str(runtime_state["run_id"])
-    live_state = read_json(LIVE_STATE_PATH, {})
-    if live_state.get("run_id"):
-        return str(live_state["run_id"])
     config = load_run_config(config_path)
-    if config.get("run_id"):
-        return str(config["run_id"])
-    return "prod-004"
+    config_run_id = str(config.get("run_id", "") or "")
+    runtime_run_id = str(runtime_state.get("run_id", "") or "")
+    runtime_config_path = str(runtime_state.get("config_path", "") or "")
+    runtime_process_alive = bool(runtime_state.get("process_alive"))
+    if runtime_run_id:
+        if runtime_process_alive:
+            return runtime_run_id
+        if runtime_config_path and Path(runtime_config_path) == config_path:
+            return runtime_run_id
+    live_state = read_json(LIVE_STATE_PATH, {})
+    live_state_run_id = str(live_state.get("run_id", "") or "")
+    if live_state_run_id and not live_state.get("stale"):
+        return live_state_run_id
+    if config_run_id:
+        return config_run_id
+    return DEFAULT_RUN_ID
 
 
 def load_envelope(path: Path):
@@ -1125,11 +1134,6 @@ def should_auto_promote_candidate(
     if current_decision_id == candidate_envelope.decision_id:
         return False, "already_promoted"
 
-    current_trading_state = str(getattr(current_envelope, "trading_state", "") or "")
-    candidate_trading_state = str(getattr(candidate_envelope, "trading_state", "") or "")
-    if current_trading_state != "active" and candidate_trading_state == "active":
-        return True, "candidate_restores_active_trading"
-
     current_expires_at = getattr(current_envelope, "expires_at", None)
     if current_expires_at and current_expires_at - utcnow() <= timedelta(minutes=15):
         return True, "current_envelope_expiring"
@@ -1137,6 +1141,14 @@ def should_auto_promote_candidate(
     runtime_status = str(runtime_state.get("status", "") or "")
     if runtime_status == "halted":
         return True, "runtime_halted"
+
+    current_trading_state = str(getattr(current_envelope, "trading_state", "") or "")
+    candidate_trading_state = str(getattr(candidate_envelope, "trading_state", "") or "")
+    if current_trading_state != candidate_trading_state:
+        if current_trading_state != "active" and candidate_trading_state == "active":
+            return True, "candidate_restores_active_trading"
+        if current_trading_state == "active" and candidate_trading_state != "active":
+            return True, "candidate_requests_risk_off_state"
 
     return False, "healthy_current_envelope"
 

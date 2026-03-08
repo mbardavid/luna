@@ -49,6 +49,7 @@ class UnifiedMarketConfig:
     max_position_size: Decimal = Decimal("500")
     enabled: bool = True
     execution_mode: str = "rewards_farming"
+    strategy_mode: str = "rewards_passive_v1"
     reward_min_size_usdc: Decimal | None = None
     reward_max_spread_cents: Decimal | None = None
     expected_reward_yield_bps_day: float | None = None

@@ -67,12 +67,27 @@ def mc_create_task(title: str, description: str, assignee: str, priority: str, s
     return json.loads(raw or "{}")
 
 
-def mc_update_task(task_id: str, *, status: str | None = None, comment: str | None = None, fields: dict | None = None) -> dict:
+def mc_update_task(
+    task_id: str,
+    *,
+    status: str | None = None,
+    comment: str | None = None,
+    fields: dict | None = None,
+    description: str | None = None,
+    assignee: str | None = None,
+    title: str | None = None,
+) -> dict:
     cmd = [str(MC_CLIENT), "update-task", task_id]
     if status:
         cmd += ["--status", status]
     if comment:
         cmd += ["--comment", comment]
+    if description is not None:
+        cmd += ["--description", description]
+    if assignee:
+        cmd += ["--assignee", assignee]
+    if title is not None:
+        cmd += ["--title", title]
     if fields is not None:
         cmd += ["--fields", json.dumps(fields, ensure_ascii=False)]
     raw = run(cmd, timeout=45)
@@ -91,6 +106,43 @@ def child_title(kind: str, source_title: str) -> str:
     return f"{kind} — {source_title}".strip()
 
 
+def normalize_repair_title(title: str) -> str:
+    value = str(title or "").strip()
+    prefixes = ("Diagnose — ", "Repair — ", "Validate repair — ")
+    changed = True
+    while changed and value:
+        changed = False
+        for prefix in prefixes:
+            if value.startswith(prefix):
+                value = value[len(prefix):].strip()
+                changed = True
+    return value or str(title or "").strip()
+
+
+def root_source_task(tasks: list[dict], task_id: str) -> dict:
+    by_id = {str(task.get("id") or ""): task for task in tasks}
+    current = by_id.get(task_id) or {}
+    seen: set[str] = set()
+    while current:
+        current_id = str(current.get("id") or "")
+        if not current_id or current_id in seen:
+            break
+        seen.add(current_id)
+        fields = task_fields(current)
+        repair_bundle_id = str(fields.get("mc_repair_bundle_id") or "").strip()
+        if not repair_bundle_id:
+            break
+        bundle = by_id.get(repair_bundle_id) or {}
+        next_task_id = str(task_fields(bundle).get("mc_repair_source_task_id") or "").strip()
+        if not next_task_id:
+            break
+        nxt = by_id.get(next_task_id)
+        if not nxt:
+            break
+        current = nxt
+    return current
+
+
 def ensure_child(
     tasks: list[dict],
     *,
@@ -104,6 +156,25 @@ def ensure_child(
 ) -> dict:
     for task in tasks:
         if str(task.get("title") or "").strip() == title and str(task_fields(task).get("mc_parent_task_id") or "") == bundle_id:
+            merged_fields = dict(task_fields(task))
+            needs_fields_update = False
+            for key, value in fields.items():
+                if value in (None, ""):
+                    continue
+                if merged_fields.get(key) != value:
+                    merged_fields[key] = value
+                    needs_fields_update = True
+            kwargs: dict[str, object] = {}
+            if needs_fields_update:
+                kwargs["fields"] = merged_fields
+            if assignee and not str(task.get("assigned_agent_id") or "").strip():
+                kwargs["assignee"] = assignee
+            current_description = str(task.get("description") or "").strip()
+            if description and len(current_description) < 40:
+                kwargs["description"] = description
+            if kwargs:
+                mc_update_task(str(task.get("id") or ""), **kwargs)
+                return mc_get_task(str(task.get("id") or ""))
             return task
     return mc_create_task(title, description, assignee, priority, status, fields)
 
@@ -134,6 +205,8 @@ def main() -> int:
     )
 
     source_title = str(source.get("title") or f"Task {args.source_task_id[:8]}")
+    root_source = root_source_task(tasks, args.source_task_id)
+    root_source_title = normalize_repair_title(str(root_source.get("title") or source_title))
     project_id = task_project_id(source)
     milestone_id = task_milestone_id(source)
     workstream_id = task_workstream_id(source)
@@ -157,7 +230,7 @@ def main() -> int:
             "mc_review_agent": review_agent,
         }
         bundle = mc_create_task(
-            f"Repair bundle: {source_title}",
+            f"Repair bundle: {root_source_title}",
             "\n".join(
                 [
                     "## Objective",
@@ -192,6 +265,7 @@ def main() -> int:
         mc_update_task(
             bundle_id,
             status="in_progress",
+            title=f"Repair bundle: {root_source_title}",
             comment=f"[repair-bundle] reused for anomaly `{args.anomaly}` on source task `{args.source_task_id[:8]}`.",
             fields=bundle_fields,
         )

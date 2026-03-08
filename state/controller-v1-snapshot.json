@@ -1,0 +1,87 @@
+{
+  "controller": {
+    "last_tick": "2026-03-08T08:25:12Z",
+    "owned_tasks": 45,
+    "tracked_tasks": 205,
+    "open_repairs": 18,
+    "attempts": 136,
+    "events": 72,
+    "observations": 15,
+    "planning_intents": 1,
+    "open_proposals": 0
+  },
+  "health": {
+    "last_tick": "2026-03-08T08:25:12Z",
+    "owned_tasks": 45,
+    "dispatches_this_tick": 1,
+    "queue_ingests_this_tick": 1,
+    "judge_ingests_this_tick": 0,
+    "status": "ok"
+  },
+  "scheduler": {
+    "last_tick": "2026-03-08T08:25:12Z",
+    "mode": "full",
+    "health_state": "healthy",
+    "slots_total": 4,
+    "eligible_by_lane": {
+      "repair": 5,
+      "review": 0,
+      "project": 1,
+      "ambient": 0
+    },
+    "running_by_lane": {
+      "repair": 0,
+      "review": 0,
+      "project": 0,
+      "ambient": 0
+    },
+    "reserved_slots": {
+      "repair": 1,
+      "review": 0,
+      "project": 1,
+      "ambient": 0
+    },
+    "dispatch_decision": {
+      "type": "dispatch",
+      "lane": "repair",
+      "task_id": "5f481af1-f7ef-4b33-ad0e-e4b75b09f40f",
+      "status": "inbox",
+      "gate_reason": ""
+    },
+    "blocked_reasons": [],
+    "shadow_diff_vs_legacy": [
+      {
+        "legacy": {
+          "type": "idle",
+          "task_id": ""
+        },
+        "scheduler_v2": {
+          "type": "dispatch",
+          "task_id": "5f481af1-f7ef-4b33-ad0e-e4b75b09f40f"
+        }
+      }
+    ]
+  },
+  "autonomy": {
+    "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
+    "workstream_ids": [
+      "c2dad9a4-6952-4593-b505-62f8617ed604",
+      "0a7aac3a-62a3-4d56-afff-9c34449091f4",
+      "f71aaca0-06e5-400a-9282-7785b5ae126c"
+    ],
+    "reason": "window_full",
+    "actions": 0
+  },
+  "planning": {
+    "processed_messages": 0,
+    "new_directives": 0,
+    "proposal_updates": 0
+  },
+  "owned_by_lane": {
+    "repair": 24,
+    "review": 9,
+    "project": 12,
+    "ambient": 0
+  }
+}

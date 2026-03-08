@@ -1,0 +1,12 @@
+{
+  "type": "respawn",
+  "task_id": "d104ef96-b22f-47bd-820c-36f029fdb84e",
+  "title": "Diagnose — Diagnose — Diagnose — Extract 3-5 content pillars",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "agent:cto-ops:main",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "respawn",
+  "task_id": "5fd26634-cf11-4973-89f7-1bc6b4be5241",
+  "title": "Diagnose — Diagnose — Audit Luna X account and freeze growth",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "agent:cto-ops:main",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  }
+}

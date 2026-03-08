@@ -120,6 +120,11 @@ class QuoteEngineConfig:
     # Strategy tag for generated quotes
     strategy_tag: str = "quote_engine_v1"
 
+    # Rewards passive v1: publish only passive BID liquidity in venue-native
+    # semantics. ASKs are reserved for unwind / flatten paths outside the
+    # quoting loop.
+    passive_bid_only_mode: bool = False
+
 
 # ── QuoteEngine ──────────────────────────────────────────────────────
 
@@ -398,11 +403,17 @@ class QuoteEngine:
         if suppress_bids:
             plan.slices = [s for s in plan.slices if s.side != QuoteSide.BID]
 
-        # ── Step 10: Position recycling ──────────────────────────
+        # ── Step 10: Passive rewards mode ────────────────────────
+        if c.passive_bid_only_mode:
+            plan.slices = [s for s in plan.slices if s.side == QuoteSide.BID]
+
+        # ── Step 11: Position recycling ──────────────────────────
         # When enabled and balance is low, generate SELL slices for
         # positions with unrealized profit above the threshold. This
         # reclaims capital so the bot can keep trading.
         if (
+            not c.passive_bid_only_mode
+            and
             c.position_recycling
             and position is not None
             and mid_price > _ZERO
@@ -705,6 +716,8 @@ class QuoteEngine:
 
         if available_balance <= _ZERO:
             # No cash — remove all BID slices
+            if c.passive_bid_only_mode:
+                return []
             return [s for s in slices if s.side == QuoteSide.ASK]
 
         max_order_value = available_balance * c.max_balance_fraction_per_order

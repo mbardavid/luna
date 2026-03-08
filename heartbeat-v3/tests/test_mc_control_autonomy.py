@@ -9,6 +9,8 @@ sys.path.insert(0, _scripts_dir)
 from mc_control import (
     extract_session_key_from_agent_result,
     is_executable_leaf_task,
+    is_ready_to_run,
+    task_execution_owner,
     task_repair_state,
     task_review_agent,
 )
@@ -41,6 +43,35 @@ def test_task_review_agent_defaults_to_luna_judge():
 
     assert task_review_agent(review_bundle) == "luna-judge"
     assert task_review_agent(luna_review) == "luna-judge"
+
+
+def test_task_execution_owner_falls_back_to_mc_assigned_agent():
+    task = _task(
+        "leaf-1",
+        "Legacy repair task",
+        mc_card_type="leaf_task",
+        mc_lane="repair",
+        mc_assigned_agent="cto-ops",
+    )
+
+    assert task_execution_owner(task) == "cto-ops"
+
+
+def test_repair_leaf_is_ready_with_mc_assigned_agent_fallback():
+    task = _task(
+        "leaf-1",
+        "Diagnose repair",
+        mc_card_type="leaf_task",
+        mc_lane="repair",
+        mc_dispatch_policy="auto",
+        mc_assigned_agent="cto-ops",
+        mc_acceptance_criteria="Identify root cause.",
+        mc_qa_checks="Attach evidence.",
+        mc_expected_artifacts="artifacts/repairs/demo-diagnose.md",
+    )
+
+    assert is_executable_leaf_task(task) is True
+    assert is_ready_to_run(task) is True
 
 
 def test_is_executable_leaf_task_false_when_repair_gate_is_open():

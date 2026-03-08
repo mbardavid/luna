@@ -169,3 +169,9 @@
 - **Safe-restart pode ficar silencioso quando a camada de notificação falha.** Hoje `openclaw message send` para Discord deu timeout (8s) durante restart automático; é preciso ter retry/backoff e/ou artifact local (audit trail) para não perder visibilidade.
 - **Recovery pós-restart pode rebaixar múltiplas tasks de `in_progress`→`inbox`** (10 em lote), exigindo workflow explícito de triagem/dedupe para evitar loops de re-dispatch.
 - **Sinal crítico de saúde:** heartbeat-v3 iniciou ciclo com `gateway unreachable (timeout 15s)` — runbook mínimo de diagnóstico deve existir para restaurar operação com baixa ambiguidade.
+
+## 2026-03-08
+
+- **Sinal de risco operacional: `tg_drop=1` (Telegram groups sendo dropados silenciosamente).** Precisa de runbook + fallback de alerta, pois afeta a confiabilidade de incident/ops.
+- **Controller “adapter-only dispatch” reduz observabilidade e pode deixar tasks sem execução rastreável** (MC não mutado com session_key/last_error pós-dispatch). Contrato/patch pós-dispatch deve ser documentado e enforced.
+- **PMM rewards pode entrar em standby prolongado por deadlock de gates** (reward_min_size vs inventory caps + EV threshold). Precisa de fallback (EV ~0), auto-sizing e standby explicável com blockers estruturados.

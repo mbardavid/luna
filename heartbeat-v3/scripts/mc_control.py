@@ -67,6 +67,7 @@ DELIVERY_STATES = {"queued", "dispatched", "linked", "in_progress", "review", "d
 CHAIRMAN_STATES = {"planned", "active", "steering", "approved", "paused", "completed", "terminated"}
 NON_EXECUTABLE_CARD_TYPES = {"project", "milestone", "workstream", "repair_bundle"}
 REPAIR_STATES = {"open", "diagnosing", "repairing", "validating", "resolved", "failed"}
+RUNTIME_OWNERS = {"legacy", "controller-v1"}
 
 LUNA_REVIEW_PHASES = {
     "luna_task_planning",
@@ -261,8 +262,25 @@ def normalize_repair_state(value: Any, default: str = "open") -> str:
     return text if text in REPAIR_STATES else default
 
 
+def normalize_runtime_owner(value: Any, default: str = "legacy") -> str:
+    if value is None:
+        return default
+    text = str(value).strip().lower().replace("_", "-")
+    if not text:
+        return default
+    return text if text in RUNTIME_OWNERS else default
+
+
 def task_card_type(task: dict[str, Any]) -> str:
     return normalize_card_type(task_fields(task).get("mc_card_type"), default="leaf_task")
+
+
+def task_runtime_owner(task: dict[str, Any], default: str = "legacy") -> str:
+    return normalize_runtime_owner(task_fields(task).get("mc_runtime_owner"), default=default)
+
+
+def is_controller_owned(task: dict[str, Any]) -> bool:
+    return task_runtime_owner(task) == "controller-v1"
 
 
 def task_parent_task_id(task: dict[str, Any]) -> str:
@@ -382,6 +400,9 @@ def task_execution_owner(task: dict[str, Any]) -> str:
     assigned = str(task.get("assigned_agent_id") or "").strip()
     if assigned:
         return assigned
+    explicit = str(task_fields(task).get("mc_assigned_agent") or "").strip().lower()
+    if explicit and explicit not in {"none", "human"}:
+        return explicit
     owner = str(task_fields(task).get("mc_phase_owner") or "").strip().lower()
     if owner and owner not in {"none", "human"}:
         return owner

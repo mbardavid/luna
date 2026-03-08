@@ -365,3 +365,95 @@ class TestBalanceAwareQuoting:
     def test_balance_aware_quoting_disabled_by_default(self, unified_market_config, paper_venue, event_bus):
         pipeline = make_pipeline([unified_market_config], paper_venue, event_bus)
         assert pipeline.quote_engine._config.balance_aware_quoting is False
+
+
+class TestLiveKillSwitchEconomics:
+    """Test live-mode kill switch with economic equity and per-fill checks."""
+
+    @pytest.mark.asyncio
+    async def test_live_kill_switch_prefers_conservative_economic_equity(self, unified_market_config, event_bus):
+        venue = MagicMock()
+        venue.mode = "live"
+        venue.cancel_all_orders = AsyncMock()
+        venue.connect = AsyncMock()
+        venue.disconnect = AsyncMock()
+
+        wallet = MagicMock()
+        wallet.init_position = MagicMock()
+        wallet.get_position = MagicMock(return_value=None)
+        wallet.total_equity = MagicMock(return_value=Decimal("90"))
+        wallet.test_capital = Decimal("100")
+        wallet.initial_balance = Decimal("100")
+        wallet.on_chain = {
+            "portfolio_value": 40.0,
+            "initial_on_chain": 100.0,
+        }
+
+        pipeline = UnifiedTradingPipeline(
+            market_configs=[unified_market_config],
+            venue=venue,
+            wallet=wallet,
+            event_bus=event_bus,
+            ws_client=AsyncMock(),
+        )
+        pipeline._get_mid_prices = MagicMock(return_value={MARKET_ID: Decimal("0.50")})
+        pipeline.kill_switch.trigger_max_drawdown = AsyncMock()
+
+        await pipeline._check_kill_switch()
+
+        pipeline.kill_switch.trigger_max_drawdown.assert_awaited_once_with(Decimal("60"))
+        venue.cancel_all_orders.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_order_status_poll_checks_kill_switch_after_fill(self, unified_market_config, event_bus):
+        venue = MagicMock()
+        venue.mode = "live"
+        venue.connect = AsyncMock()
+        venue.disconnect = AsyncMock()
+        venue.cancel_all_orders = AsyncMock()
+        venue.process_fills = AsyncMock(return_value=[{
+            "market_id": MARKET_ID,
+            "token_id": TOKEN_YES,
+            "side": "BUY",
+            "fill_price": Decimal("0.45"),
+            "fill_qty": Decimal("5"),
+            "fee": Decimal("0"),
+            "token_is_yes": True,
+            "fee_rate_bps": 0,
+            "exchange_order_id": "ex-1",
+            "fill_id": "fill-1",
+        }])
+
+        position = Position(
+            market_id=MARKET_ID,
+            token_id_yes=TOKEN_YES,
+            token_id_no=TOKEN_NO,
+            qty_yes=Decimal("5"),
+            avg_entry_yes=Decimal("0.45"),
+        )
+
+        wallet = MagicMock()
+        wallet.init_position = MagicMock()
+        wallet.get_position = MagicMock(return_value=position)
+        wallet.update_position_on_fill = MagicMock(return_value=Decimal("0"))
+        wallet.wallet_snapshot = MagicMock(return_value={"total_equity": 100.0})
+        wallet.test_capital = Decimal("50")
+        wallet.initial_balance = Decimal("50")
+        wallet.on_chain = {}
+
+        pipeline = UnifiedTradingPipeline(
+            market_configs=[unified_market_config],
+            venue=venue,
+            wallet=wallet,
+            event_bus=event_bus,
+            ws_client=AsyncMock(),
+        )
+        pipeline._running = True
+        pipeline.trade_logger.log_trade = MagicMock()
+        pipeline._check_kill_switch = AsyncMock(side_effect=lambda: setattr(pipeline, "_running", False))
+        pipeline.book_tracker.get_market_state = MagicMock(return_value=None)
+
+        with patch("runner.pipeline.asyncio.sleep", new=AsyncMock()):
+            await pipeline._order_status_poll_loop()
+
+        pipeline._check_kill_switch.assert_awaited_once()

@@ -609,5 +609,15 @@
     "fill_rate": 37.38,
     "max_drawdown": 0,
     "timestamp": "2026-03-07T04:51:13.647703+00:00"
+  },
+  {
+    "run_id": "prod-005",
+    "hypothesis": "rewards-farming-quant-governed-canary",
+    "result": "INCONCLUSIVE",
+    "pnl_per_hour": -0.5843,
+    "duration_h": 0.15,
+    "fill_rate": 15.0,
+    "max_drawdown": 0,
+    "timestamp": "2026-03-07T17:03:06.755220+00:00"
   }
 ]

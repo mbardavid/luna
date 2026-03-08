@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "ce9634c6-f141-40a5-9220-a8666a82a272",
+  "filename": "20260308T025505-dispatch-ce9634c6.json",
+  "created_at": "2026-03-08T02:55:05.798484+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — Diagnose — Diagnose — PMM: recoverable inventory still trapped",
+  "agent": "cto-ops",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 68m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 13,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/718a8fe7-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "repair",
+    "run_id": "ce9634c6-a4-20260308T025505Z",
+    "attempt": 4,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "cto-ops",
+    "task_id": "ce9634c6-f141-40a5-9220-a8666a82a272",
+    "title": "Diagnose — Diagnose — Diagnose — PMM: recoverable inventory still trapped",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 68m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "ce9634c6-f141-40a5-9220-a8666a82a272|dispatch|inbox|direct_exec|672b2cd1753e",
+  "completed_at": "2026-03-08T02:56:45.536338Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "cto-ops",
+    "session_id": "agent:cto-ops:main",
+    "runtime_owner": "legacy"
+  }
+}

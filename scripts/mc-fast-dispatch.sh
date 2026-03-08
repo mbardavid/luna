@@ -77,6 +77,14 @@ MC_TASK_ID=""
 QUEUE_FILE=""
 TIMEOUT=600
 DRY_RUN=0
+TASK_RUNTIME_OWNER="legacy"
+TASK_ACCEPTANCE=""
+TASK_QA_CHECKS=""
+TASK_EXPECTED_ARTIFACTS=""
+TASK_PROJECT_ID=""
+TASK_LANE=""
+TASK_PHASE=""
+EXTRA_CONTEXT=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -96,6 +104,9 @@ MC_API_TOKEN="${MC_API_TOKEN:-}"
 rollback_mc_task() {
     local task_id="$1"
     local message="$2"
+    if [ "$TASK_RUNTIME_OWNER" = "controller-v1" ]; then
+        return 0
+    fi
     if [ -z "$task_id" ] || [ -z "$MC_API_TOKEN" ]; then
         return 0
     fi
@@ -138,6 +149,8 @@ if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
         _MC_TITLE=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('title',''))" 2>/dev/null) || _MC_TITLE=""
         _MC_TASK=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('description',''))" 2>/dev/null) || _MC_TASK=""
         _MC_STATUS=$(echo "$MC_DATA" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null) || _MC_STATUS=""
+        _MC_RUNTIME_OWNER=$(echo "$MC_DATA" | python3 -c "import json,sys; t=json.load(sys.stdin); f=t.get('custom_field_values') or {}; print(f.get('mc_runtime_owner','legacy'))" 2>/dev/null) || _MC_RUNTIME_OWNER="legacy"
+        TASK_RUNTIME_OWNER="${_MC_RUNTIME_OWNER:-legacy}"
 
         # CLI args take priority over MC data
         [ -z "$CLI_AGENT" ] && AGENT="${_MC_AGENT}"
@@ -178,6 +191,24 @@ if [ -n "$QUEUE_FILE" ] && [ -f "$QUEUE_FILE" ]; then
     TITLE=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('title',''))" 2>/dev/null)
     TASK=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('context',{}).get('description',''))" 2>/dev/null)
     MC_TASK_ID=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('task_id',''))" 2>/dev/null)
+    TASK_RUNTIME_OWNER=$(python3 -c "import json; payload=json.load(open('$QUEUE_FILE')); print((payload.get('runtime_owner') or payload.get('context',{}).get('runtime_owner') or payload.get('fields',{}).get('mc_runtime_owner') or 'legacy'))" 2>/dev/null)
+    TASK_ACCEPTANCE=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('context',{}).get('acceptance_criteria',''))" 2>/dev/null)
+    TASK_QA_CHECKS=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('context',{}).get('qa_checks',''))" 2>/dev/null)
+    TASK_EXPECTED_ARTIFACTS=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('context',{}).get('expected_artifacts',''))" 2>/dev/null)
+    TASK_PROJECT_ID=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('context',{}).get('project_id',''))" 2>/dev/null)
+    TASK_LANE=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('lane',''))" 2>/dev/null)
+    TASK_PHASE=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('phase',''))" 2>/dev/null)
+fi
+
+TASK_RUNTIME_OWNER="$(python3 - "$TASK_RUNTIME_OWNER" <<'PY'
+import sys
+value = (sys.argv[1] or "legacy").strip().lower().replace("_", "-")
+print(value if value in {"legacy", "controller-v1"} else "legacy")
+PY
+)"
+IS_CONTROLLER_OWNED=0
+if [ "$TASK_RUNTIME_OWNER" = "controller-v1" ]; then
+    IS_CONTROLLER_OWNED=1
 fi
 
 # ─── Validate ────────────────────────────────────────────────────────────────
@@ -213,7 +244,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 # ─── Update MC status to in_progress (except reviews) ──────────────────────
-if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
+if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ] && [ "$IS_CONTROLLER_OWNED" -ne 1 ]; then
     _CURRENT_STATUS="${_MC_STATUS:-}"
     if [ -z "$_CURRENT_STATUS" ]; then
         _CURRENT_STATUS=$(curl -s "$MC_API_URL/api/v1/boards/$MC_BOARD_ID/tasks/$MC_TASK_ID" \
@@ -228,13 +259,16 @@ if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
             -H "Authorization: Bearer $MC_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"status":"in_progress"}' > /dev/null 2>&1 || true
-        log "MC task $MC_TASK_ID → in_progress"
+    log "MC task $MC_TASK_ID → in_progress"
     fi
+fi
+if [ "$IS_CONTROLLER_OWNED" -eq 1 ]; then
+    log "Controller-owned task $MC_TASK_ID uses adapter-only dispatch (no direct MC mutation)"
 fi
 
 # ─── Dispatch via openclaw agent ────────────────────────────────────────────
 DISPATCH_TARGET_AGENT="dispatcher"
-DISPATCH_MSG="DISPATCH agent=$AGENT\n---\n$TASK"
+DISPATCH_MSG=""
 DISPATCH_MODE="dispatcher"
 
 case "$AGENT" in
@@ -245,6 +279,23 @@ case "$AGENT" in
         DISPATCH_MODE="direct"
         ;;
 esac
+
+TASK_CONTRACT=""
+if [ -n "$TASK_ACCEPTANCE$TASK_QA_CHECKS$TASK_EXPECTED_ARTIFACTS$TASK_PROJECT_ID$TASK_LANE$TASK_PHASE" ]; then
+    TASK_CONTRACT=$(cat <<EOF
+
+## Execution Contract
+Lane: ${TASK_LANE:-unknown}
+Phase: ${TASK_PHASE:-unknown}
+Project ID: ${TASK_PROJECT_ID:-none}
+Acceptance Criteria: ${TASK_ACCEPTANCE:-none}
+QA Checks: ${TASK_QA_CHECKS:-none}
+Expected Artifacts: ${TASK_EXPECTED_ARTIFACTS:-none}
+
+You must produce the expected artifact(s) and explicitly reference them in your completion message. If you cannot complete, explain the blocker and the next repair step.
+EOF
+)
+fi
 
 if [ "$DISPATCH_MODE" = "direct" ]; then
     DIRECT_HEADER="Mission Control direct dispatch."
@@ -258,10 +309,21 @@ Title: $TITLE
 MC Task ID: ${MC_TASK_ID:-none}
 
 $TASK
+${EXTRA_CONTEXT}${TASK_CONTRACT}
 EOF
 )
     log "Sending direct dispatch → $AGENT (timeout: ${TIMEOUT}s)..."
 else
+    DISPATCH_MSG=$(cat <<EOF
+DISPATCH agent=$AGENT
+---
+Title: $TITLE
+MC Task ID: ${MC_TASK_ID:-none}
+
+$TASK
+${EXTRA_CONTEXT}${TASK_CONTRACT}
+EOF
+)
     log "Sending to dispatcher → $AGENT (timeout: ${TIMEOUT}s)..."
 fi
 
@@ -380,7 +442,7 @@ if [ -z "$DURATION" ]; then
 fi
 
 # Update session key and clear prior errors on success
-if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ]; then
+if [ -n "$MC_TASK_ID" ] && [ -n "$MC_API_TOKEN" ] && [ "$IS_CONTROLLER_OWNED" -ne 1 ]; then
     _IS_REVIEW_TARGET="0"
     if [ "${_CURRENT_STATUS:-}" = "review" ]; then
         _IS_REVIEW_TARGET="1"
@@ -423,6 +485,7 @@ python3 -c "import json, time;\nstate={'timestamps': []};\n\ntry:\n    with open
 if [ -n "$QUEUE_FILE" ] && [ -f "$QUEUE_FILE" ]; then
     DONE_DIR="$(dirname "$(dirname "$QUEUE_FILE")")/done"
     mkdir -p "$DONE_DIR"
+    export MC_FAST_DISPATCH_RUNTIME_OWNER="$TASK_RUNTIME_OWNER"
     python3 - "$QUEUE_FILE" "$DONE_DIR" "$SESSION_ID" "$AGENT" "$METRICS_FILE" <<'PY'
 import json
 import os
@@ -446,6 +509,7 @@ payload["result"] = {
     "action": "dispatch",
     "agent": agent,
     "session_id": session_id,
+    "runtime_owner": os.environ.get("MC_FAST_DISPATCH_RUNTIME_OWNER", "legacy"),
 }
 
 tmp_path = f"{target}.tmp"

@@ -284,6 +284,9 @@ mc_update_task() {
   local comment=""
   local fields_json=""
   local description=""
+  local assignee=""
+  local assignee_id=""
+  local title=""
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -303,6 +306,14 @@ mc_update_task() {
         description="$2"
         shift 2
         ;;
+      --title)
+        title="$2"
+        shift 2
+        ;;
+      --assignee)
+        assignee="$2"
+        shift 2
+        ;;
       *)
         echo "unknown argument: $1" >&2
         return 1
@@ -310,23 +321,34 @@ mc_update_task() {
     esac
   done
 
-  if [ -z "$status" ] && [ -z "$comment" ] && [ -z "$fields_json" ] && [ -z "$description" ]; then
-    echo "mc_update_task requires at least one of --status, --comment, --fields, --description" >&2
+  if [ -n "$assignee" ]; then
+    if ! assignee_id="$(mc_resolve_agent_id "$assignee")"; then
+      echo "agent not found: $assignee" >&2
+      return 1
+    fi
+  fi
+
+  if [ -z "$status" ] && [ -z "$comment" ] && [ -z "$fields_json" ] && [ -z "$description" ] && [ -z "$assignee_id" ] && [ -z "$title" ]; then
+    echo "mc_update_task requires at least one of --status, --comment, --fields, --description, --assignee, --title" >&2
     return 1
   fi
 
   local payload
-  payload=$(STATUS="$status" COMMENT="$comment" FIELDS_JSON="$fields_json" DESCRIPTION="$description" python3 - <<'PY'
+  payload=$(STATUS="$status" COMMENT="$comment" FIELDS_JSON="$fields_json" DESCRIPTION="$description" ASSIGNEE_ID="$assignee_id" TITLE="$title" python3 - <<'PY'
 import json
 import os
 
 payload = {}
 if os.environ.get("STATUS"):
     payload["status"] = os.environ["STATUS"]
+if os.environ.get("TITLE"):
+    payload["title"] = os.environ["TITLE"]
 if os.environ.get("DESCRIPTION"):
     payload["description"] = os.environ["DESCRIPTION"]
 if os.environ.get("COMMENT"):
     payload["comment"] = os.environ["COMMENT"]
+if os.environ.get("ASSIGNEE_ID"):
+    payload["assigned_agent_id"] = os.environ["ASSIGNEE_ID"]
 fields = os.environ.get("FIELDS_JSON", "").strip()
 if fields:
     payload["custom_field_values"] = json.loads(fields)

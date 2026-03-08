@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-
+from typing import Any
 
 WORKSPACE = Path("/home/openclaw/.openclaw/workspace")
 DATA_DIR = WORKSPACE / "polymarket-mm" / "paper" / "data"
@@ -15,9 +15,11 @@ DEFAULT_CHANNEL = "1476255906894446644"
 DEFAULT_OPENCLAW_BIN = "openclaw"
 STATE_PATH = DATA_DIR / "pmm_snapshot_state.json"
 ALERT_ROUTER_STATE_PATH = DATA_DIR / "pmm_alert_router_state.json"
+STACK_CAPITAL_PATH = DATA_DIR / "stack_capital_latest.json"
+DEFAULT_STACK_REFRESH_SECONDS = 20 * 60
 
 
-def read_json(path: Path, default):
+def read_json(path: Path, default: Any):
     if not path.exists():
         return default
     try:
@@ -26,9 +28,25 @@ def read_json(path: Path, default):
         return default
 
 
-def write_json(path: Path, payload) -> None:
+def write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def collect_stack_capital(max_age_seconds: int = DEFAULT_STACK_REFRESH_SECONDS) -> dict[str, Any]:
+    current = read_json(STACK_CAPITAL_PATH, {})
+    generated_at = int(current.get("generated_at_ts", 0) or 0)
+    if current and int(time.time()) - generated_at <= max_age_seconds:
+        return current
+    script = WORKSPACE / "scripts" / "stack-capital-snapshot.py"
+    proc = subprocess.run(["python3", str(script)], text=True, capture_output=True)
+    if proc.returncode != 0:
+        return current
+    try:
+        payload = json.loads(proc.stdout)
+    except Exception:
+        return current
+    return payload if isinstance(payload, dict) else current
 
 
 def fmt_money(value) -> str:
@@ -57,11 +75,30 @@ def latest_error_line(diagnosis: dict) -> str:
     return ""
 
 
-def render_snapshot(runtime: dict, live_state: dict, latest: dict, diagnosis: dict, alert_state: dict) -> str:
+def stack_capital_lines(stack_capital: dict[str, Any]) -> list[str]:
+    if not stack_capital:
+        return []
+    pmm = stack_capital.get("pmm") or {}
+    stack = stack_capital.get("stack") or {}
+    chain_totals = stack.get("chain_totals") or {}
+    lines = [
+        f"capital_pmm={fmt_money(pmm.get('total_usd'))} stack_total={fmt_money(stack.get('total_usd'))} delta={fmt_money(stack_capital.get('delta_vs_pmm_usd'))}"
+    ]
+    ordered = []
+    for key in ["solana", "polygon", "arbitrum", "base", "hyperliquid"]:
+        if key in chain_totals:
+            ordered.append(f"{key}={fmt_money(chain_totals.get(key))}")
+    if ordered:
+        lines.append("stack_by_chain=" + " ".join(ordered))
+    return lines
+
+
+def render_snapshot(runtime: dict, live_state: dict, latest: dict, diagnosis: dict, alert_state: dict, stack_capital: dict[str, Any]) -> str:
     if live_state.get("stale") and str(runtime.get("status") or "").lower() != "running":
         live_state = {}
     totals = live_state.get("totals") or {}
     wallet = live_state.get("wallet") or {}
+    diagnosis_wallet = ((((diagnosis.get("analysis") or {}).get("post_trade_diagnosis") or {}).get("wallet_state")) or {})
     pnl = live_state.get("pnl") or {}
     markets = live_state.get("markets") or {}
     first_market = next(iter(markets.values()), {})
@@ -80,6 +117,12 @@ def render_snapshot(runtime: dict, live_state: dict, latest: dict, diagnosis: di
     if len(market_label) > 90:
         market_label = market_label[:87] + "..."
     err = latest_error_line(diagnosis)
+    wallet_free = wallet.get("available_balance")
+    equity = wallet.get("total_equity")
+    if wallet_free in (None, 0, 0.0, "0", "0.0", "0.0000"):
+        wallet_free = diagnosis_wallet.get("free_collateral_usdc")
+    if equity in (None, 0, 0.0, "0", "0.0", "0.0000"):
+        equity = diagnosis_wallet.get("total_wallet_equity_usdc")
     lines = [
         "PMM Snapshot",
         f"status: {runtime_status} | health: {health_status}",
@@ -98,10 +141,11 @@ def render_snapshot(runtime: dict, live_state: dict, latest: dict, diagnosis: di
             f"pnl_total={fmt_money(pnl.get('cumulative'))}"
         ),
         (
-            f"wallet_free={fmt_money(wallet.get('available_balance'))} "
-            f"equity={fmt_money(wallet.get('total_equity'))}"
+            f"wallet_free={fmt_money(wallet_free)} "
+            f"equity={fmt_money(equity)}"
         ),
     ]
+    lines.extend(stack_capital_lines(stack_capital))
     if first_market:
         lines.append(
             f"position_net={fmt_money(first_market.get('position_net'))} spread_bps={first_market.get('spread_bps', 'n/a')}"
@@ -153,8 +197,9 @@ def main() -> int:
     latest = read_json(DATA_DIR / "decision_envelope_latest.json", {})
     diagnosis = read_json(DATA_DIR / "quant_diagnosis_latest.json", {})
     alert_state = read_json(ALERT_ROUTER_STATE_PATH, {})
+    stack_capital = collect_stack_capital()
 
-    message = render_snapshot(runtime, live_state, latest, diagnosis, alert_state)
+    message = render_snapshot(runtime, live_state, latest, diagnosis, alert_state, stack_capital)
     new_hash = str(hash(message))
     state = read_json(STATE_PATH, {})
     previous_hash = state.get("last_hash")

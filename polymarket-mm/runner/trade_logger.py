@@ -42,6 +42,9 @@ class UnifiedTradeLogger:
         self._run_id = run_id
         self._trade_counter = 0
         self._cumulative_pnl = Decimal("0")
+        self._realized_cumulative_pnl = Decimal("0")
+        self._starting_equity: Decimal | None = None
+        self._prev_equity: Decimal | None = None
 
     def log_trade(
         self,
@@ -90,7 +93,21 @@ class UnifiedTradeLogger:
     ) -> None:
         self._trade_counter += 1
         self._cumulative_pnl += pnl_this_trade
+        self._realized_cumulative_pnl += pnl_this_trade
         trade_id = f"{self._run_id}-{self._trade_counter:06d}"
+        notional = fill_price * fill_qty
+        cashflow_this_trade = notional if side == "SELL" else -notional
+
+        equity_after = self._extract_wallet_equity(wallet_after)
+        equity_delta_from_prev = None
+        economic_pnl_cumulative = None
+        if equity_after is not None:
+            if self._starting_equity is None:
+                self._starting_equity = equity_after
+            if self._prev_equity is not None:
+                equity_delta_from_prev = equity_after - self._prev_equity
+            economic_pnl_cumulative = equity_after - self._starting_equity
+            self._prev_equity = equity_after
 
         record: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -106,8 +123,11 @@ class UnifiedTradeLogger:
             "size": str(size),
             "fill_qty": str(fill_qty),
             "fill_price": str(fill_price),
+            "notional_usd": str(notional),
+            "cashflow_this_trade": str(cashflow_this_trade),
             "pnl_this_trade": str(pnl_this_trade),
             "pnl_cumulative": str(self._cumulative_pnl),
+            "realized_pnl_cumulative": str(self._realized_cumulative_pnl),
             "pnl_realized": str(pnl_realized),
             "pnl_unrealized": str(pnl_unrealized),
             "entry_rationale": {
@@ -131,6 +151,9 @@ class UnifiedTradeLogger:
             "data_gap_seconds": round(data_gap_seconds, 2),
             "ledger": {
                 "execution_pnl_usd": float(pnl_this_trade),
+                "realized_pnl_usd": float(pnl_this_trade),
+                "notional_usd": round(float(notional), 6),
+                "cashflow_usd": round(float(cashflow_this_trade), 6),
                 "reward_estimate_usd": round(float(reward_estimate_usd), 6),
                 "reward_received_usd": round(float(reward_received_usd), 6),
                 "churn_cost_usd": round(float(churn_cost_usd), 6),
@@ -141,6 +164,19 @@ class UnifiedTradeLogger:
                 "slippage_bps": round(float(slippage_bps), 4),
             },
         }
+        if equity_after is not None:
+            record["ledger"]["equity_after_usd"] = round(float(equity_after), 6)
+        if equity_delta_from_prev is not None:
+            record["ledger"]["equity_delta_from_prev_usd"] = round(float(equity_delta_from_prev), 6)
+        if economic_pnl_cumulative is not None:
+            record["ledger"]["economic_pnl_cumulative_usd"] = round(float(economic_pnl_cumulative), 6)
+
+        if equity_after is not None:
+            record["ledger"]["equity_after_usd"] = round(float(equity_after), 6)
+        if equity_delta_from_prev is not None:
+            record["ledger"]["equity_delta_from_prev_usd"] = round(float(equity_delta_from_prev), 6)
+        if economic_pnl_cumulative is not None:
+            record["ledger"]["economic_pnl_cumulative_usd"] = round(float(economic_pnl_cumulative), 6)
 
         # Live-mode extra fields
         if self._mode == "live":
@@ -163,6 +199,19 @@ class UnifiedTradeLogger:
                 f.write(json.dumps(record, default=str) + "\n")
         except Exception as e:
             logger.warning("trade_logger.write_error", error=str(e))
+
+
+    @staticmethod
+    def _extract_wallet_equity(wallet_after: dict | None) -> Decimal | None:
+        if not wallet_after:
+            return None
+        raw = wallet_after.get("total_equity", wallet_after.get("equity"))
+        if raw is None:
+            return None
+        try:
+            return Decimal(str(raw))
+        except Exception:
+            return None
 
     def _build_trigger(self, side, token, fill_price, market_state, skew_info) -> str:
         parts = []

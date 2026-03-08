@@ -1,5 +1,5 @@
 # Luna X Baseline
-Generated: 2026-03-06T04:15:18Z
+Generated: 2026-03-07T21:46:03Z
 
 ## Session
 - state: `ok`
@@ -8,9 +8,9 @@ Generated: 2026-03-06T04:15:18Z
 
 ## Account
 - handle: `@lunabardabot`
-- display_name: To view keyboard shortcuts, press question mark
-- followers: 0
-- following: 0
+- display_name: Luna
+- followers: 1
+- following: 7
 
 ## Analytics
 - profile_visits_recent: (unavailable)

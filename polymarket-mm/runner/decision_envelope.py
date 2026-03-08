@@ -158,6 +158,32 @@ class RiskLimits:
 
 
 @dataclass(slots=True)
+class InventoryGuards:
+    max_recoverable_inventory_usdc: Decimal = Decimal("1")
+    max_net_inventory_notional_usdc: Decimal = Decimal("10")
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any] | None) -> "InventoryGuards":
+        raw = raw or {}
+        return cls(
+            max_recoverable_inventory_usdc=_decimal(
+                raw.get("max_recoverable_inventory_usdc", "1"),
+                field_name="max_recoverable_inventory_usdc",
+            ),
+            max_net_inventory_notional_usdc=_decimal(
+                raw.get("max_net_inventory_notional_usdc", "10"),
+                field_name="max_net_inventory_notional_usdc",
+            ),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "max_recoverable_inventory_usdc": str(self.max_recoverable_inventory_usdc),
+            "max_net_inventory_notional_usdc": str(self.max_net_inventory_notional_usdc),
+        }
+
+
+@dataclass(slots=True)
 class KillSwitches:
     halt_on_order_rejected: bool = True
     halt_on_balance_allowance: bool = True
@@ -179,6 +205,7 @@ class KillSwitches:
 @dataclass(slots=True)
 class RewardMarketDecision:
     mode: Literal["rewards_farming"]
+    strategy_mode: str
     market_id: str
     condition_id: str
     token_id_yes: str
@@ -204,6 +231,7 @@ class RewardMarketDecision:
     def from_dict(cls, raw: dict[str, Any]) -> "RewardMarketDecision":
         item = cls(
             mode="rewards_farming",
+            strategy_mode=str(raw.get("strategy_mode", "rewards_passive_v1") or "rewards_passive_v1"),
             market_id=_require_non_empty(raw.get("market_id"), field_name="market_id"),
             condition_id=_require_non_empty(raw.get("condition_id"), field_name="condition_id"),
             token_id_yes=_require_non_empty(raw.get("token_id_yes"), field_name="token_id_yes"),
@@ -236,6 +264,7 @@ class RewardMarketDecision:
     def to_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
+            "strategy_mode": self.strategy_mode,
             "market_id": self.market_id,
             "condition_id": self.condition_id,
             "token_id_yes": self.token_id_yes,
@@ -368,7 +397,9 @@ class DecisionEnvelope:
     trading_state: Literal["active", "standby", "halted"] = "active"
     decision_reason: str = ""
     decision_scope: Literal["rewards_only", "rewards_plus_directional"] = "rewards_only"
+    strategy_mode: str = "rewards_passive_v1"
     blockers: list[str] = field(default_factory=list)
+    inventory_guards: InventoryGuards = field(default_factory=InventoryGuards)
     risk_limits: RiskLimits = field(default_factory=RiskLimits)
     kill_switches: KillSwitches = field(default_factory=KillSwitches)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -386,6 +417,7 @@ class DecisionEnvelope:
             raise ValueError("trading_state must be active, standby or halted")
         decision_reason = str(raw.get("decision_reason", "") or "").strip()
         decision_scope = str(raw.get("decision_scope", "") or "").strip().lower()
+        strategy_mode = str(raw.get("strategy_mode", "rewards_passive_v1") or "rewards_passive_v1").strip()
         capital_policy = CapitalPolicy.from_dict(raw.get("capital_policy") or {})
         mode_allocations = ModeAllocations.from_dict(raw.get("mode_allocations"))
         if not decision_scope:
@@ -415,7 +447,9 @@ class DecisionEnvelope:
             trading_state=trading_state,
             decision_reason=decision_reason,
             decision_scope=decision_scope,
+            strategy_mode=strategy_mode,
             blockers=[str(item) for item in raw.get("blockers", []) if str(item).strip()],
+            inventory_guards=InventoryGuards.from_dict(raw.get("inventory_guards")),
             capital_policy=capital_policy,
             mode_allocations=mode_allocations,
             markets=markets,
@@ -479,7 +513,9 @@ class DecisionEnvelope:
             "trading_state": self.trading_state,
             "decision_reason": self.decision_reason,
             "decision_scope": self.decision_scope,
+            "strategy_mode": self.strategy_mode,
             "blockers": self.blockers,
+            "inventory_guards": self.inventory_guards.to_dict(),
             "capital_policy": self.capital_policy.to_dict(),
             "mode_allocations": self.mode_allocations.to_dict(),
             "markets": [m.to_dict() for m in self.markets],

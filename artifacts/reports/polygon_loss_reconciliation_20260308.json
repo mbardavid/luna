@@ -1,0 +1,360 @@
+{
+  "manual_flatten_reference": {
+    "timestamp_file_mtime_utc": "2026-03-06T01:46:06Z",
+    "free_usdc_after_flatten": 232.030396
+  },
+  "current_wallet": {
+    "equity_usdc": 56.7522,
+    "free_collateral_usdc": 56.218396,
+    "recoverable_inventory_usdc": 0.155,
+    "dust_inventory_usdc": 0.3788
+  },
+  "capital_change_since_manual_flatten": {
+    "start_free_usdc": 232.030396,
+    "current_equity_usdc": 56.7522,
+    "delta_usdc": -175.278196
+  },
+  "trade_window": {
+    "first_post_flatten_trade": {
+      "timestamp": "2026-03-06T03:41:35.510132+00:00",
+      "equity": 227.03611,
+      "available": 212.221825,
+      "trade_id": "prod-004-000001",
+      "market": "Will Donald Trump post 180-199 Truth Social posts from February 27 to March 6, 2026?",
+      "side": "BUY",
+      "token": "NO",
+      "fill_qty": 29.62857,
+      "fill_price": 0.6500000168756035,
+      "pnl_this_trade": 0.0
+    },
+    "last_post_flatten_trade": {
+      "timestamp": "2026-03-07T16:59:17.577449+00:00",
+      "equity": 56.388396,
+      "available": 55.703396,
+      "trade_id": "prod-005-000006",
+      "market": "Will Iran name a successor to Khamenei by March 7?",
+      "side": "BUY",
+      "token": "YES",
+      "fill_qty": 5.0,
+      "fill_price": 0.07,
+      "pnl_this_trade": 0.0
+    },
+    "equity_change_during_recorded_fills": -170.647714
+  },
+  "per_decision": [
+    {
+      "decision_id": "quant-20260306T230134Z",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "fills": 93,
+      "cashflow_usd": -182.867921,
+      "ledger_pnl_usd": -132.562662481593,
+      "first_equity_usd": 208.211627,
+      "last_equity_usd": 60.8069975,
+      "delta_equity_usd": -147.4046295,
+      "min_equity_usd": 60.8069975,
+      "equity_damage_minus_ledger_pnl_usd": -14.841967018406988,
+      "first_trade": {
+        "timestamp": "2026-03-06T23:49:21.229900+00:00",
+        "equity": 208.211627,
+        "available": 198.211627,
+        "trade_id": "prod-004-000001",
+        "market": "Will gas hit (High) $3.75 by March 31?",
+        "side": "BUY",
+        "token": "YES",
+        "fill_qty": 20.0,
+        "fill_price": 0.93,
+        "pnl_this_trade": 0.0
+      },
+      "last_trade": {
+        "timestamp": "2026-03-07T04:06:00.939591+00:00",
+        "equity": 60.8069975,
+        "available": 45.425706,
+        "trade_id": "prod-004-000040",
+        "market": "Will gas hit (High) $3.75 by March 31?",
+        "side": "SELL",
+        "token": "NO",
+        "fill_qty": 20.0,
+        "fill_price": 0.17,
+        "pnl_this_trade": -4.090024132831097
+      },
+      "min_equity_trade": {
+        "timestamp": "2026-03-07T04:06:00.939591+00:00",
+        "equity": 60.8069975,
+        "available": 45.425706,
+        "trade_id": "prod-004-000040",
+        "market": "Will gas hit (High) $3.75 by March 31?",
+        "side": "SELL",
+        "token": "NO",
+        "fill_qty": 20.0,
+        "fill_price": 0.17,
+        "pnl_this_trade": -4.090024132831097
+      }
+    },
+    {
+      "decision_id": "quant-20260306T033353Z",
+      "market": "Will Donald Trump post 180-199 Truth Social posts from February 27 to March 6, 2026?",
+      "fills": 50,
+      "cashflow_usd": -156.148497,
+      "ledger_pnl_usd": 36.45343414528617,
+      "first_equity_usd": 227.03611,
+      "last_equity_usd": 217.857086462,
+      "delta_equity_usd": -9.179023538,
+      "min_equity_usd": 217.733892215,
+      "equity_damage_minus_ledger_pnl_usd": -45.63245768328616,
+      "first_trade": {
+        "timestamp": "2026-03-06T03:41:35.510132+00:00",
+        "equity": 227.03611,
+        "available": 212.221825,
+        "trade_id": "prod-004-000001",
+        "market": "Will Donald Trump post 180-199 Truth Social posts from February 27 to March 6, 2026?",
+        "side": "BUY",
+        "token": "NO",
+        "fill_qty": 29.62857,
+        "fill_price": 0.6500000168756035,
+        "pnl_this_trade": 0.0
+      },
+      "last_trade": {
+        "timestamp": "2026-03-06T09:14:06.176686+00:00",
+        "equity": 217.857086462,
+        "available": 217.854419,
+        "trade_id": "prod-004-000029",
+        "market": "Will Donald Trump post 180-199 Truth Social posts from February 27 to March 6, 2026?",
+        "side": "SELL",
+        "token": "NO",
+        "fill_qty": 8.21,
+        "fill_price": 0.43,
+        "pnl_this_trade": -0.08211426540420724
+      },
+      "min_equity_trade": {
+        "timestamp": "2026-03-06T08:53:31.662102+00:00",
+        "equity": 217.733892215,
+        "available": 214.324119,
+        "trade_id": "prod-004-000028",
+        "market": "Will Donald Trump post 180-199 Truth Social posts from February 27 to March 6, 2026?",
+        "side": "SELL",
+        "token": "NO",
+        "fill_qty": 41.785713,
+        "fill_price": 0.4199999889914527,
+        "pnl_this_trade": -0.8357873253697949
+      }
+    },
+    {
+      "decision_id": "quant-20260306T142026Z",
+      "market": "Will there be no new Supreme Leader of Iran by June 30?",
+      "fills": 33,
+      "cashflow_usd": -97.415342,
+      "ledger_pnl_usd": 50.181661152800494,
+      "first_equity_usd": 217.884104,
+      "last_equity_usd": 215.857986464,
+      "delta_equity_usd": -2.026117536,
+      "min_equity_usd": 215.614017554,
+      "equity_damage_minus_ledger_pnl_usd": -52.207778688800495,
+      "first_trade": {
+        "timestamp": "2026-03-06T14:21:33.143368+00:00",
+        "equity": 217.884104,
+        "available": 216.469119,
+        "trade_id": "prod-004-000001",
+        "market": "Will there be no new Supreme Leader of Iran by June 30?",
+        "side": "BUY",
+        "token": "YES",
+        "fill_qty": 19.79,
+        "fill_price": 0.07,
+        "pnl_this_trade": 0.0
+      },
+      "last_trade": {
+        "timestamp": "2026-03-06T15:55:12.809141+00:00",
+        "equity": 215.857986464,
+        "available": 199.364467,
+        "trade_id": "prod-004-000001",
+        "market": "Will there be no new Supreme Leader of Iran by June 30?",
+        "side": "BUY",
+        "token": "YES",
+        "fill_qty": 20.0,
+        "fill_price": 0.081,
+        "pnl_this_trade": 0.0
+      },
+      "min_equity_trade": {
+        "timestamp": "2026-03-06T15:23:24.480376+00:00",
+        "equity": 215.614017554,
+        "available": 199.758749,
+        "trade_id": "prod-004-000002",
+        "market": "Will there be no new Supreme Leader of Iran by June 30?",
+        "side": "BUY",
+        "token": "YES",
+        "fill_qty": 3.6,
+        "fill_price": 0.073,
+        "pnl_this_trade": 0.0
+      }
+    },
+    {
+      "decision_id": "quant-20260307T165353Z",
+      "market": "Will Iran name a successor to Khamenei by March 7?",
+      "fills": 6,
+      "cashflow_usd": -0.775,
+      "ledger_pnl_usd": -0.0875,
+      "first_equity_usd": 56.460896,
+      "last_equity_usd": 56.388396,
+      "delta_equity_usd": -0.0725,
+      "min_equity_usd": 56.388396,
+      "equity_damage_minus_ledger_pnl_usd": 0.015,
+      "first_trade": {
+        "timestamp": "2026-03-07T16:56:51.704267+00:00",
+        "equity": 56.460896,
+        "available": 56.138396,
+        "trade_id": "prod-005-000001",
+        "market": "Will Iran name a successor to Khamenei by March 7?",
+        "side": "BUY",
+        "token": "YES",
+        "fill_qty": 5.0,
+        "fill_price": 0.068,
+        "pnl_this_trade": 0.0
+      },
+      "last_trade": {
+        "timestamp": "2026-03-07T16:59:17.577449+00:00",
+        "equity": 56.388396,
+        "available": 55.703396,
+        "trade_id": "prod-005-000006",
+        "market": "Will Iran name a successor to Khamenei by March 7?",
+        "side": "BUY",
+        "token": "YES",
+        "fill_qty": 5.0,
+        "fill_price": 0.07,
+        "pnl_this_trade": 0.0
+      },
+      "min_equity_trade": {
+        "timestamp": "2026-03-07T16:59:17.577449+00:00",
+        "equity": 56.388396,
+        "available": 55.703396,
+        "trade_id": "prod-005-000006",
+        "market": "Will Iran name a successor to Khamenei by March 7?",
+        "side": "BUY",
+        "token": "YES",
+        "fill_qty": 5.0,
+        "fill_price": 0.07,
+        "pnl_this_trade": 0.0
+      }
+    }
+  ],
+  "worst_trades_by_ledger_pnl": [
+    {
+      "timestamp": "2026-03-07T02:30:39.371521+00:00",
+      "equity": 186.611627,
+      "available": 166.611627,
+      "trade_id": "prod-004-000008",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "YES",
+      "fill_qty": 20.0,
+      "fill_price": 0.47,
+      "pnl_this_trade": -8.3
+    },
+    {
+      "timestamp": "2026-03-07T02:33:37.590878+00:00",
+      "equity": 186.011627,
+      "available": 166.011627,
+      "trade_id": "prod-004-000010",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "YES",
+      "fill_qty": 20.0,
+      "fill_price": 0.49,
+      "pnl_this_trade": -7.9
+    },
+    {
+      "timestamp": "2026-03-07T02:26:33.265515+00:00",
+      "equity": 191.411627,
+      "available": 157.211627,
+      "trade_id": "prod-004-000007",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "YES",
+      "fill_qty": 20.0,
+      "fill_price": 0.58,
+      "pnl_this_trade": -6.1
+    },
+    {
+      "timestamp": "2026-03-07T03:16:20.378025+00:00",
+      "equity": 102.3387975,
+      "available": 91.692506,
+      "trade_id": "prod-004-000007",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "NO",
+      "fill_qty": 20.0,
+      "fill_price": 0.19,
+      "pnl_this_trade": -5.7
+    },
+    {
+      "timestamp": "2026-03-07T04:01:12.362256+00:00",
+      "equity": 67.4069975,
+      "available": 42.025706,
+      "trade_id": "prod-004-000039",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "NO",
+      "fill_qty": 20.0,
+      "fill_price": 0.09,
+      "pnl_this_trade": -5.6900241328310965
+    },
+    {
+      "timestamp": "2026-03-07T02:41:38.672632+00:00",
+      "equity": 176.447547,
+      "available": 159.709727,
+      "trade_id": "prod-004-000014",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "YES",
+      "fill_qty": 20.0,
+      "fill_price": 0.53,
+      "pnl_this_trade": -5.35
+    },
+    {
+      "timestamp": "2026-03-07T03:04:33.444498+00:00",
+      "equity": 128.257972,
+      "available": 117.709727,
+      "trade_id": "prod-004-000047",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "NO",
+      "fill_qty": 20.0,
+      "fill_price": 0.19,
+      "pnl_this_trade": -5.3
+    },
+    {
+      "timestamp": "2026-03-07T03:15:21.232119+00:00",
+      "equity": 108.5387975,
+      "available": 87.892506,
+      "trade_id": "prod-004-000006",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "NO",
+      "fill_qty": 18.19,
+      "fill_price": 0.2,
+      "pnl_this_trade": -5.00225
+    },
+    {
+      "timestamp": "2026-03-07T02:44:39.324293+00:00",
+      "equity": 168.754727,
+      "available": 155.909727,
+      "trade_id": "prod-004-000019",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "YES",
+      "fill_qty": 20.0,
+      "fill_price": 0.45,
+      "pnl_this_trade": -4.454924491135916
+    },
+    {
+      "timestamp": "2026-03-07T02:42:21.226312+00:00",
+      "equity": 178.354727,
+      "available": 165.509727,
+      "trade_id": "prod-004-000015",
+      "market": "Will gas hit (High) $3.75 by March 31?",
+      "side": "SELL",
+      "token": "NO",
+      "fill_qty": 20.0,
+      "fill_price": 0.29,
+      "pnl_this_trade": -4.4
+    }
+  ]
+}

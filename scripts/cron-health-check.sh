@@ -10,7 +10,7 @@ set -euo pipefail
 
 NOTIFY=0
 STATE_FILE="/tmp/.cron-health-state.json"
-DISCORD_CHANNEL="${DISCORD_CHANNEL:-1473367119377731800}"
+DISCORD_CHANNEL="${DISCORD_CHANNEL:-1476255906894446644}"
 LOG_FILE="/home/openclaw/.openclaw/workspace/logs/cron-health-check.log"
 
 [ "${1:-}" = "--notify" ] && NOTIFY=1

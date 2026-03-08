@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "701d5440-5809-4cd7-abcb-4b4753905de9",
+  "filename": "20260307T172014-dispatch-701d5440.json",
+  "created_at": "2026-03-07T17:20:14.256081+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM: recoverable inventory still trapped",
+  "agent": "crypto-sage",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "The system is not actively trading, but diagnosis still sees meaningful recoverable inventory that should be unwound or merged.\n\nOwner: crypto-sage\nRun: prod-005\nDecision: quant-20260307T171025Z\nPaths:\n- runtime: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/pmm_runtime_state.json\n- latest: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_latest.json\n- applied: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_applied.json\n- ",
+    "eligible_count": 13,
+    "in_progress_count": 3,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": null,
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "701d5440-a1-20260307T172014Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "crypto-sage",
+    "task_id": "701d5440-5809-4cd7-abcb-4b4753905de9",
+    "title": "PMM: recoverable inventory still trapped",
+    "description": "The system is not actively trading, but diagnosis still sees meaningful recoverable inventory that should be unwound or merged.\n\nOwner: crypto-sage\nRun: prod-005\nDecision: quant-20260307T171025Z\nPaths:\n- runtime: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/pmm_runtime_state.json\n- latest: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_latest.json\n- applied: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_applied.json\n- ",
+    "priority": "high"
+  },
+  "queue_key": "701d5440-5809-4cd7-abcb-4b4753905de9|dispatch|inbox|direct_exec|5a6bbf22521c",
+  "completed_at": "2026-03-07T17:21:27.645228Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "crypto-sage",
+    "session_id": "agent:crypto-sage:subagent:5f8dc41e-648a-4536-8630-1876b15afb3d"
+  }
+}

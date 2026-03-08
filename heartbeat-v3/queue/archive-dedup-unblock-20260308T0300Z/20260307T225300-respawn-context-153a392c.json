@@ -1,0 +1,12 @@
+{
+  "type": "respawn",
+  "task_id": "153a392c-b73d-47e6-8a0d-92038e061c2a",
+  "title": "Daily Luna X Growth Judge Bundle",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "agent:luna-judge:main",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  }
+}

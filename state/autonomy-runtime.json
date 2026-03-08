@@ -1,5 +1,5 @@
 {
-  "last_tick": "2026-03-07T08:25:11Z",
+  "last_tick": "2026-03-08T08:25:12Z",
   "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
   "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
   "workstream_ids": [
@@ -15,6 +15,6 @@
     "target": 2,
     "allow_burst": true
   },
-  "current_window": 3,
+  "current_window": 7,
   "planned_actions": []
 }

@@ -3,7 +3,7 @@ set -euo pipefail
 
 WORKSPACE="${WORKSPACE:-/home/openclaw/.openclaw/workspace}"
 PMM_ROOT="${PMM_ROOT:-$WORKSPACE/polymarket-mm}"
-CONFIG_PATH="${PMM_LIVE_CONFIG:-$PMM_ROOT/paper/runs/prod-004.yaml}"
+CONFIG_PATH="${PMM_LIVE_CONFIG:-$PMM_ROOT/paper/runs/prod-006.yaml}"
 DECISION_ENVELOPE="${PMM_DECISION_ENVELOPE:-$PMM_ROOT/paper/data/decision_envelope_latest.json}"
 LOG_FILE="${PMM_LIVE_LOG_FILE:-$PMM_ROOT/logs/production.log}"
 PID_FILE="${PMM_PID_FILE:-$PMM_ROOT/paper/data/production_trading.pid}"

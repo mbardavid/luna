@@ -15,7 +15,7 @@ set -euo pipefail
 WORKSPACE="${WORKSPACE:-/home/openclaw/.openclaw/workspace}"
 OPENCLAW_BIN="${OPENCLAW_BIN:-openclaw}"
 STATE_FILE="/tmp/.gateway-pre-restart-state.json"
-DISCORD_CHANNEL="${DISCORD_CHANNEL:-1473367119377731800}"
+DISCORD_CHANNEL="${DISCORD_CHANNEL:-1476255906894446644}"
 LOG_FILE="$WORKSPACE/logs/gateway-recovery.log"
 MC_API_URL="${MC_API_URL:-http://localhost:8000}"
 

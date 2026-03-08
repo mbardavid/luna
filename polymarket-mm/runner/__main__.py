@@ -95,6 +95,7 @@ def _market_config_from_decision(
         "min_order_size": getattr(decision_market, "min_order_size", Decimal("5")),
         "neg_risk": getattr(decision_market, "neg_risk", False),
         "execution_mode": decision_market.mode,
+        "strategy_mode": getattr(decision_market, "strategy_mode", "rewards_passive_v1"),
         "disable_reason": getattr(decision_market, "disable_reason", ""),
     }
 

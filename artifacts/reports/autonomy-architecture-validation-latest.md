@@ -1,18 +1,18 @@
 # Autonomy Architecture Validation
-Generated: 2026-03-07T08:25:11Z
+Generated: 2026-03-08T08:25:21Z
 
 ## Overall: `PASS`
-- Passed: 13
-- Warnings: 2
+- Passed: 14
+- Warnings: 1
 - Failed: 0
 - Active project: `3a0d8492` Grow Luna X account by +200 followers
 - Active milestone: `fed0a72b` M0 Session Recovery + Baseline + Charter
 
 ## Scheduler Snapshot
 - Mode: `full` | health=`healthy` | slots=4
-- Reserved slots: `{"ambient": 0, "project": 0, "repair": 1, "review": 0}`
-- Running by lane: `{"ambient": 0, "project": 0, "repair": 4, "review": 0}`
-- Eligible by lane: `{"ambient": 0, "project": 0, "repair": 4, "review": 0}`
+- Reserved slots: `{"ambient": 0, "project": 0, "repair": 0, "review": 0}`
+- Running by lane: `{"ambient": 0, "project": 0, "repair": 0, "review": 0}`
+- Eligible by lane: `{"ambient": 0, "project": 0, "repair": 0, "review": 0}`
 - Dispatch decision: `{"lane": "", "status": "", "task_id": "", "type": "idle"}`
 
 ## Failed Checks
@@ -21,9 +21,6 @@ Generated: 2026-03-07T08:25:11Z
 ## Warnings
 - `project_lane_coexists_with_ambient` Project lane coexists with ambient: Current snapshot does not exercise ambient+project contention at the same time.
   - {"ambient_running": 0, "project_eligible": 0}
-- `project_artifacts_fresh` Project artifacts exist and are fresh: Required artifacts are healthy, but optional project artifacts are missing or stale.
-  - session-health-latest.json: stale (1690 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/session-health-latest.json
-  - baseline-latest.json: stale (1689 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/baseline-latest.json
 
 ## Passed Checks
 - `active_project_present` Active project detected: Active project `3a0d8492` with chairman_state=`active`.
@@ -37,11 +34,11 @@ Generated: 2026-03-07T08:25:11Z
 - `auto_dispatch_not_on_main` Auto execution never lands on main: No auto-dispatched execution is linked to `main`.
 - `scheduler_state_fresh` Scheduler state is fresh: Scheduler state updated 0 minute(s) ago.
 - `scheduler_mode_live` Scheduler v2 is active: Scheduler mode is `full`.
-- `repair_lane_served` Repair lane receives capacity: Repair work has live capacity via running tasks or the current dispatch decision.
-  - {"dispatch": {"lane": "", "status": "", "task_id": "", "type": "idle"}, "eligible": 4, "running": 4}
+- `repair_lane_served` Repair lane receives capacity: No repair demand is currently waiting.
 - `autonomy_runtime_consistent` Autonomy runtime matches MC active scope: Runtime state matches the active project, milestone and workstream window.
   - runtime_project=3a0d8492
   - runtime_milestone=fed0a72b
   - runtime_workstreams=0a7aac3a,c2dad9a4,f71aaca0
-- `repair_bundles_integrity` Repair bundles stay executable: All 26 open repair bundle(s) have executable children and live work.
-- `repair_gates_valid` Repair-gated tasks point to live bundles: All 21 repair-gated task(s) reference open repair bundles.
+- `repair_bundles_integrity` Repair bundles stay executable: All 0 open repair bundle(s) have executable children and live work.
+- `repair_gates_valid` Repair-gated tasks point to live bundles: All 0 repair-gated task(s) reference open repair bundles.
+- `project_artifacts_fresh` Project artifacts exist and are fresh: Required board/outcome artifacts are present and fresh.

@@ -39,23 +39,24 @@ Recoverable inventory drops below the dust threshold or a documented hold reason
 - Applied envelope: `/home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_applied.json`
 - Candidate envelope: `/home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_candidate.json`
 
-### Objective validation
-From `quant_diagnosis_latest.json`:
-- `post_trade_diagnosis.wallet_state.recoverable_inventory_usdc` = **13.3000**
-- `post_trade_diagnosis.wallet_state.dust_inventory_usdc` = **0.3902**
+### Objective validation (updated)
+From current `quant_diagnosis_latest.json`:
+- `generated_at` = `2026-03-07T21:30:46Z`
+- `run_id` = `prod-006`
+- `post_trade_diagnosis.wallet_state.recoverable_inventory_usdc` = **0.1550**
 - `post_trade_diagnosis.wallet_state.dust_threshold_usdc` = **1**
 
-Result: **FAIL** — recoverable inventory (**13.3000 USDC**) is **above** the dust threshold (**1 USDC**).
+Result: **PASS** — recoverable inventory (**0.1550 USDC**) is **below** the dust threshold (**1 USDC**).
 
 ### Hold reason check
 No explicit, human-documented hold reason is present in the reviewed artifacts; envelopes only contain `decision_reason: recoverable_inventory_must_be_flattened_before_live`, which is a gating rationale but does not satisfy “documented hold reason attached” for closure.
 
 ### Decision
-- **REJECT** for closure.
-- Task state should return to **in_progress**.
+- **APPROVE** for closure.
+- Task state should move to **done**.
 
 ### review_reason (for MC)
-Recoverable inventory remains materially above dust threshold (13.3000 USDC > 1 USDC) and no documented hold reason is attached; objective closure criterion not met.
+Objective closure criterion met: recoverable inventory is now below dust threshold (0.1550 USDC < 1 USDC).
 
 ### Notes / what’s needed to close
 One of:

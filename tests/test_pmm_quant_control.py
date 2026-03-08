@@ -76,6 +76,29 @@ def test_should_auto_promote_when_candidate_restores_active_trading():
     assert reason == "candidate_restores_active_trading"
 
 
+def test_should_auto_promote_when_candidate_requests_risk_off_state():
+    module = _load_module()
+    current_envelope = SimpleNamespace(
+        decision_id="current-active",
+        expires_at=module.utcnow() + timedelta(hours=2),
+        trading_state="active",
+    )
+    candidate_envelope = SimpleNamespace(
+        decision_id="candidate-standby",
+        trading_state="standby",
+    )
+
+    auto_promote, reason = module.should_auto_promote_candidate(
+        current_envelope=current_envelope,
+        candidate_envelope=candidate_envelope,
+        report={},
+        runtime_state={"status": "running"},
+    )
+
+    assert auto_promote is True
+    assert reason == "candidate_requests_risk_off_state"
+
+
 def test_normalize_wake_target_supports_crypto_sage_and_luna():
     module = _load_module()
 

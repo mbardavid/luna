@@ -102,6 +102,7 @@ from mc_control import (
     task_attempt,
     task_card_type,
     task_dispatch_policy,
+    task_execution_owner,
     task_fields,
     task_gate_reason,
     task_lane,
@@ -112,6 +113,7 @@ from mc_control import (
     task_project_id,
     task_repair_source_task_id,
     task_review_agent,
+    task_runtime_owner,
     task_status,
     task_workflow,
     task_workstream_id,
@@ -764,9 +766,10 @@ def send_discord(channel: str, message: str) -> bool:
 
 
 def notification_channels() -> list:
-    channels = [DISCORD_CHANNEL]
-    if MIRROR_NOTIFICATIONS and NOTIFICATIONS_CHANNEL and NOTIFICATIONS_CHANNEL not in channels:
-        channels.append(NOTIFICATIONS_CHANNEL)
+    primary = NOTIFICATIONS_CHANNEL or DISCORD_CHANNEL
+    channels = [primary] if primary else []
+    if MIRROR_NOTIFICATIONS and DISCORD_CHANNEL and DISCORD_CHANNEL not in channels:
+        channels.append(DISCORD_CHANNEL)
     return channels
 
 
@@ -1913,7 +1916,15 @@ except Exception as e:
     record_cb_failure(state)
     sys.exit(1)
 
-log(f"Phase 3: {len(sessions)} sessions, {len(tasks)} tasks")
+all_tasks = list(tasks)
+controller_owned_tasks = [task for task in all_tasks if task_runtime_owner(task) == "controller-v1"]
+legacy_tasks = [task for task in all_tasks if task_runtime_owner(task) != "controller-v1"]
+tasks = legacy_tasks
+
+log(
+    f"Phase 3: {len(sessions)} sessions, {len(all_tasks)} tasks "
+    f"(legacy={len(legacy_tasks)} controller={len(controller_owned_tasks)})"
+)
 
 # Load agent mapping
 agent_mapping = load_agent_mapping()
@@ -2441,7 +2452,10 @@ if PROJECT_AUTONOMY_ENABLED:
         max_auto_leaf_tasks_per_workstream=PROJECT_AUTONOMY_MAX_AUTO_PER_WORKSTREAM,
         max_new_leaf_tasks_per_cycle=PROJECT_AUTONOMY_MAX_NEW_LEAF_TASKS_PER_CYCLE,
     )
-    save_autonomy_runtime_snapshot(autonomy_plan)
+    if (autonomy_plan.get("project") or {}).get("id") or not controller_owned_tasks:
+        save_autonomy_runtime_snapshot(autonomy_plan)
+    else:
+        log("Phase 6.5: legacy autonomy runtime snapshot skipped (controller-owned project scope active)")
     active_project = autonomy_plan.get("project")
     active_milestone = autonomy_plan.get("milestone")
     if active_project:
@@ -2780,8 +2794,8 @@ dispatch_fields.update({
 })
 dispatch_task = dict(next_task)
 dispatch_task["custom_field_values"] = dispatch_fields
-assigned_uuid = str(next_task.get("assigned_agent_id", "") or "")
-agent_name = resolve_agent_name(assigned_uuid, agent_mapping)
+dispatch_owner = task_execution_owner(next_task)
+agent_name = resolve_agent_name(dispatch_owner, agent_mapping)
 if is_execution_task(next_task) and task_dispatch_policy(next_task) == "auto" and agent_name == "main":
     repair = open_repair_bundle(
         task_id,

@@ -24,3 +24,36 @@ Use child incidents for actionable alerts; keep snapshots in Discord notificatio
 - Explicit decision or task specification
 - References to files/tests used
 
+## Judge Review (Luna) — 2026-03-08T03:00Z
+
+### Context / gating
+- Context pack gate reason: `repair_open`
+- Repair fingerprint: `ce57a9ce-9f7b-4656-90e6-8d9795e9b9d2:missing_session_key`
+- `mc_session_key` is empty and `mc_last_error=missing_session_key` (task was active without a session key).
+
+### Evidence inspected (files)
+- `/home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/pmm_runtime_state.json`
+- `/home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_latest.json`
+- `/home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_applied.json`
+- `/home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/quant_diagnosis_latest.json`
+
+### Objective validation
+This is a **persistent parent ops card**; the minimum objective for approval is operational coherence + no open repair gate on the card itself.
+
+Findings:
+- Card is explicitly gated by an open repair (`repair_open`) due to **missing session key**.
+- Runtime state contradicts the description:
+  - Description: `Run: prod-004` and `Status: running`
+  - Runtime file: `run_id=prod-006`, `trading_state=standby`, `process_alive=false` (runner stopped)
+
+### Decision
+- **REJECT** for review closure.
+- Task should return to **in_progress** while the repair bundle `c152c1f2-e4d2-4828-a999-94402ef3377d` is resolved and the card metadata is corrected.
+
+### review_reason (for MC)
+Open repair gate on card (missing mc_session_key) and runtime/description mismatch (described prod-004 running, but runtime shows prod-006 standby / process not alive).
+
+### What’s needed to approve next time
+- Populate a valid `mc_session_key` (or explicitly mark this parent as non-executable / non-session-bound).
+- Ensure card description matches current runtime (run_id + status) and/or attach a link to the canonical runtime snapshot process.
+

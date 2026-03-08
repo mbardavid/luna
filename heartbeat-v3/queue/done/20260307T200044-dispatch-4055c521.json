@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "4055c521-8d45-40a3-85cf-96c07c9e9330",
+  "filename": "20260307T200044-dispatch-4055c521.json",
+  "created_at": "2026-03-07T20:00:44.428168+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "PMM: no rewards-eligible markets for 2h",
+  "agent": "quant-strategist",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "The Quant control plane has kept the PMM without any enabled rewards market for more than two hours.\n\nOwner: quant-strategist\nRun: prod-006\nDecision: quant-20260307T173838Z\nPaths:\n- runtime: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/pmm_runtime_state.json\n- latest: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_latest.json\n- applied: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_applied.json\n- candidate: /home/openc",
+    "eligible_count": 12,
+    "in_progress_count": 1,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": null,
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "4055c521-a1-20260307T200044Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "quant-strategist",
+    "task_id": "4055c521-8d45-40a3-85cf-96c07c9e9330",
+    "title": "PMM: no rewards-eligible markets for 2h",
+    "description": "The Quant control plane has kept the PMM without any enabled rewards market for more than two hours.\n\nOwner: quant-strategist\nRun: prod-006\nDecision: quant-20260307T173838Z\nPaths:\n- runtime: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/pmm_runtime_state.json\n- latest: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_latest.json\n- applied: /home/openclaw/.openclaw/workspace/polymarket-mm/paper/data/decision_envelope_applied.json\n- candidate: /home/openc",
+    "priority": "high"
+  },
+  "queue_key": "4055c521-8d45-40a3-85cf-96c07c9e9330|dispatch|inbox|direct_exec|e1ebc1f20a5c",
+  "completed_at": "2026-03-07T20:03:23.548030Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "quant-strategist",
+    "session_id": "agent:quant-strategist:subagent:e80a2ad7-4ada-4348-865a-d48a322ddc57",
+    "runtime_owner": "legacy"
+  }
+}

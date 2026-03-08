@@ -25,6 +25,7 @@ import json
 import math
 import resource
 import signal
+import sys
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -229,6 +230,16 @@ class UnifiedTradingPipeline:
         self._directional_enabled_for_mode = (
             self.mode == "paper"
             or self._allow_directional_live
+        )
+        self._inventory_guard_recoverable_usdc = (
+            decision_envelope.inventory_guards.max_recoverable_inventory_usdc
+            if decision_envelope is not None
+            else Decimal("1")
+        )
+        self._inventory_guard_net_notional_usdc = (
+            decision_envelope.inventory_guards.max_net_inventory_notional_usdc
+            if decision_envelope is not None
+            else Decimal("10")
         )
 
         # Token → market mapping
@@ -526,13 +537,9 @@ class UnifiedTradingPipeline:
                     transport_ttfb_ms=self._selected_transport_ttfb_ms(),
                     latency_bucket=self._latency_bucket(0.0),
                     reward_estimate_usd=self._reward_estimate_for_market(market_cfg),
-                    wallet_after={
-                        "available": float(self.wallet.available_balance),
-                        "locked": float(self.wallet.locked_balance),
-                        "equity": float(self.wallet.total_equity()),
-                        "fee": float(fill_fee),
-                        "total_fees": float(self.wallet.total_fees),
-                    },
+                    wallet_after=(lambda snapshot: {**snapshot, "last_fill_fee": float(fill_fee)})(
+                        self.wallet.wallet_snapshot(self._get_mid_prices())
+                    ),
                 )
         except asyncio.CancelledError:
             pass
@@ -642,6 +649,8 @@ class UnifiedTradingPipeline:
                         total_pnl=str(self.total_pnl),
                     )
 
+                    await self._check_kill_switch()
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -739,17 +748,32 @@ class UnifiedTradingPipeline:
         if position is None:
             position = self.wallet.get_position(market_cfg.market_id)
 
+        if (
+            self.mode == "live"
+            and getattr(market_cfg, "strategy_mode", "rewards_passive_v1") == "rewards_passive_v1"
+        ):
+            breach = self._inventory_guard_breach(market_cfg, position, market_state)
+            if breach is not None:
+                await self._handle_inventory_guard_breach(market_cfg, breach)
+                return
+
         if self._should_hold_quotes(market_cfg):
             return
 
         original_order_size = self.quote_engine.config.default_order_size
         original_min_half_spread = self.quote_engine.spread_model.config.min_half_spread_bps
+        original_passive_bid_only_mode = self.quote_engine.config.passive_bid_only_mode
+        original_position_recycling = self.quote_engine.config.position_recycling
         if market_cfg.order_size_override is not None:
             self.quote_engine.config.default_order_size = market_cfg.order_size_override
         if market_cfg.half_spread_bps_override is not None:
             self.quote_engine.spread_model.config.min_half_spread_bps = Decimal(
                 str(market_cfg.half_spread_bps_override)
             )
+        passive_rewards_mode = getattr(market_cfg, "strategy_mode", "rewards_passive_v1") == "rewards_passive_v1"
+        self.quote_engine.config.passive_bid_only_mode = passive_rewards_mode
+        if passive_rewards_mode:
+            self.quote_engine.config.position_recycling = False
 
         try:
             plan = self.quote_engine.generate_quotes(
@@ -774,6 +798,8 @@ class UnifiedTradingPipeline:
         finally:
             self.quote_engine.config.default_order_size = original_order_size
             self.quote_engine.spread_model.config.min_half_spread_bps = original_min_half_spread
+            self.quote_engine.config.passive_bid_only_mode = original_passive_bid_only_mode
+            self.quote_engine.config.position_recycling = original_position_recycling
 
         if not plan.slices:
             return
@@ -1082,6 +1108,91 @@ class UnifiedTradingPipeline:
             except Exception as e:
                 logger.warning("execution_guard.error", error=str(e))
 
+    def _inventory_guard_breach(
+        self,
+        market_cfg: UnifiedMarketConfig,
+        position: Position | None,
+        market_state: MarketState,
+    ) -> dict[str, str] | None:
+        if position is None:
+            return None
+
+        max_qty = market_cfg.max_inventory_per_side or market_cfg.max_position_size
+        yes_mid = (
+            (market_state.yes_bid + market_state.yes_ask) / Decimal("2")
+            if market_state.yes_bid > 0 and market_state.yes_ask > 0
+            else market_state.mid_price
+        )
+        no_mid = (
+            (market_state.no_bid + market_state.no_ask) / Decimal("2")
+            if market_state.no_bid > 0 and market_state.no_ask > 0
+            else (Decimal("1") - yes_mid)
+        )
+        max_notional = max(position.qty_yes * yes_mid, position.qty_no * no_mid)
+
+        if max_qty is not None:
+            if position.qty_yes > max_qty:
+                return {"reason": "yes_inventory_limit_exceeded", "qty": str(position.qty_yes), "limit": str(max_qty)}
+            if position.qty_no > max_qty:
+                return {"reason": "no_inventory_limit_exceeded", "qty": str(position.qty_no), "limit": str(max_qty)}
+
+        if max_notional > self._inventory_guard_net_notional_usdc:
+            return {
+                "reason": "net_inventory_notional_exceeded",
+                "qty": str(max_notional),
+                "limit": str(self._inventory_guard_net_notional_usdc),
+            }
+
+        return None
+
+    async def _trigger_inventory_flatten(self, market_cfg: UnifiedMarketConfig, reason: str) -> None:
+        cmd = [
+            sys.executable,
+            str(PROJECT_ROOT / "scripts" / "flatten_positions.py"),
+            "--execute",
+            "--report",
+            str(DATA_DIR / "flatten_report.json"),
+        ]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+            logger.warning(
+                "pipeline.inventory_guard.flatten_requested",
+                market_id=market_cfg.market_id,
+                reason=reason,
+                returncode=proc.returncode,
+                stdout=stdout.decode("utf-8", "ignore")[-500:],
+                stderr=stderr.decode("utf-8", "ignore")[-500:],
+            )
+        except Exception as exc:
+            logger.warning(
+                "pipeline.inventory_guard.flatten_failed",
+                market_id=market_cfg.market_id,
+                reason=reason,
+                error=str(exc),
+            )
+
+    async def _handle_inventory_guard_breach(
+        self,
+        market_cfg: UnifiedMarketConfig,
+        breach: dict[str, str],
+    ) -> None:
+        logger.warning(
+            "pipeline.inventory_guard.halt",
+            market_id=market_cfg.market_id,
+            reason=breach.get("reason"),
+            qty=breach.get("qty"),
+            limit=breach.get("limit"),
+        )
+        await self.venue.cancel_all_orders()
+        if self.mode == "live":
+            await self._trigger_inventory_flatten(market_cfg, breach.get("reason", "inventory_guard"))
+        await self.stop(reason=f"inventory_guard:{breach.get('reason', 'unknown')}")
+
     async def _transport_monitor_loop(self) -> None:
         """Live mode: record latency probes continuously for correlation."""
         while self._running:
@@ -1354,15 +1465,51 @@ class UnifiedTradingPipeline:
             except Exception as e:
                 logger.error("capital_recovery_loop.error", error=str(e))
 
+    def _live_kill_switch_equity_snapshot(self) -> tuple[Decimal, Decimal, str]:
+        """Return conservative live equity for risk checks.
+
+        Uses the lower of:
+        - virtual mark-to-mid equity tracked locally by the PMM
+        - economic equity inferred from on-chain portfolio delta applied to test capital
+        """
+        mids = self._get_mid_prices()
+        virtual_equity = self.wallet.total_equity(mids)
+        initial = self.wallet.test_capital
+        source = "virtual"
+
+        on_chain = getattr(self.wallet, "on_chain", {}) or {}
+        portfolio_value = on_chain.get("portfolio_value")
+        initial_on_chain = on_chain.get("initial_on_chain")
+
+        if portfolio_value is not None and initial_on_chain is not None:
+            try:
+                portfolio_dec = Decimal(str(portfolio_value))
+                initial_on_chain_dec = Decimal(str(initial_on_chain))
+                economic_equity = initial + (portfolio_dec - initial_on_chain_dec)
+                equity = min(virtual_equity, economic_equity)
+                source = "economic" if equity == economic_equity else "conservative_min"
+                logger.info(
+                    "kill_switch.live_equity_snapshot",
+                    virtual_equity=str(virtual_equity),
+                    economic_equity=str(economic_equity),
+                    chosen_equity=str(equity),
+                    initial=str(initial),
+                    source=source,
+                )
+                return equity, initial, source
+            except Exception as exc:
+                logger.warning("kill_switch.live_equity_snapshot_failed", error=str(exc))
+
+        return virtual_equity, initial, source
+
     async def _check_kill_switch(self) -> None:
         """Balance/equity-based kill switch checks (shared, config-driven)."""
         if self.mode == "paper":
             equity = self.wallet.total_equity()
             initial = self.wallet.initial_balance
+            equity_source = "virtual"
         else:
-            mids = self._get_mid_prices()
-            equity = self.wallet.total_equity(mids)
-            initial = self.wallet.test_capital
+            equity, initial, equity_source = self._live_kill_switch_equity_snapshot()
 
         if initial > Decimal("0"):
             drawdown_pct = float((initial - equity) / initial * 100)
@@ -1379,6 +1526,7 @@ class UnifiedTradingPipeline:
                     drawdown_pct=round(drawdown_pct, 2),
                     kill_threshold_pct=kill_pct,
                     mode=self.mode,
+                    equity_source=equity_source,
                 )
                 await self.kill_switch.trigger_max_drawdown(loss)
                 if self.mode == "live":
@@ -1390,6 +1538,7 @@ class UnifiedTradingPipeline:
                     initial=str(initial),
                     drawdown_pct=round(drawdown_pct, 2),
                     mode=self.mode,
+                    equity_source=equity_source,
                 )
 
         # Low balance pause (paper mode)

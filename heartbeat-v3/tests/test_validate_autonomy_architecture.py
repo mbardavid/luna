@@ -194,6 +194,30 @@ def test_repair_lane_passes_when_running_repair_has_capacity(tmp_path):
     assert _check(report, "repair_gates_valid")["status"] == "PASS"
 
 
+def test_ignores_terminal_tasks_with_stale_repair_gate(tmp_path):
+    tasks = _base_tasks() + [
+        _task(
+            "source-1",
+            "Completed source task",
+            status="done",
+            mc_card_type="leaf_task",
+            mc_lane="ambient",
+            mc_gate_reason="repair_open",
+            mc_repair_bundle_id="closed-bundle",
+        )
+    ]
+    report = evaluate_autonomy_architecture(
+        tasks,
+        scheduler_state=_scheduler_snapshot(),
+        metrics={"counters_today": {"judge_dispatch_main_legacy": 0}},
+        autonomy_runtime=_runtime(),
+        artifact_paths=_artifacts(tmp_path),
+        pytest_result={"passed": True, "summary": "ok"},
+        max_state_age_minutes=999999,
+    )
+    assert _check(report, "repair_gates_valid")["status"] == "PASS"
+
+
 def test_fails_when_repair_gated_task_loses_bundle(tmp_path):
     tasks = _base_tasks() + [
         _task(

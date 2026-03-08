@@ -53,14 +53,26 @@ if [ "$py_major" -lt 3 ] || { [ "$py_major" -eq 3 ] && [ "$py_minor" -lt 10 ]; }
 fi
 
 RUN_VALIDATION_MONITOR=1
+RUN_CONTROLLER_V1=1
 for arg in "$@"; do
     if [ "$arg" = "--dry-run" ]; then
         RUN_VALIDATION_MONITOR=0
-        break
     fi
 done
 if [ "${HEARTBEAT_AUTONOMY_MONITOR:-1}" = "0" ]; then
     RUN_VALIDATION_MONITOR=0
+fi
+if [ "${HEARTBEAT_CONTROLLER_V1:-1}" = "0" ]; then
+    RUN_CONTROLLER_V1=0
+fi
+
+CONTROLLER_RC=0
+CONTROLLER_SCRIPT="$SCRIPT_DIR/controller-v1.py"
+if [ "$RUN_CONTROLLER_V1" -eq 1 ] && [ -f "$CONTROLLER_SCRIPT" ]; then
+    set +e
+    python3 "$CONTROLLER_SCRIPT" "$@"
+    CONTROLLER_RC=$?
+    set -e
 fi
 
 set +e
@@ -75,4 +87,7 @@ if [ "$RUN_VALIDATION_MONITOR" -eq 1 ] && [ -x "$MONITOR_SCRIPT" ]; then
     "$MONITOR_SCRIPT" --source heartbeat-v3 >> "$MONITOR_LOG" 2>&1 || true
 fi
 
-exit "$HEARTBEAT_RC"
+if [ "$HEARTBEAT_RC" -ne 0 ]; then
+    exit "$HEARTBEAT_RC"
+fi
+exit "$CONTROLLER_RC"

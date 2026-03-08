@@ -521,6 +521,7 @@ def evaluate_autonomy_architecture(
     gated_sources = [
         task for task in tasks
         if task_gate_reason(task) == "repair_open"
+        and task_status(task) not in {"done", "failed"}
     ]
     gated_failures: list[str] = []
     for task in gated_sources:

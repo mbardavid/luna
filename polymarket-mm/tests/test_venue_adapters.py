@@ -467,3 +467,52 @@ class TestUnifiedTradeLogger:
         assert record["is_production"] is True
         assert record["latency_ms"] == 15.5
         assert record["exchange_order_id"] == "exch-123"
+        assert record["cashflow_this_trade"] == "-5.00"
+        assert record["realized_pnl_cumulative"] == "0.05"
+
+    def test_logger_records_economic_equity_fields(self, tmp_path):
+        from runner.trade_logger import UnifiedTradeLogger
+
+        log_path = tmp_path / "trades_prod.jsonl"
+        tl = UnifiedTradeLogger(mode="live", path=log_path, run_id="prod-run")
+
+        tl.log_trade(
+            market_id="mkt-1",
+            market_description="Test Market",
+            side="BUY",
+            token="YES",
+            price=Decimal("0.50"),
+            size=Decimal("10"),
+            fill_qty=Decimal("10"),
+            fill_price=Decimal("0.50"),
+            pnl_this_trade=Decimal("0"),
+            pnl_realized=Decimal("0"),
+            pnl_unrealized=Decimal("0"),
+            position=None,
+            market_state=None,
+            features=None,
+            wallet_after={"total_equity": 95.0},
+        )
+        tl.log_trade(
+            market_id="mkt-1",
+            market_description="Test Market",
+            side="SELL",
+            token="YES",
+            price=Decimal("0.55"),
+            size=Decimal("10"),
+            fill_qty=Decimal("10"),
+            fill_price=Decimal("0.55"),
+            pnl_this_trade=Decimal("0.50"),
+            pnl_realized=Decimal("0.50"),
+            pnl_unrealized=Decimal("0"),
+            position=None,
+            market_state=None,
+            features=None,
+            wallet_after={"total_equity": 96.5},
+        )
+
+        import json
+        records = [json.loads(line) for line in log_path.read_text().strip().split("\n")]
+        assert records[0]["ledger"]["economic_pnl_cumulative_usd"] == 0.0
+        assert records[1]["ledger"]["equity_delta_from_prev_usd"] == 1.5
+        assert records[1]["ledger"]["economic_pnl_cumulative_usd"] == 1.5

@@ -1,0 +1,65 @@
+# Production Run 005 — Quant-governed rewards-farming canary
+# Clean successor to prod-004. Market selection and sizing are driven by the
+# DecisionEnvelope; this file only carries safe runtime defaults.
+
+run_id: "prod-005"
+mode: "production"
+duration_hours: 48
+hypothesis: "rewards-farming-quant-governed-canary"
+
+# Budget for the next live canary.
+initial_balance: 50.0
+
+params:
+  quote_interval_s: 10.0
+  default_order_size: 20
+  default_half_spread_bps: 120
+
+  gamma_risk_aversion: 0.1
+  max_position_per_side: 50
+  complement_routing: true
+  maker_fee_bps: -30
+
+  kill_switch_max_drawdown_pct: 15.0
+  kill_switch_alert_pct: 8.0
+
+  balance_aware_quoting: true
+  min_balance_to_quote: 10.0
+  position_recycling: true
+
+  supabase_logging: true
+
+  rotation:
+    market_rotation: true
+    rotation_cooldown_hours: 4
+    min_market_health_score: 0.6
+    max_spread_bps: 900
+    min_fill_rate_pct: 0.2
+    fill_rate_window_hours: 4.0
+    max_inventory_skew_pct: 70.0
+    capital_recovery: true
+    min_balance_for_recovery: 10
+
+  # Quant/DecisionEnvelope decides the active market set.
+  markets: []
+
+success_criteria:
+  pnl_positive: false
+  max_drawdown_pct: 15.0
+  min_fill_rate_pct: 0.2
+  data_collection_hours: 12
+
+unwind:
+  enabled: true
+  max_time_seconds: 90
+  strategies:
+    normal_shutdown: aggressive
+    kill_switch: sweep
+    crash_recovery: hold
+  dust_threshold_shares: 1
+  merge_enabled: true
+  progressive_pricing:
+    attempt_1_offset_pct: 0
+    attempt_2_offset_pct: 2
+    attempt_3_offset_pct: 5
+  alert_on_orphan: true

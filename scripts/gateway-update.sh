@@ -22,7 +22,7 @@
 set -euo pipefail
 
 LOG="/home/openclaw/.openclaw/workspace/logs/gateway-update.log"
-DISCORD_TARGET="1473367119377731800"  # #general-luna
+DISCORD_TARGET="1476255906894446644"  # #notifications
 TARGET_VERSION="${1:-latest}"
 STATE_FILE="/tmp/.pre-update-state.json"
 

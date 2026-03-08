@@ -1,0 +1,463 @@
+{
+  "generated_at": "2026-03-08T02:45:54.887622Z",
+  "timeline_window": {
+    "first_snapshot_utc": "2026-02-18T04:25:27.621Z",
+    "last_snapshot_utc": "2026-03-08T02:36:48.881Z",
+    "first_trade_ts": "2026-03-01T04:32:48.420894+00:00",
+    "last_trade_ts": "2026-03-07T16:59:17.577449+00:00"
+  },
+  "capital_change": {
+    "first_total_usd": 438.823799132899,
+    "last_total_usd": 229.0295550649591,
+    "delta_total_usd": -209.7942440679399,
+    "delta_polygon_usd": 58.77837223003278,
+    "delta_solana_usd": -268.63457781398523,
+    "delta_arbitrum_usd": 0.06196151601254887
+  },
+  "interpretation": {
+    "main_driver": "solana_mark_to_market",
+    "polygon_share_of_total_drop_pct": 28.01715199154747,
+    "solana_share_of_total_drop_pct": 128.04668641289817
+  },
+  "pmm_realized": {
+    "by_run": {
+      "prod-001": 2.197622656175822,
+      "prod-002": 0.0,
+      "prod-003": 0.0,
+      "prod-004": -45.927567183506355,
+      "prod-005": -0.0875
+    },
+    "by_decision": {
+      "legacy_no_decision_id": 2.197622656175822,
+      "quant-20260306T033353Z": 36.45343414528617,
+      "quant-20260306T142026Z": 50.181661152800494,
+      "quant-20260306T230134Z": -132.562662481593,
+      "quant-20260307T165353Z": -0.0875
+    },
+    "worst_markets": [
+      {
+        "market": "unknown_market",
+        "pnl": -43.81744452733053
+      }
+    ]
+  },
+  "meaningful_snapshots": [
+    {
+      "snapshot_utc": "2026-02-18T04:25:27.621Z",
+      "generated_utc": "2026-02-18T04:25:30.399Z",
+      "total_usd": 438.823799132899,
+      "chains": {
+        "base": 0.0,
+        "solana": 438.823799132899,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-18T19:37:19.830Z",
+      "generated_utc": "2026-02-18T19:37:25.325Z",
+      "total_usd": 415.01058997715995,
+      "chains": {
+        "base": 0.0,
+        "solana": 415.01058997715995,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-19T00:17:30.170Z",
+      "generated_utc": "2026-02-19T00:17:35.641Z",
+      "total_usd": 419.140098496607,
+      "chains": {
+        "base": 0.0,
+        "solana": 419.140098496607,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-19T02:36:03.708Z",
+      "generated_utc": "2026-02-19T02:36:10.723Z",
+      "total_usd": 415.81595966689787,
+      "chains": {
+        "base": 0.0,
+        "solana": 415.81595966689787,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-19T06:18:04.437Z",
+      "generated_utc": "2026-02-19T06:18:10.610Z",
+      "total_usd": 418.8841659373453,
+      "chains": {
+        "base": 0.0,
+        "solana": 418.8841659373453,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-19T09:50:09.490Z",
+      "generated_utc": "2026-02-19T09:50:15.021Z",
+      "total_usd": 414.5067356460363,
+      "chains": {
+        "base": 0.0,
+        "solana": 414.5067356460363,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-19T13:08:06.901Z",
+      "generated_utc": "2026-02-19T13:08:15.177Z",
+      "total_usd": 410.6003491054586,
+      "chains": {
+        "base": 0.0,
+        "solana": 410.6003491054586,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-19T19:14:48.520Z",
+      "generated_utc": "2026-02-19T19:14:50.620Z",
+      "total_usd": 416.7865590363139,
+      "chains": {
+        "base": 0.0,
+        "solana": 416.7865590363139,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-21T01:46:14.696Z",
+      "generated_utc": "2026-02-21T01:46:25.187Z",
+      "total_usd": 411.98980703701477,
+      "chains": {
+        "base": 0.0,
+        "solana": 361.98980703701477,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 50.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-21T20:16:42.202Z",
+      "generated_utc": "2026-02-21T20:16:50.686Z",
+      "total_usd": 412.5535631684304,
+      "chains": {
+        "base": 0.0,
+        "solana": 182.55356316843043,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 230.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-25T05:01:27.479Z",
+      "generated_utc": "2026-02-25T05:01:35.471Z",
+      "total_usd": 405.00897011772656,
+      "chains": {
+        "base": 0.0,
+        "solana": 175.00897011772653,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 230.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-25T14:25:26.903Z",
+      "generated_utc": "2026-02-25T14:25:35.638Z",
+      "total_usd": 409.2417713876969,
+      "chains": {
+        "base": 0.0,
+        "solana": 179.2417713876969,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 230.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-25T15:00:29.629Z",
+      "generated_utc": "2026-02-25T15:00:40.585Z",
+      "total_usd": 182.4354280245449,
+      "chains": {
+        "base": 0.0,
+        "solana": 182.4354280245449,
+        "arbitrum": 0.0,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-25T15:21:40.539Z",
+      "generated_utc": "2026-02-25T15:21:55.391Z",
+      "total_usd": 412.9558262260267,
+      "chains": {
+        "base": 0.0,
+        "solana": 181.1282287763228,
+        "arbitrum": 231.82759744970392,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-25T16:27:00.398Z",
+      "generated_utc": "2026-02-25T16:27:15.932Z",
+      "total_usd": 417.6364161989153,
+      "chains": {
+        "base": 0.0,
+        "solana": 185.7619697045375,
+        "arbitrum": 231.8744464943778,
+        "polygon": 0.0,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-28T21:01:35.672Z",
+      "generated_utc": "2026-02-28T21:01:50.426Z",
+      "total_usd": 175.0292807577308,
+      "chains": {
+        "base": 0.0,
+        "solana": 173.86365540501473,
+        "arbitrum": 0.06193085670992684,
+        "polygon": 1.1036944960061343,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-28T22:43:47.779Z",
+      "generated_utc": "2026-02-28T22:44:00.402Z",
+      "total_usd": 408.1495935049658,
+      "chains": {
+        "base": 0.0,
+        "solana": 174.76419920455103,
+        "arbitrum": 0.06204394639348283,
+        "polygon": 233.3233503540213,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-28T23:10:43.537Z",
+      "generated_utc": "2026-02-28T23:10:55.743Z",
+      "total_usd": 347.60261373626975,
+      "chains": {
+        "base": 0.0,
+        "solana": 173.4662032651096,
+        "arbitrum": 0.06199965986528165,
+        "polygon": 174.07441081129488,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-02-28T23:41:31.893Z",
+      "generated_utc": "2026-02-28T23:41:45.543Z",
+      "total_usd": 405.9691903102048,
+      "chains": {
+        "base": 0.0,
+        "solana": 172.34269064400002,
+        "arbitrum": 0.06191142364204964,
+        "polygon": 233.56458824256276,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-01T04:21:14.055Z",
+      "generated_utc": "2026-03-01T04:21:30.014Z",
+      "total_usd": 409.7439764030895,
+      "chains": {
+        "base": 0.0,
+        "solana": 178.91257646296793,
+        "arbitrum": 0.062309371101410764,
+        "polygon": 230.76909056902014,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-01T17:07:12.018Z",
+      "generated_utc": "2026-03-01T17:07:25.773Z",
+      "total_usd": 400.3601359416044,
+      "chains": {
+        "base": 0.0,
+        "solana": 172.62560300616113,
+        "arbitrum": 0.06202782389600446,
+        "polygon": 227.67250511154728,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-01T20:39:24.591Z",
+      "generated_utc": "2026-03-01T20:39:40.813Z",
+      "total_usd": 397.2807278014154,
+      "chains": {
+        "base": 0.0,
+        "solana": 168.0346040619819,
+        "arbitrum": 0.06155471425224298,
+        "polygon": 229.18456902518128,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-02T00:09:04.396Z",
+      "generated_utc": "2026-03-02T00:09:20.443Z",
+      "total_usd": 400.60538604817833,
+      "chains": {
+        "base": 0.0,
+        "solana": 171.4708797001248,
+        "arbitrum": 0.061800439240962936,
+        "polygon": 229.07270590881257,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-02T03:15:55.918Z",
+      "generated_utc": "2026-03-02T03:16:10.145Z",
+      "total_usd": 178.49847870816146,
+      "chains": {
+        "base": 0.0,
+        "solana": 173.35516857539392,
+        "arbitrum": 0.061987488552629075,
+        "polygon": 5.0813226442149,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-02T03:31:57.788Z",
+      "generated_utc": "2026-03-02T03:32:05.673Z",
+      "total_usd": 404.4184216823654,
+      "chains": {
+        "base": 0.0,
+        "solana": 173.35525221583194,
+        "arbitrum": 0.06204059915973822,
+        "polygon": 231.00112886737375,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-02T12:23:40.500Z",
+      "generated_utc": "2026-03-02T12:23:56.904Z",
+      "total_usd": 400.3161174862314,
+      "chains": {
+        "base": 0.0,
+        "solana": 171.86620300205095,
+        "arbitrum": 0.06174126931056284,
+        "polygon": 228.38817321486985,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-02T14:53:03.271Z",
+      "generated_utc": "2026-03-02T14:53:16.603Z",
+      "total_usd": 176.9135530997406,
+      "chains": {
+        "base": 0.0,
+        "solana": 175.2859689497999,
+        "arbitrum": 0.06207475251939054,
+        "polygon": 1.565509397421318,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-02T15:47:03.184Z",
+      "generated_utc": "2026-03-02T15:47:16.523Z",
+      "total_usd": 183.49835668795467,
+      "chains": {
+        "base": 0.0,
+        "solana": 181.86166835059848,
+        "arbitrum": 0.0627694561468374,
+        "polygon": 1.5739188812093434,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-02T16:33:22.675Z",
+      "generated_utc": "2026-03-02T16:33:36.653Z",
+      "total_usd": 410.89061910865587,
+      "chains": {
+        "base": 0.0,
+        "solana": 182.30338831463501,
+        "arbitrum": 0.06267578336675937,
+        "polygon": 228.52455501065407,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-02T19:15:12.745Z",
+      "generated_utc": "2026-03-02T19:15:26.847Z",
+      "total_usd": 403.2629146943386,
+      "chains": {
+        "base": 0.0,
+        "solana": 178.86658659276455,
+        "arbitrum": 0.0625104742064859,
+        "polygon": 224.33381762736755,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-03T01:32:16.040Z",
+      "generated_utc": "2026-03-03T01:32:31.530Z",
+      "total_usd": 393.2489294172683,
+      "chains": {
+        "base": 0.0,
+        "solana": 176.96653275508314,
+        "arbitrum": 0.06249586497861316,
+        "polygon": 216.21990079720655,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-08T02:03:08.388Z",
+      "generated_utc": "2026-03-08T02:03:20.812Z",
+      "total_usd": 229.03103874067565,
+      "chains": {
+        "base": 0.0,
+        "solana": 170.18922394761327,
+        "arbitrum": 0.06201597420600006,
+        "polygon": 58.779798818856385,
+        "hyperliquid": 0.0
+      }
+    },
+    {
+      "snapshot_utc": "2026-03-08T02:36:48.881Z",
+      "generated_utc": "2026-03-08T02:37:00.763Z",
+      "total_usd": 229.0295550649591,
+      "chains": {
+        "base": 0.0,
+        "solana": 170.18922131891378,
+        "arbitrum": 0.06196151601254887,
+        "polygon": 58.77837223003278,
+        "hyperliquid": 0.0
+      }
+    }
+  ],
+  "pmm_era_window": {
+    "baseline_snapshot_utc": "2026-02-28T22:43:47.779Z",
+    "baseline_total_usd": 408.1495935049658,
+    "baseline_polygon_usd": 233.3233503540213,
+    "baseline_solana_usd": 174.76419920455103,
+    "baseline_arbitrum_usd": 0.06204394639348283,
+    "latest_snapshot_utc": "2026-03-08T02:36:48.881Z",
+    "latest_total_usd": 229.0295550649591,
+    "latest_polygon_usd": 58.77837223003278,
+    "latest_solana_usd": 170.18922131891378,
+    "latest_arbitrum_usd": 0.06196151601254887,
+    "delta_total_usd": -179.1200384400067,
+    "delta_polygon_usd": -174.54497812398853,
+    "delta_solana_usd": -4.574977885637253,
+    "polygon_share_of_drop_pct": 97.4458132345977,
+    "solana_share_of_drop_pct": 2.554140745771203
+  },
+  "notes": [
+    "Snapshots com polygon quase zerada em 2026-03-02 coexistem com snapshots completos minutos depois; foram tratados como leituras parciais/incompletas para fins de baseline PMM.",
+    "A comparacao PMM-era usa o primeiro snapshot com polygon >= 100 USD e total >= 300 USD como baseline operacional confiavel."
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "76bd732c-075b-4ade-920e-9e650e92ac53",
+  "filename": "20260307T092013-dispatch-76bd732c.json",
+  "created_at": "2026-03-07T09:20:13.402919+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose — [auto-compact] Continue HEARTBEAT reporting: do not return `HEARTBEAT_OK` while Mission Control",
+  "agent": "cto-ops",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nAuto-dispatch for lane `ambient` resolved to `main`. Execution agents must not depend on the chairman session.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 4,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/1df8dccc-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "repair",
+    "run_id": "76bd732c-a1-20260307T092013Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "cto-ops",
+    "task_id": "76bd732c-075b-4ade-920e-9e650e92ac53",
+    "title": "Diagnose — [auto-compact] Continue HEARTBEAT reporting: do not return `HEARTBEAT_OK` while Mission Control",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nAuto-dispatch for lane `ambient` resolved to `main`. Execution agents must not depend on the chairman session.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "76bd732c-075b-4ade-920e-9e650e92ac53|dispatch|inbox|direct_exec|d8e46772d78d",
+  "completed_at": "2026-03-07T09:21:35.034760Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "cto-ops",
+    "session_id": "agent:cto-ops:main"
+  }
+}
