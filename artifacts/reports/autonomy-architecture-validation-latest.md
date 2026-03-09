@@ -1,12 +1,12 @@
 # Autonomy Architecture Validation
-Generated: 2026-03-08T08:25:21Z
+Generated: 2026-03-09T08:25:17Z
 
-## Overall: `PASS`
-- Passed: 14
+## Overall: `FAIL`
+- Passed: 13
 - Warnings: 1
-- Failed: 0
+- Failed: 1
 - Active project: `3a0d8492` Grow Luna X account by +200 followers
-- Active milestone: `fed0a72b` M0 Session Recovery + Baseline + Charter
+- Active milestone: `` (none)
 
 ## Scheduler Snapshot
 - Mode: `full` | health=`healthy` | slots=4
@@ -16,7 +16,8 @@ Generated: 2026-03-08T08:25:21Z
 - Dispatch decision: `{"lane": "", "status": "", "task_id": "", "type": "idle"}`
 
 ## Failed Checks
-- None.
+- `project_artifacts_fresh` Project artifacts exist and are fresh: 1 required artifact problem(s) detected.
+  - board_packet: stale (1816 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/autonomy-board-packet-latest.md
 
 ## Warnings
 - `project_lane_coexists_with_ambient` Project lane coexists with ambient: Current snapshot does not exercise ambient+project contention at the same time.
@@ -25,7 +26,7 @@ Generated: 2026-03-08T08:25:21Z
 ## Passed Checks
 - `active_project_present` Active project detected: Active project `3a0d8492` with chairman_state=`active`.
   - project=Grow Luna X account by +200 followers
-  - milestone=M0 Session Recovery + Baseline + Charter
+  - milestone=(none)
 - `governance_not_in_review` Governance stays out of review: No governance card is currently in `review`.
 - `governance_not_claimed` Governance is never claim-driven: No governance card has an active lease/claim.
 - `review_queue_actionable_only` Review queue contains only actionable work: Every card in `review` is actionable by the judge/runtime.
@@ -37,8 +38,7 @@ Generated: 2026-03-08T08:25:21Z
 - `repair_lane_served` Repair lane receives capacity: No repair demand is currently waiting.
 - `autonomy_runtime_consistent` Autonomy runtime matches MC active scope: Runtime state matches the active project, milestone and workstream window.
   - runtime_project=3a0d8492
-  - runtime_milestone=fed0a72b
-  - runtime_workstreams=0a7aac3a,c2dad9a4,f71aaca0
+  - runtime_milestone=
+  - runtime_workstreams=(none)
 - `repair_bundles_integrity` Repair bundles stay executable: All 0 open repair bundle(s) have executable children and live work.
 - `repair_gates_valid` Repair-gated tasks point to live bundles: All 0 repair-gated task(s) reference open repair bundles.
-- `project_artifacts_fresh` Project artifacts exist and are fresh: Required board/outcome artifacts are present and fresh.

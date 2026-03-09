@@ -1,11 +1,16 @@
 {
-  "last_run_at": "2026-03-08T08:25:21Z",
+  "last_run_at": "2026-03-09T08:25:17Z",
   "last_source": "heartbeat-v3",
-  "last_overall_status": "PASS",
-  "last_regressions": {},
-  "last_regression_fingerprint": "bf21a9e8fbc5a3846fb05b4fa0859e0917b2202f",
+  "last_overall_status": "FAIL",
+  "last_regressions": {
+    "project_artifacts_fresh": {
+      "status": "FAIL",
+      "summary": "1 required artifact problem(s) detected."
+    }
+  },
+  "last_regression_fingerprint": "dc4de051c04d00ea9792519689e4847a0ee8c780",
   "last_notification_kind": "none",
-  "last_alert_at": "2026-03-08T03:30:24Z",
-  "last_recovery_at": "2026-03-08T03:45:27Z",
+  "last_alert_at": "2026-03-09T08:20:18Z",
+  "last_recovery_at": "2026-03-09T01:30:23Z",
   "last_notified_channels": []
 }

@@ -1,32 +1,32 @@
 {
   "controller": {
-    "last_tick": "2026-03-08T08:25:12Z",
+    "last_tick": "2026-03-09T08:30:10Z",
     "owned_tasks": 45,
     "tracked_tasks": 205,
     "open_repairs": 18,
-    "attempts": 136,
-    "events": 72,
+    "attempts": 480,
+    "events": 252,
     "observations": 15,
     "planning_intents": 1,
     "open_proposals": 0
   },
   "health": {
-    "last_tick": "2026-03-08T08:25:12Z",
+    "last_tick": "2026-03-09T08:30:10Z",
     "owned_tasks": 45,
-    "dispatches_this_tick": 1,
-    "queue_ingests_this_tick": 1,
+    "dispatches_this_tick": 0,
+    "queue_ingests_this_tick": 0,
     "judge_ingests_this_tick": 0,
     "status": "ok"
   },
   "scheduler": {
-    "last_tick": "2026-03-08T08:25:12Z",
+    "last_tick": "2026-03-09T08:30:10Z",
     "mode": "full",
     "health_state": "healthy",
     "slots_total": 4,
     "eligible_by_lane": {
-      "repair": 5,
+      "repair": 0,
       "review": 0,
-      "project": 1,
+      "project": 0,
       "ambient": 0
     },
     "running_by_lane": {
@@ -36,47 +36,37 @@
       "ambient": 0
     },
     "reserved_slots": {
-      "repair": 1,
+      "repair": 0,
       "review": 0,
-      "project": 1,
+      "project": 0,
       "ambient": 0
     },
     "dispatch_decision": {
-      "type": "dispatch",
-      "lane": "repair",
-      "task_id": "5f481af1-f7ef-4b33-ad0e-e4b75b09f40f",
-      "status": "inbox",
-      "gate_reason": ""
+      "type": "idle",
+      "lane": "",
+      "task_id": "",
+      "status": ""
     },
     "blocked_reasons": [],
-    "shadow_diff_vs_legacy": [
-      {
-        "legacy": {
-          "type": "idle",
-          "task_id": ""
-        },
-        "scheduler_v2": {
-          "type": "dispatch",
-          "task_id": "5f481af1-f7ef-4b33-ad0e-e4b75b09f40f"
-        }
-      }
-    ]
+    "shadow_diff_vs_legacy": []
   },
   "autonomy": {
     "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
-    "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
-    "workstream_ids": [
-      "c2dad9a4-6952-4593-b505-62f8617ed604",
-      "0a7aac3a-62a3-4d56-afff-9c34449091f4",
-      "f71aaca0-06e5-400a-9282-7785b5ae126c"
-    ],
-    "reason": "window_full",
+    "milestone_id": "",
+    "workstream_ids": [],
+    "reason": "no_active_milestone",
     "actions": 0
   },
   "planning": {
     "processed_messages": 0,
     "new_directives": 0,
     "proposal_updates": 0
+  },
+  "runtime_metrics": {
+    "eligible_leaf_tasks": 0,
+    "running_leaf_tasks": 0,
+    "proof_pending_tasks": 0,
+    "completed_leaf_tasks": 22
   },
   "owned_by_lane": {
     "repair": 24,

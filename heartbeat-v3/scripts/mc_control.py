@@ -63,7 +63,7 @@ CARD_TYPE_ALIASES = {
 }
 GENERATION_MODES = {"manual", "autonomy"}
 LANES = {"ambient", "project", "review", "repair"}
-DELIVERY_STATES = {"queued", "dispatched", "linked", "in_progress", "review", "done"}
+DELIVERY_STATES = {"queued", "dispatched", "linked", "in_progress", "running", "proof_pending", "review", "review_pending", "done"}
 CHAIRMAN_STATES = {"planned", "active", "steering", "approved", "paused", "completed", "terminated"}
 NON_EXECUTABLE_CARD_TYPES = {"project", "milestone", "workstream", "repair_bundle"}
 REPAIR_STATES = {"open", "diagnosing", "repairing", "validating", "resolved", "failed"}
@@ -382,6 +382,25 @@ def task_expected_artifacts(task: dict[str, Any]) -> str:
         str(fields.get("mc_test_report_artifact") or "").strip(),
     ]
     return "\n".join(item for item in fallbacks if item)
+
+
+def task_expected_artifact_list(task: dict[str, Any]) -> list[str]:
+    raw = task_expected_artifacts(task)
+    if not raw:
+        return []
+    parts: list[str] = []
+    for chunk in str(raw).replace(",", "\n").splitlines():
+        value = str(chunk or "").strip()
+        if value:
+            parts.append(value)
+    return parts
+
+
+def resolve_workspace_artifact_path(reference: str, workspace_root: str | Path) -> Path:
+    path = Path(str(reference or "").strip())
+    if path.is_absolute():
+        return path
+    return Path(workspace_root) / path
 
 
 def task_proof_ref(task: dict[str, Any]) -> str:

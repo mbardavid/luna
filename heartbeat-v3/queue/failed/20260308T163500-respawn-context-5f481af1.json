@@ -1,0 +1,13 @@
+{
+  "type": "respawn",
+  "task_id": "5f481af1-f7ef-4b33-ad0e-e4b75b09f40f",
+  "title": "Diagnose \u2014 Diagnose \u2014 Extract 3-5 content pillars from Luna ",
+  "agent": "luan",
+  "priority": "high",
+  "context": {
+    "recovery_reason": "gateway_restart_snapshotless",
+    "previous_session_key": "agent:cto-ops:main",
+    "instruction": "CONTINUE FROM WHERE YOU LEFT OFF. Gateway restarted unexpectedly. Read session history of previous session for context. Do NOT restart from scratch."
+  },
+  "mc_last_error": "dispatch script failed (exit 1)"
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -84,3 +85,65 @@ def test_queue_adapter_writes_controller_owned_dispatch(tmp_path: Path) -> None:
     assert payload["lane"] == "repair"
     assert payload["context"]["runtime_owner"] == "controller-v1"
     assert adapter.write_dispatch_item(task) == ""
+
+
+class DummyProjection:
+    def __init__(self):
+        self.updates = []
+
+    def apply_if_changed(self, store, *, task_id, status=None, comment=None, fields=None, assignee=None):
+        self.updates.append({
+            "task_id": task_id,
+            "status": status,
+            "comment": comment,
+            "fields": fields or {},
+            "assignee": assignee,
+        })
+        return True
+
+
+def test_ingest_execution_proofs_closes_repair_leaf(tmp_path: Path) -> None:
+    module_path = ROOT / 'scripts' / 'controller-v1.py'
+    spec = importlib.util.spec_from_file_location('controller_v1_main', module_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    workspace = tmp_path / 'workspace'
+    artifact = workspace / 'artifacts' / 'repairs' / 'bundle-diagnose.md'
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_text('# proof\n', encoding='utf-8')
+    module.WORKSPACE = workspace
+
+    store = RuntimeStore(tmp_path / 'controller-v1.db')
+    projection = DummyProjection()
+    bundle = {
+        'id': 'bundle-1',
+        'title': 'Repair bundle',
+        'status': 'done',
+        'custom_field_values': {
+            'mc_runtime_owner': 'controller-v1',
+            'mc_card_type': 'repair_bundle',
+            'mc_repair_state': 'resolved',
+        },
+    }
+    task = {
+        'id': 'leaf-1',
+        'title': 'Diagnose child',
+        'status': 'in_progress',
+        'in_progress_at': '2026-03-09T00:00:00Z',
+        'custom_field_values': {
+            'mc_runtime_owner': 'controller-v1',
+            'mc_card_type': 'leaf_task',
+            'mc_lane': 'repair',
+            'mc_parent_task_id': 'bundle-1',
+            'mc_assigned_agent': 'cto-ops',
+            'mc_expected_artifacts': 'artifacts/repairs/bundle-diagnose.md',
+            'mc_delivery_state': 'dispatched',
+        },
+    }
+    applied = module.ingest_execution_proofs(store=store, projection=projection, tasks=[bundle, task])
+    assert applied == 1
+    assert projection.updates[0]['status'] == 'done'
+    assert projection.updates[0]['fields']['mc_delivery_state'] == 'done'
+    assert 'bundle-diagnose.md' in projection.updates[0]['fields']['mc_proof_ref']

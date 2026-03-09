@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "5f481af1-f7ef-4b33-ad0e-e4b75b09f40f",
+  "created_at": "2026-03-09T00:35:12Z",
+  "created_by": "controller-v1",
+  "queue_key": "5f481af1-f7ef-4b33-ad0e-e4b75b09f40f|dispatch|inbox|direct_exec|ef8525b25906",
+  "runtime_owner": "controller-v1",
+  "lane": "repair",
+  "phase": "intake",
+  "status": "inbox",
+  "priority": "high",
+  "agent": "cto-ops",
+  "title": "Diagnose — Diagnose — Extract 3-5 content pillars from Luna post history",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nTask sem atividade observável há 68m. Abrir trilha de repair antes de novo dispatch.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "runtime_owner": "controller-v1",
+    "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/49dfea8a-diagnose.md",
+    "delivery_state": "queued",
+    "gate_reason": ""
+  },
+  "completed_at": "2026-03-09T00:36:27.126987Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "cto-ops",
+    "session_id": "agent:cto-ops:main",
+    "runtime_owner": "controller-v1"
+  }
+}

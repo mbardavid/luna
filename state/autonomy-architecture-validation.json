@@ -1,27 +1,23 @@
 {
-  "generated_at": "2026-03-08T08:25:21Z",
-  "overall_status": "PASS",
+  "generated_at": "2026-03-09T08:25:17Z",
+  "overall_status": "FAIL",
   "summary": {
-    "passed": 14,
+    "passed": 13,
     "warnings": 1,
-    "failed": 0,
+    "failed": 1,
     "active_project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
-    "active_milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda"
+    "active_milestone_id": ""
   },
   "active_project": {
     "id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
     "title": "Grow Luna X account by +200 followers",
-    "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
-    "milestone_title": "M0 Session Recovery + Baseline + Charter",
-    "workstream_ids": [
-      "0a7aac3a-62a3-4d56-afff-9c34449091f4",
-      "c2dad9a4-6952-4593-b505-62f8617ed604",
-      "f71aaca0-06e5-400a-9282-7785b5ae126c"
-    ],
+    "milestone_id": "",
+    "milestone_title": "",
+    "workstream_ids": [],
     "default_review_agent": "luna-judge"
   },
   "scheduler": {
-    "last_tick": "2026-03-08T08:25:20Z",
+    "last_tick": "2026-03-09T08:25:17Z",
     "mode": "full",
     "health_state": "healthy",
     "slots_total": 4,
@@ -51,26 +47,16 @@
     },
     "blocked_reasons": [],
     "shadow_diff_vs_legacy": [],
-    "generated_at": "2026-03-08T08:25:20Z"
+    "generated_at": "2026-03-09T08:25:17Z"
   },
   "autonomy_runtime": {
-    "last_tick": "2026-03-08T08:25:12Z",
+    "last_tick": "2026-03-09T08:25:10Z",
     "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
-    "milestone_id": "fed0a72b-16d0-4daf-aab7-362663a44eda",
-    "workstream_ids": [
-      "c2dad9a4-6952-4593-b505-62f8617ed604",
-      "0a7aac3a-62a3-4d56-afff-9c34449091f4",
-      "f71aaca0-06e5-400a-9282-7785b5ae126c"
-    ],
-    "reason": "window_full",
-    "lane_budget": {
-      "capacity": 4,
-      "floor": 1,
-      "cap": 2,
-      "target": 2,
-      "allow_burst": true
-    },
-    "current_window": 7,
+    "milestone_id": "",
+    "workstream_ids": [],
+    "reason": "no_active_milestone",
+    "lane_budget": {},
+    "current_window": 0,
     "planned_actions": []
   },
   "artifacts": {
@@ -88,7 +74,7 @@
       "summary": "Active project `3a0d8492` with chairman_state=`active`.",
       "evidence": [
         "project=Grow Luna X account by +200 followers",
-        "milestone=M0 Session Recovery + Baseline + Charter"
+        "milestone=(none)"
       ]
     },
     {
@@ -170,8 +156,8 @@
       "summary": "Runtime state matches the active project, milestone and workstream window.",
       "evidence": [
         "runtime_project=3a0d8492",
-        "runtime_milestone=fed0a72b",
-        "runtime_workstreams=0a7aac3a,c2dad9a4,f71aaca0"
+        "runtime_milestone=",
+        "runtime_workstreams=(none)"
       ]
     },
     {
@@ -191,9 +177,11 @@
     {
       "id": "project_artifacts_fresh",
       "title": "Project artifacts exist and are fresh",
-      "status": "PASS",
-      "summary": "Required board/outcome artifacts are present and fresh.",
-      "evidence": []
+      "status": "FAIL",
+      "summary": "1 required artifact problem(s) detected.",
+      "evidence": [
+        "board_packet: stale (1816 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/autonomy-board-packet-latest.md"
+      ]
     }
   ],
   "pytest": null

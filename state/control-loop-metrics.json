@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-03-08T08:27:14.151436Z",
+  "last_updated": "2026-03-09T08:30:10Z",
   "fase2_baseline": {
     "gateway_memory_mb": 450,
     "heartbeat_frequency": "*/5",
@@ -9,7 +9,7 @@
     "timestamp": "2026-03-03T00:03:21Z"
   },
   "counters_today": {
-    "heartbeat_runs": 695,
+    "heartbeat_runs": 984,
     "opus_triggers": 0,
     "tasks_completed": 2,
     "tasks_dispatched": 52,
@@ -21,7 +21,7 @@
     "duplicate_alerts_suppressed": 0,
     "queue_items_deduped": 108,
     "queue_items_written": 51,
-    "queue_items_completed": 110,
+    "queue_items_completed": 263,
     "review_claims": 6,
     "judge_wakeups": 3,
     "queue_items_invalid_completed": 0,
@@ -54,7 +54,7 @@
   "cron_health": {
     "heartbeat-v3": {
       "status": "running",
-      "last_run": "2026-03-08T08:25:12Z"
+      "last_run": "2026-03-09T08:30:10Z"
     },
     "judge-loop-worker": {
       "status": "ok",

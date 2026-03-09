@@ -12,6 +12,7 @@ from mc_control import (
     task_card_type,
     task_dispatch_policy,
     task_fields,
+    task_parent_task_id,
     task_project_id,
     task_repair_bundle_id,
     task_repair_fingerprint,
@@ -26,6 +27,18 @@ def repair_children(tasks: list[dict[str, Any]], bundle_id: str) -> list[dict[st
         task for task in tasks
         if str(task_fields(task).get("mc_parent_task_id") or "") == bundle_id
     ]
+
+
+def _is_nested_repair_leaf(task: dict[str, Any] | None) -> bool:
+    if not task:
+        return False
+    fields = task_fields(task)
+    if str(task_card_type(task) or "") != "leaf_task":
+        return False
+    if str(task_parent_task_id(task) or ""):
+        return True
+    title = str(task.get("title") or "")
+    return bool(fields.get("mc_repair_source_task_id")) and title.startswith(("Diagnose", "Repair"))
 
 
 def progress_repair_bundles(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -88,7 +101,7 @@ def progress_repair_bundles(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "comment": f"[controller-v1] repair bundle resolved for source task `{source_task_id[:8]}`.",
                 "fields": bundle_fields,
             })
-            if source:
+            if source and not _is_nested_repair_leaf(source):
                 source_fields = dict(task_fields(source))
                 source_fields.update({
                     "mc_gate_reason": "",

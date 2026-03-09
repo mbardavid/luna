@@ -175,3 +175,7 @@
 - **Sinal de risco operacional: `tg_drop=1` (Telegram groups sendo dropados silenciosamente).** Precisa de runbook + fallback de alerta, pois afeta a confiabilidade de incident/ops.
 - **Controller “adapter-only dispatch” reduz observabilidade e pode deixar tasks sem execução rastreável** (MC não mutado com session_key/last_error pós-dispatch). Contrato/patch pós-dispatch deve ser documentado e enforced.
 - **PMM rewards pode entrar em standby prolongado por deadlock de gates** (reward_min_size vs inventory caps + EV threshold). Precisa de fallback (EV ~0), auto-sizing e standby explicável com blockers estruturados.
+
+## 2026-03-09
+
+- **Repair tasks não devem usar `direct_exec` em sessão principal quando precisarem de progresso auditável.** O padrão correto é sessão isolada/subagent com `mc_session_key` e telemetria explícita; caso contrário o MC pode mostrar task “linkado” sem progresso observável.
