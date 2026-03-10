@@ -1,5 +1,5 @@
 # Autonomy Architecture Validation
-Generated: 2026-03-09T08:25:17Z
+Generated: 2026-03-09T20:50:16Z
 
 ## Overall: `FAIL`
 - Passed: 13
@@ -17,7 +17,7 @@ Generated: 2026-03-09T08:25:17Z
 
 ## Failed Checks
 - `project_artifacts_fresh` Project artifacts exist and are fresh: 1 required artifact problem(s) detected.
-  - board_packet: stale (1816 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/autonomy-board-packet-latest.md
+  - board_packet: stale (2561 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/autonomy-board-packet-latest.md
 
 ## Warnings
 - `project_lane_coexists_with_ambient` Project lane coexists with ambient: Current snapshot does not exercise ambient+project contention at the same time.

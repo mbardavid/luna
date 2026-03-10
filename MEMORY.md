@@ -55,8 +55,8 @@
 
 - **Mission Control Fase 1 operacional:** Kanban funcional acessível em `142.93.87.36:3000`; plano unificado v2 finalizado; runbook com 8 cenários de teste criado. Board limpo com 8 tasks reais.
 - **Diretriz do Matheus: MC deve ser alimentado automaticamente.** Tasks devem ser criadas pela Luna conforme trabalho acontece, sem intervenção humana. Agentes devem aparecer em tempo real.
-- **Diretriz do Matheus: sempre avisar antes de ações disruptivas** (gateway restart, model swap, etc.) — nunca surpreender com desconexão.
-- **Gateway restart notify hook criado** (`scripts/gateway-restart-notify.sh` + systemd drop-in ExecStartPost) — notifica `#general-luna` automaticamente.
+- **Diretriz do Matheus: sempre avisar antes de ações disruptivas** (gateway restart, model swap, etc.) - nunca surpreender com desconexão.
+- **Gateway restart notify hook criado** (`scripts/gateway-restart-notify.sh` + systemd drop-in ExecStartPost) - notifica `#general-luna` automaticamente.
 - **Edits concorrentes entre agentes causam conflito:** pg-gpt + Luna editando mesmos arquivos resultou em timeout. Coordenação (locking ou turn-based) é necessária para A2A com edits.
 - **Modelo do Luan corrigido** para `claude-opus-4-6-thinking` (modelo Codex anterior falhava com `Unknown model`).
 - **Reasoning leak:** `claude-opus-4-6-thinking` vaza thinking blocks no Discord via gateway v2026.2.22-2; problema upstream sem fix do lado do agente.
@@ -65,10 +65,10 @@
 ## 2026-02-25
 
 - **Lição crítica: reagir automaticamente a falhas de subagentes.** Matheus cobrou que a Luna não investigou/re-spawnou um subagente que deu timeout. Regra nova: quando subagente falha, investigar + agir imediatamente sem esperar o humano perguntar. Documentado em AGENTS.md e lessons.md.
-- **Bird CLI instalado** (v0.8.0) — CLI do X/Twitter via GraphQL + cookie auth. Conta @lunabardabot autenticada com auth_token + ct0. Credenciais persistidas em .bashrc + systemd drop-in.
+- **Bird CLI instalado** (v0.8.0) - CLI do X/Twitter via GraphQL + cookie auth. Conta @lunabardabot autenticada com auth_token + ct0. Credenciais persistidas em .bashrc + systemd drop-in.
 - **Quant Strategist vinculado** ao canal Discord `1475989470883872860`. Binding adicionado via openclaw.json → bindings array.
-- **Polymarket Market Maker** — Novo direcionamento do quant-strategist. Matheus quer market maker maker-only no Polymarket. Research consolidado em `research/polymarket-mm-research.md`. Plano detalhado finalizado em `docs/polymarket-mm-plan.md` (GPT 5.2 Pro + Gemini 3 Deep Think). Scaffold do projeto em `polymarket-mm/` com ~15 módulos. Execução sequencial via MC task drain.
-- **Spawning rules consolidadas** em `memory/spawning-rules.md` — 5 golden rules para orquestração A2A + MC tracking obrigatório.
+- **Polymarket Market Maker** - Novo direcionamento do quant-strategist. Matheus quer market maker maker-only no Polymarket. Research consolidado em `research/polymarket-mm-research.md`. Plano detalhado finalizado em `docs/polymarket-mm-plan.md` (GPT 5.2 Pro + Gemini 3 Deep Think). Scaffold do projeto em `polymarket-mm/` com ~15 módulos. Execução sequencial via MC task drain.
+- **Spawning rules consolidadas** em `memory/spawning-rules.md` - 5 golden rules para orquestração A2A + MC tracking obrigatório.
 - **Plano de estabilidade gateway** documentado após incidente de heap pressure por sessões grandes + tempestade de crons no boot (`docs/stability-plan-crash-2026-02-24.md`).
 
 ## 2026-02-25 (tarde)
@@ -81,9 +81,9 @@
 
 ## 2026-02-26
 
-- **Gateway crash post-mortem:** Heartbeat AI (gemini-3-flash) causou OOM por retry storm de notificações sem `channel: discord`. User-service desabilitado permanentemente; system-service é agora o único modo de execução. **Regra absoluta: NUNCA parar/reiniciar gateway via exec** — mata a Luna junto.
+- **Gateway crash post-mortem:** Heartbeat AI (gemini-3-flash) causou OOM por retry storm de notificações sem `channel: discord`. User-service desabilitado permanentemente; system-service é agora o único modo de execução. **Regra absoluta: NUNCA parar/reiniciar gateway via exec** - mata a Luna junto.
 - **Heartbeat V2 operacional:** Substituiu heartbeat AI por bash puro (`heartbeat-v2.sh` + `gateway-wake-sentinel.sh`). Zero tokens, determinístico, 9 fases incluindo circuit breaker e rate limit. Crontab a cada 10min.
-- **PMM pronto para trading:** Wallet com ~228 USDC.e + ~8.38 POL na Polygon, 6 allowances setadas. Próximos passos: P4 (seleção mercados), P5 (paper trading), P6 (produção — requer aprovação Matheus).
+- **PMM pronto para trading:** Wallet com ~228 USDC.e + ~8.38 POL na Polygon, 6 allowances setadas. Próximos passos: P4 (seleção mercados), P5 (paper trading), P6 (produção - requer aprovação Matheus).
 - **Token burn lesson:** Flash como agente executor (crypto-sage) entrou em loop de web_fetch 15x → 38M tokens queimados. Agentes especializados com modelo barato devem ter guardrails de loop/retry.
 
 ## 2026-02-27
@@ -91,7 +91,7 @@
 - **PMM iteração paper trading amadureceu:** Ciclo completo detecta→analisa→spawna fix→re-run emergiu organicamente (run-001 a run-003). 4 bugs fundamentais do quoting engine identificados e fixados pelo Luan (spread calibration, one-sided inventory, weak skew, wallet exhaustion). run-004 aguardando start.
 - **SELL position sync fix consolidado:** PaperVenue agora faz resize + complement routing (SELL YES → BUY NO quando posição=0). Pattern reutilizável para qualquer venue simulado.
 - **Gateway post-crash estável por 10h+:** Após 5 restarts em 26/fev (crash chain + updates), sistema se manteve estável a noite inteira. Heartbeat V2 (bash puro) validado em produção.
-- **Operacional: `active-tasks.md` precisa de cleanup periódico** — ficou 2 semanas desatualizado. Incluir na rotina de manutenção.
+- **Operacional: `active-tasks.md` precisa de cleanup periódico** - ficou 2 semanas desatualizado. Incluir na rotina de manutenção.
 
 ## 2026-02-28
 
@@ -100,12 +100,12 @@
 - **Fee real do Polymarket: 30bps** (não 20 como tínhamos). Descoberto via API docs.
 - **8 adversidades reais de MM documentadas** que não simulávamos: stale quotes, queue priority, informed flow, event risk, fee real, gas costs, rejection rate, spread competition.
 - **Crypto-sage reporta balances incompletos:** Disse "USDC insuficiente" sem verificar USDC.e que já existia (~228). Lição: sempre verificar TODOS os tokens relevantes antes de delegar.
-- **Gemini CLI configurada** para agent playground (#playground), modelo `google-gemini-cli/gemini-3.1-pro-preview`. Google retornando 429 (capacity exhausted) — temporário.
+- **Gemini CLI configurada** para agent playground (#playground), modelo `google-gemini-cli/gemini-3.1-pro-preview`. Google retornando 429 (capacity exhausted) - temporário.
 - **Heartbeat V3 implementado** em `heartbeat-v3/` (57 tests), morto até go-ahead de Matheus.
-- **SIGUSR1 confirmado como full restart** (não hot-reload) — PID muda.
+- **SIGUSR1 confirmado como full restart** (não hot-reload) - PID muda.
 
-- **PMM paper trading: adversarial validation confirma edge real mas fino.** Run-007 (adversarial fills) reduziu PnL em 89% vs vanilla (de $168/hr para $18.86/hr). Estratégia é lucrativa mesmo sob condições adversariais, mas margem estreita. Inventário não-controlado (+103 net) é o próximo gargalo — run-008 (H2, gamma 0.5) é o teste decisivo antes de produção.
-- **SIGUSR1 não é hot-reload — causa full restart.** Descoberto empiricamente em 27/fev: `kill -USR1` ao gateway causa supervisor restart completo (PID muda). **TOOLS.md corrigido em 01/mar.**
+- **PMM paper trading: adversarial validation confirma edge real mas fino.** Run-007 (adversarial fills) reduziu PnL em 89% vs vanilla (de $168/hr para $18.86/hr). Estratégia é lucrativa mesmo sob condições adversariais, mas margem estreita. Inventário não-controlado (+103 net) é o próximo gargalo - run-008 (H2, gamma 0.5) é o teste decisivo antes de produção.
+- **SIGUSR1 não é hot-reload - causa full restart.** Descoberto empiricamente em 27/fev: `kill -USR1` ao gateway causa supervisor restart completo (PID muda). **TOOLS.md corrigido em 01/mar.**
 - **Itens de taxonomia operacional acumulando:** 8 itens pendentes de documentação permanente (PMM workflow, HB V2 scripts, MC scripts, post-mortem, active-tasks cleanup, SIGUSR1 ✅ corrigido, Tor proxy doc, sentinel scripts doc). Sprint de documentação cada vez mais necessário.
 
 ## 2026-03-01
@@ -114,7 +114,7 @@
 - **prod-001 vivo mas sem fills:** Bot Polymarket postando BUY orders há ~36h. Conectividade validada, Tor funcional, mas mercado selecionado (mid=0.13, extremo) pode não gerar fills. Validação de infra ok, validação de estratégia pendente.
 - **Portfolio crypto consolidado em $409.74:** SOL 43%, USDC.e 36%, Polymarket 20%. PnL Polymarket +$21.78 total.
 - **MC inbox com 5 tasks acumuladas:** Heartbeat detectou mas sem autorização/capacidade para drenar. Padrão: tasks se acumulam sem drain quando não há interação humana.
-- **Debt de documentação operacional crescendo:** 8 itens de taxonomia carryover (3-4 dias). SIGUSR1 corrigido em TOOLS.md. Restam 7 itens pendentes — necessário sprint dedicado.
+- **Debt de documentação operacional crescendo:** 8 itens de taxonomia carryover (3-4 dias). SIGUSR1 corrigido em TOOLS.md. Restam 7 itens pendentes - necessário sprint dedicado.
 
 ## 2026-03-02
 
@@ -122,7 +122,7 @@
 - **Infra de autonomia atingiu maturidade operacional:** Dispatcher agent (flash, $0.001/dispatch), safe-restart com rate limit, post-restart auto-recovery via systemd, two-phase spawn para tasks MEDIUM+, MC task specs v2 com QA + lessons injection automática. Sistema pode operar semi-autonomamente por períodos prolongados.
 - **Gateway memory management consolidado:** Sessões de cron acumulam sem limite e causam heap pressure. Solução: limpeza periódica de sessions.json (script Python ad-hoc). Threshold: >200 sessions = risco. Monitorado pelo `mc-resource-monitor.sh` cron (watermark 900MB).
 - **Crypto-sage portfolio tracking agora inclui CTF (ERC-1155):** Posições Polymarket eram invisíveis por falta de env var. Diferença era ~$220. Always verify ALL token types before reporting balances.
-- **Doc debt atingiu 12 itens (5 dias de carryover máximo).** Sprint de documentação é a próxima prioridade após desbloqueio das tasks em inbox. `active-tasks.md` está 3.5 semanas desatualizado — risco de perda de contexto operacional.
+- **Doc debt atingiu 12 itens (5 dias de carryover máximo).** Sprint de documentação é a próxima prioridade após desbloqueio das tasks em inbox. `active-tasks.md` está 3.5 semanas desatualizado - risco de perda de contexto operacional.
 - **Whisper transcription broken:** Timeouts ao carregar modelo faster-whisper. Precisa investigação quando memory pressure estiver baixa.
 
 ## 2026-03-02 (tarde)
@@ -150,15 +150,15 @@
 ## 2026-03-04
 
 - **Upgrade para OpenClaw 2026.3.2 concluído** e verificado (rotina pós-upgrade executada; runbooks criados para snapshot pré/pós).
-- **Judge Loop virou regra dura:** qualquer wake contendo “QA REVIEW OBRIGATÓRIO” deve executar QA + atualizar Mission Control no mesmo turno.
-- **Mission Control auditável (diretriz do Matheus):** preservar timeline em comments, não apagar contexto, e sempre manter “Next Steps” na descrição.
+- **Judge Loop virou regra dura:** qualquer wake contendo "QA REVIEW OBRIGATÓRIO" deve executar QA + atualizar Mission Control no mesmo turno.
+- **Mission Control auditável (diretriz do Matheus):** preservar timeline em comments, não apagar contexto, e sempre manter "Next Steps" na descrição.
 - **Padronização de status MC:** backend aceita `awaiting_human` (não `needs_approval`); scripts foram ajustados para normalizar e evitar drift.
-- **Direção operacional:** migrar de rate limit “cego” para **health-gated dispatch** (checkpoints + remediation + safe-restart só por threshold).
+- **Direção operacional:** migrar de rate limit "cego" para **health-gated dispatch** (checkpoints + remediation + safe-restart só por threshold).
 
 ## 2026-03-05
 
 - **Infra event-driven (Polymarket) entregue em modo paper-only:** pacote `research/polymarket_event_driven_infra/` com ingestion/scoring (mispricing), sizing (Kelly), execução paper com idempotência/dedupe e tracking de PnL (payloads p/ Supabase), com suíte de testes passando.
-- **PMM rewards-optimized plan documentado:** `docs/pmm-rewards-optimized-plan.md` define objetivo (compliance de thresholds/tempo no book), métricas e guardrails fortes de “no live por default”, além de roadmap de escala.
+- **PMM rewards-optimized plan documentado:** `docs/pmm-rewards-optimized-plan.md` define objetivo (compliance de thresholds/tempo no book), métricas e guardrails fortes de "no live por default", além de roadmap de escala.
 
 ## 2026-03-06
 
@@ -168,14 +168,20 @@
 
 - **Safe-restart pode ficar silencioso quando a camada de notificação falha.** Hoje `openclaw message send` para Discord deu timeout (8s) durante restart automático; é preciso ter retry/backoff e/ou artifact local (audit trail) para não perder visibilidade.
 - **Recovery pós-restart pode rebaixar múltiplas tasks de `in_progress`→`inbox`** (10 em lote), exigindo workflow explícito de triagem/dedupe para evitar loops de re-dispatch.
-- **Sinal crítico de saúde:** heartbeat-v3 iniciou ciclo com `gateway unreachable (timeout 15s)` — runbook mínimo de diagnóstico deve existir para restaurar operação com baixa ambiguidade.
+- **Sinal crítico de saúde:** heartbeat-v3 iniciou ciclo com `gateway unreachable (timeout 15s)` - runbook mínimo de diagnóstico deve existir para restaurar operação com baixa ambiguidade.
 
 ## 2026-03-08
 
 - **Sinal de risco operacional: `tg_drop=1` (Telegram groups sendo dropados silenciosamente).** Precisa de runbook + fallback de alerta, pois afeta a confiabilidade de incident/ops.
-- **Controller “adapter-only dispatch” reduz observabilidade e pode deixar tasks sem execução rastreável** (MC não mutado com session_key/last_error pós-dispatch). Contrato/patch pós-dispatch deve ser documentado e enforced.
+- **Controller "adapter-only dispatch" reduz observabilidade e pode deixar tasks sem execução rastreável** (MC não mutado com session_key/last_error pós-dispatch). Contrato/patch pós-dispatch deve ser documentado e enforced.
 - **PMM rewards pode entrar em standby prolongado por deadlock de gates** (reward_min_size vs inventory caps + EV threshold). Precisa de fallback (EV ~0), auto-sizing e standby explicável com blockers estruturados.
 
 ## 2026-03-09
 
-- **Repair tasks não devem usar `direct_exec` em sessão principal quando precisarem de progresso auditável.** O padrão correto é sessão isolada/subagent com `mc_session_key` e telemetria explícita; caso contrário o MC pode mostrar task “linkado” sem progresso observável.
+- **Repair tasks não devem usar `direct_exec` em sessão principal quando precisarem de progresso auditável.** O padrão correto é sessão isolada/subagent com `mc_session_key` e telemetria explícita; caso contrário o MC pode mostrar task "linkado" sem progresso observável.
+
+## 2026-03-10
+
+- **Padrão de stall de 3 dias (07–09/mar):** mesmo diagnóstico de dispatch/observabilidade repetido sem fix concreto. Prioridade: implementar `mc-spawn-isolated.sh` e criar runbooks pendentes antes de novo intake.
+- **MC backlog estrutural:** 7 inbox + 5 review + 1 awaiting_human acumulados sem drain. Triagem matinal com critério explícito é step obrigatório antes de despachar novas tasks.
+- **Doc debt ≥ 5 itens de carryover:** `repair-lane-isolated-exec.md`, `controller-dispatch-contract.md`, `mc-spawn-isolated.sh`, `mc-inbox-morning-triage.md`, `telegram-drop.md` — todos pendentes de criação real.
