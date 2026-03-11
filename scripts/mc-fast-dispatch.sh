@@ -198,6 +198,8 @@ if [ -n "$QUEUE_FILE" ] && [ -f "$QUEUE_FILE" ]; then
     TASK_PROJECT_ID=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('context',{}).get('project_id',''))" 2>/dev/null)
     TASK_LANE=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('lane',''))" 2>/dev/null)
     TASK_PHASE=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('phase',''))" 2>/dev/null)
+    # If the queue item requests direct dispatch (e.g. mc-simple-drain), honour it.
+    _QUEUE_DISPATCH_MODE=$(python3 -c "import json; print(json.load(open('$QUEUE_FILE')).get('dispatch_mode',''))" 2>/dev/null)
 fi
 
 TASK_RUNTIME_OWNER="$(python3 - "$TASK_RUNTIME_OWNER" <<'PY'
@@ -273,6 +275,12 @@ DISPATCH_MODE="dispatcher"
 
 case "$AGENT" in
     luan|crypto-sage|quant-strategist)
+        # Default: route through dispatcher so it creates an isolated subagent.
+        # Override: if queue item explicitly requests "direct", skip dispatcher.
+        if [ "${_QUEUE_DISPATCH_MODE:-}" = "direct" ]; then
+            DISPATCH_TARGET_AGENT="$AGENT"
+            DISPATCH_MODE="direct"
+        fi
         ;;
     *)
         DISPATCH_TARGET_AGENT="$AGENT"

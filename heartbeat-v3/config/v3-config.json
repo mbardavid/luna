@@ -7,7 +7,7 @@
   "disable_fast_dispatch": true,
   "max_concurrent_in_progress": 3,
   "inbox_requires_idle": true,
-  "discord_channel": "1473367119377731800",
+  "discord_channel": "1476255906894446644",
   "notifications_channel": "1476255906894446644",
   "mirror_notifications": false,
   "queue_nudge_enabled": false,

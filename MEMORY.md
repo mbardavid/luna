@@ -185,3 +185,9 @@
 - **Padrão de stall de 3 dias (07–09/mar):** mesmo diagnóstico de dispatch/observabilidade repetido sem fix concreto. Prioridade: implementar `mc-spawn-isolated.sh` e criar runbooks pendentes antes de novo intake.
 - **MC backlog estrutural:** 7 inbox + 5 review + 1 awaiting_human acumulados sem drain. Triagem matinal com critério explícito é step obrigatório antes de despachar novas tasks.
 - **Doc debt ≥ 5 itens de carryover:** `repair-lane-isolated-exec.md`, `controller-dispatch-contract.md`, `mc-spawn-isolated.sh`, `mc-inbox-morning-triage.md`, `telegram-drop.md` — todos pendentes de criação real.
+
+## 2026-03-11
+
+- **Stall no 4º dia consecutivo:** mesmo backlog e doc debt carregados sem fix executado. `mc-spawn-isolated.sh` e runbooks pendentes devem ser prioridade absoluta antes de novo intake.
+- **`orchestration-state.json` ausente em workspace-main:** risco de perda de rastreabilidade de estado do MC entre sessões — restaurar/recriar arquivo com template mínimo.
+- **`tg_drop=1` sem runbook (desde 08/mar):** alertas de incidente podem estar silenciosos no Telegram; fallback para Discord deve ser implementado urgentemente.

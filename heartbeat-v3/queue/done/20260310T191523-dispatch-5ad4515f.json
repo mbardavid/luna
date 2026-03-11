@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "5ad4515f-d696-4197-8f28-956f96b2d439",
+  "filename": "20260310T191523-dispatch-5ad4515f.json",
+  "created_at": "2026-03-10T19:15:23.184441+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research: @Mrcryptoxwhale — Claude recomenda prediction markets para $1k",
+  "agent": "luan",
+  "priority": "medium",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/Mrcryptoxwhale/status/2031238619181064624?s=20\n- **Autor:** @Mrcryptoxwhale\n- **Texto do tweet:** HE ASKED CLAUDE WHERE TO PUT $1,000 🤯\n\nNOT STOCKS.\nNOT CRYPTO.\n\nCLAUDE’S ANSWER:\n\nBUY PREDICTION MARKET EVENTS PRICED UNDER 3¢\n\n$1,000 → $98,000\n\nSOMETIMES THE BIGGEST OPPORTUNITIES ARE HIDING WHERE NO ON",
+    "eligible_count": 9,
+    "in_progress_count": 3,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": null,
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "5ad4515f-a1-20260310T191523Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "5ad4515f-d696-4197-8f28-956f96b2d439",
+    "title": "Research: @Mrcryptoxwhale — Claude recomenda prediction markets para $1k",
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/Mrcryptoxwhale/status/2031238619181064624?s=20\n- **Autor:** @Mrcryptoxwhale\n- **Texto do tweet:** HE ASKED CLAUDE WHERE TO PUT $1,000 🤯\n\nNOT STOCKS.\nNOT CRYPTO.\n\nCLAUDE’S ANSWER:\n\nBUY PREDICTION MARKET EVENTS PRICED UNDER 3¢\n\n$1,000 → $98,000\n\nSOMETIMES THE BIGGEST OPPORTUNITIES ARE HIDING WHERE NO ON",
+    "priority": "medium"
+  },
+  "queue_key": "5ad4515f-d696-4197-8f28-956f96b2d439|dispatch|inbox|direct_exec|bccc9f832511",
+  "completed_at": "2026-03-10T19:18:19.515945Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "luan",
+    "session_id": "agent:luan:subagent:afd0f6d4-845e-4d8a-8d45-71aebfc30f15",
+    "runtime_owner": "legacy"
+  }
+}

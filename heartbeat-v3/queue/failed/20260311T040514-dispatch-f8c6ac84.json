@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "f8c6ac84-645f-4298-9216-e00f2b15deb8",
+  "filename": "20260311T040514-dispatch-f8c6ac84.json",
+  "created_at": "2026-03-11T04:05:14.932805+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research: @thedefiedge \u2014 DeFi yield real vs emissoes: relevancia pos BTC -20%",
+  "agent": "luan",
+  "priority": "medium",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/thedefiedge/status/2031345754208714842?s=20\n- **Autor:** @thedefiedge\n- **Texto do tweet:** Most DeFi yield still comes from the same place: \nToken emissions or recycled crypto liquidity.\n\nSo when $BTC drops 20%, your yield usually drops with it too.\n\nThat\u2019s why a lot of \u201cyield diversification\u201d doesn\u2019",
+    "eligible_count": 8,
+    "in_progress_count": 3,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": null,
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "f8c6ac84-a1-20260311T040514Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "f8c6ac84-645f-4298-9216-e00f2b15deb8",
+    "title": "Research: @thedefiedge \u2014 DeFi yield real vs emissoes: relevancia pos BTC -20%",
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/thedefiedge/status/2031345754208714842?s=20\n- **Autor:** @thedefiedge\n- **Texto do tweet:** Most DeFi yield still comes from the same place: \nToken emissions or recycled crypto liquidity.\n\nSo when $BTC drops 20%, your yield usually drops with it too.\n\nThat\u2019s why a lot of \u201cyield diversification\u201d doesn\u2019",
+    "priority": "medium"
+  },
+  "queue_key": "f8c6ac84-645f-4298-9216-e00f2b15deb8|dispatch|inbox|direct_exec|0bf41f2ce1e5",
+  "mc_last_error": "dispatch script failed (exit 1)"
+}

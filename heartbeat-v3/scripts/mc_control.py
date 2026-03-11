@@ -102,7 +102,7 @@ PHASE_TO_STATUS = {
     "done": "done",
 }
 
-PRIMARY_CHANNEL = "1473367119377731800"
+PRIMARY_CHANNEL = "1476255906894446644"
 
 
 def utcnow() -> datetime:

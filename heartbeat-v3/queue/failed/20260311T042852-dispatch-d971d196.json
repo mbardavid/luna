@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "d971d196-9ae3-49bc-be27-a27f0ff891ff",
+  "filename": "20260311T042852-dispatch-d971d196.json",
+  "created_at": "2026-03-11T04:28:52.436807+00:00",
+  "created_by": "mc-simple-drain",
+  "title": "M2 +200 net followers",
+  "agent": "luan",
+  "priority": "high",
+  "status": "inbox",
+  "phase": "direct_exec",
+  "lane": "project",
+  "source": "mc-simple-drain",
+  "dispatch_mode": "direct",
+  "queue_key": "d971d196-9ae3-49bc-be27-a27f0ff891ff|dispatch|inbox",
+  "depends_on_task_ids": [],
+  "context": {
+    "description": "Autonomy milestone for the Luna X growth canary.\n\nObjective:\n- reach +200 net followers from baseline with repeatable growth signals\n\nValidation:\n- milestone leaf tasks finish with proof and expected artifacts\n- the board packet can explain the resulting state without opening raw logs\n",
+    "acceptance_criteria": "",
+    "qa_checks": "",
+    "expected_artifacts": "",
+    "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "card_type": "milestone",
+    "lane": "project",
+    "runtime_owner": "controller-v1"
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "d971d196-9ae3-49bc-be27-a27f0ff891ff",
+    "title": "M2 +200 net followers",
+    "description": "Autonomy milestone for the Luna X growth canary.\n\nObjective:\n- reach +200 net followers from baseline with repeatable growth signals\n\nValidation:\n- milestone leaf tasks finish with proof and expected artifacts\n- the board packet can explain the resulting state without opening raw logs\n",
+    "priority": "high"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "mc_last_error": "dispatch script failed (exit 1)"
+}

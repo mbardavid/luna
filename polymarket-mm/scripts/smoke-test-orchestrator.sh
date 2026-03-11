@@ -22,7 +22,7 @@ PID_FILE="$PROJECT_ROOT/paper/data/paper_trading.pid"
 DATA_DIR="$PROJECT_ROOT/paper/data"
 RUNS_DIR="$PROJECT_ROOT/paper/runs"
 LOG_FILE="$DATA_DIR/orchestrator.log"
-DISCORD_CHANNEL="1473367119377731800"
+DISCORD_CHANNEL="1476255906894446644"
 MAX_CRASHES=3
 STUCK_FACTOR="1.2"  # Kill if elapsed > target * factor
 

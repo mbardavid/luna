@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-09T20:50:16Z",
+  "generated_at": "2026-03-10T20:20:56Z",
   "overall_status": "FAIL",
   "summary": {
     "passed": 13,
@@ -17,7 +17,7 @@
     "default_review_agent": "luna-judge"
   },
   "scheduler": {
-    "last_tick": "2026-03-09T20:50:16Z",
+    "last_tick": "2026-03-10T20:20:09Z",
     "mode": "full",
     "health_state": "healthy",
     "slots_total": 4,
@@ -47,10 +47,10 @@
     },
     "blocked_reasons": [],
     "shadow_diff_vs_legacy": [],
-    "generated_at": "2026-03-09T20:50:16Z"
+    "generated_at": "2026-03-10T20:20:09Z"
   },
   "autonomy_runtime": {
-    "last_tick": "2026-03-09T20:50:09Z",
+    "last_tick": "2026-03-10T20:20:09Z",
     "project_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
     "milestone_id": "",
     "workstream_ids": [],
@@ -178,9 +178,13 @@
       "id": "project_artifacts_fresh",
       "title": "Project artifacts exist and are fresh",
       "status": "FAIL",
-      "summary": "1 required artifact problem(s) detected.",
+      "summary": "2 required artifact problem(s) detected.",
       "evidence": [
-        "board_packet: stale (2561 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/autonomy-board-packet-latest.md"
+        "board_packet: stale (3971 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/autonomy-board-packet-latest.md",
+        "outcome: stale (2571 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/scorecard-latest.json",
+        "session-health-latest.json: stale (2571 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/session-health-latest.json",
+        "baseline-latest.json: stale (2571 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/baseline-latest.json",
+        "board-packet-latest.md: stale (2571 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/board-packet-latest.md"
       ]
     }
   ],

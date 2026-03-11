@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "e2f1ad05-2311-41b3-bfdf-66012aee7793",
+  "filename": "20260310T190023-dispatch-e2f1ad05.json",
+  "created_at": "2026-03-10T19:00:23.491977+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research: @EffortCapital — tweet 'Banger' (explorar thread completa)",
+  "agent": "luan",
+  "priority": "medium",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/EffortCapital/status/2031171291584102600?s=20\n- **Autor:** @EffortCapital\n- **Texto do tweet:** Banger\n\n\n## Instrucoes\n- Explorar sublinks, artigos relacionados, relatorios e thread completa\n- Verificar claims com evidencia objetiva (on-chain quando aplicavel)\n- Entender contexto e credibilidade do pu",
+    "eligible_count": 10,
+    "in_progress_count": 0,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": null,
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "e2f1ad05-a1-20260310T190023Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "e2f1ad05-2311-41b3-bfdf-66012aee7793",
+    "title": "Research: @EffortCapital — tweet 'Banger' (explorar thread completa)",
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/EffortCapital/status/2031171291584102600?s=20\n- **Autor:** @EffortCapital\n- **Texto do tweet:** Banger\n\n\n## Instrucoes\n- Explorar sublinks, artigos relacionados, relatorios e thread completa\n- Verificar claims com evidencia objetiva (on-chain quando aplicavel)\n- Entender contexto e credibilidade do pu",
+    "priority": "medium"
+  },
+  "queue_key": "e2f1ad05-2311-41b3-bfdf-66012aee7793|dispatch|inbox|direct_exec|84fd6b0126bc",
+  "completed_at": "2026-03-10T19:03:21.633603Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "luan",
+    "session_id": "agent:luan:subagent:4e4a257f-c06d-4312-9e77-44d012dbdafd",
+    "runtime_owner": "legacy"
+  }
+}

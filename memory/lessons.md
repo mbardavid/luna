@@ -624,3 +624,25 @@ BLOCKERS: <none|desc>
 ---
 ```
 Sem esse bloco, o `auto-qa-reviewer.sh` cai no fallback (WAKE Luna), que por sua vez pode não fechar o loop — criando o mesmo padrão de task zombi. O bloco é a chave para fechamento automático do ciclo detectar→agir→atualizar→parar.
+
+## 2026-03-11
+
+### Protocolo de autonomia operacional com o Matheus
+- Luna toma decisões técnicas autonomamente, sem pedir confirmação.
+- Implementação sequencial segue do início ao fim sem interrupção.
+- Só perguntar ao Matheus quando: (1) mudança de direção estratégica, (2) mudança de escopo/intenção de ferramenta, (3) ação externa sensível com impacto material.
+- Nunca interromper para: escolha de lib, refactor, bug fix, ordem de execução, estrutura interna.
+
+### Auto-drain simples (mc-simple-drain) — lições do redesign
+- `dispatcher` agent (OpenAI Codex) não é confiável como caminho crítico — token OAuth expira. Usar `dispatch_mode: direct` para rota inbox → agente executor.
+- Capacidade de execução não deve contar tasks de `luna-judge` (review/intake) — são governance, não workers.
+- Tasks com `mc_dispatch_policy: human_hold` devem ser explicitamente excluídas do auto-drain.
+- Payload de queue item deve usar `context.description` (não `description` top-level) para compatibilidade com `mc-fast-dispatch.sh --from-queue`.
+- `sessions_spawn` é tool-only. Dispatcher bash/cron prepara payload mas não faz spawn real sem bridge via agente.
+- Watchdog reconcilia estado morto; drain seleciona próxima task. São responsabilidades distintas, não devem se misturar.
+- O `main` nunca deve ser destino default de execução — múltiplas sessões simultâneas no main degradam o próprio drainer.
+
+### Quant como revisor de research tasks
+- Quant-Strategist pode julgar tasks de pesquisa diretamente no card do MC.
+- Tasks consideradas clickbait/lixo: registrar julgamento no card e mover para `done`.
+- Tasks com conteúdo válido: registrar análise no card e mover para `review` para decisão de ação.

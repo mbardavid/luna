@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "f8c6ac84-645f-4298-9216-e00f2b15deb8",
+  "filename": "20260311T043502-dispatch-f8c6ac84.json",
+  "created_at": "2026-03-11T04:35:02.294756+00:00",
+  "created_by": "mc-simple-drain",
+  "title": "Research: @thedefiedge \u2014 DeFi yield real vs emissoes: relevancia pos BTC -20%",
+  "agent": "luan",
+  "priority": "medium",
+  "status": "inbox",
+  "phase": "direct_exec",
+  "lane": "ambient",
+  "source": "mc-simple-drain",
+  "dispatch_mode": "direct",
+  "queue_key": "f8c6ac84-645f-4298-9216-e00f2b15deb8|dispatch|inbox",
+  "depends_on_task_ids": [],
+  "context": {
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/thedefiedge/status/2031345754208714842?s=20\n- **Autor:** @thedefiedge\n- **Texto do tweet:** Most DeFi yield still comes from the same place: \nToken emissions or recycled crypto liquidity.\n\nSo when $BTC drops 20%, your yield usually drops with it too.\n\nThat\u2019s why a lot of \u201cyield diversification\u201d doesn\u2019",
+    "acceptance_criteria": "",
+    "qa_checks": "",
+    "expected_artifacts": "",
+    "project_id": "",
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "runtime_owner": "legacy"
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "f8c6ac84-645f-4298-9216-e00f2b15deb8",
+    "title": "Research: @thedefiedge \u2014 DeFi yield real vs emissoes: relevancia pos BTC -20%",
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/thedefiedge/status/2031345754208714842?s=20\n- **Autor:** @thedefiedge\n- **Texto do tweet:** Most DeFi yield still comes from the same place: \nToken emissions or recycled crypto liquidity.\n\nSo when $BTC drops 20%, your yield usually drops with it too.\n\nThat\u2019s why a lot of \u201cyield diversification\u201d doesn\u2019",
+    "priority": "medium"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "mc_last_error": "dispatch script failed (exit 1)"
+}

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "24d98e82-3de9-485e-82c0-5384976a6065",
+  "filename": "20260310T191019-dispatch-24d98e82.json",
+  "created_at": "2026-03-10T19:10:19.264478+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Research: @adiix_official — $1.4k > $238k em 11 dias com Claude (wallet 0xdE17)",
+  "agent": "luan",
+  "priority": "medium",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/adiix_official/status/2031175021280837740?s=20\n- **Autor:** @adiix_official\n- **Texto do tweet:** Anthropic released an update for Claude, and one young guy turned $1,400 into $238,000 in 11 days\n\nHis account is 0xdE17.\n\nHe is not a trader. Not a developer. Just a student with a laptop and access to C",
+    "eligible_count": 9,
+    "in_progress_count": 2,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": null,
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "24d98e82-a1-20260310T191019Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "24d98e82-3de9-485e-82c0-5384976a6065",
+    "title": "Research: @adiix_official — $1.4k > $238k em 11 dias com Claude (wallet 0xdE17)",
+    "description": "## Objetivo\nPesquisa de oportunidade financeira/estrategica identificada em tweet. Explorar em profundidade e responder as 3 perguntas obrigatorias.\n\n## Contexto\n- **Tweet original:** https://x.com/adiix_official/status/2031175021280837740?s=20\n- **Autor:** @adiix_official\n- **Texto do tweet:** Anthropic released an update for Claude, and one young guy turned $1,400 into $238,000 in 11 days\n\nHis account is 0xdE17.\n\nHe is not a trader. Not a developer. Just a student with a laptop and access to C",
+    "priority": "medium"
+  },
+  "queue_key": "24d98e82-3de9-485e-82c0-5384976a6065|dispatch|inbox|direct_exec|79b7a3a1bca8",
+  "completed_at": "2026-03-10T19:12:28.260427Z",
+  "completed_by": "mc-fast-dispatch",
+  "success": true,
+  "result": {
+    "action": "dispatch",
+    "agent": "luan",
+    "session_id": "agent:luan:subagent:1657aeaa-fc86-4851-b14d-730b0952766e",
+    "runtime_owner": "legacy"
+  }
+}

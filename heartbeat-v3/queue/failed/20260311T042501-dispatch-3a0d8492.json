@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+  "filename": "20260311T042501-dispatch-3a0d8492.json",
+  "created_at": "2026-03-11T04:25:01.968002+00:00",
+  "created_by": "mc-simple-drain",
+  "title": "Grow Luna X account by +200 followers",
+  "agent": "luan",
+  "priority": "high",
+  "status": "inbox",
+  "phase": "direct_exec",
+  "lane": "project",
+  "source": "mc-simple-drain",
+  "queue_key": "3a0d8492-412a-4676-b945-cd3b02885e3f|dispatch|inbox",
+  "depends_on_task_ids": [],
+  "context": {
+    "description": "Externally validated autonomy canary for Luna's X account.\n\nObjective:\n- prove that the autonomy loop can move a real public account toward growth milestones with daily feedback and tight guardrails\n- keep execution aligned with Luna's public identity and OpenClaw's crypto market intelligence mission\n\nSuccess criteria:\n- M1: +25 net followers from baseline\n- M2: +200 net followers from baseline\n- progress is explained by scorecards, board packets, and auditable artifacts instead of vanity signal",
+    "acceptance_criteria": "",
+    "qa_checks": "",
+    "expected_artifacts": "",
+    "project_id": "",
+    "card_type": "project",
+    "lane": "project",
+    "runtime_owner": "controller-v1"
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "3a0d8492-412a-4676-b945-cd3b02885e3f",
+    "title": "Grow Luna X account by +200 followers",
+    "description": "Externally validated autonomy canary for Luna's X account.\n\nObjective:\n- prove that the autonomy loop can move a real public account toward growth milestones with daily feedback and tight guardrails\n- keep execution aligned with Luna's public identity and OpenClaw's crypto market intelligence mission\n\nSuccess criteria:\n- M1: +25 net followers from baseline\n- M2: +200 net followers from baseline\n- progress is explained by scorecards, board packets, and auditable artifacts instead of vanity signal",
+    "priority": "high"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "mc_last_error": "dispatch script failed (exit 1)"
+}

@@ -1,5 +1,5 @@
 # Autonomy Architecture Validation
-Generated: 2026-03-09T20:50:16Z
+Generated: 2026-03-10T20:20:56Z
 
 ## Overall: `FAIL`
 - Passed: 13
@@ -16,8 +16,12 @@ Generated: 2026-03-09T20:50:16Z
 - Dispatch decision: `{"lane": "", "status": "", "task_id": "", "type": "idle"}`
 
 ## Failed Checks
-- `project_artifacts_fresh` Project artifacts exist and are fresh: 1 required artifact problem(s) detected.
-  - board_packet: stale (2561 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/autonomy-board-packet-latest.md
+- `project_artifacts_fresh` Project artifacts exist and are fresh: 2 required artifact problem(s) detected.
+  - board_packet: stale (3971 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/autonomy-board-packet-latest.md
+  - outcome: stale (2571 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/scorecard-latest.json
+  - session-health-latest.json: stale (2571 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/session-health-latest.json
+  - baseline-latest.json: stale (2571 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/baseline-latest.json
+  - board-packet-latest.md: stale (2571 min) at /home/openclaw/.openclaw/workspace/artifacts/reports/luna-x-growth/board-packet-latest.md
 
 ## Warnings
 - `project_lane_coexists_with_ambient` Project lane coexists with ambient: Current snapshot does not exercise ambient+project contention at the same time.
