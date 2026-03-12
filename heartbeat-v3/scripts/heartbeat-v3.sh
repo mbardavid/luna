@@ -66,20 +66,31 @@ if [ "${HEARTBEAT_CONTROLLER_V1:-1}" = "0" ]; then
     RUN_CONTROLLER_V1=0
 fi
 
-CONTROLLER_RC=0
+# ─── controller-v1 (non-critical, runs in background with timeout) ────────────
+# Failures here must NOT affect the heartbeat exit code.
+# controller-v1 is a supplementary component; rate-limit/network errors (429/503)
+# should never contaminate the main heartbeat path.
 CONTROLLER_SCRIPT="$SCRIPT_DIR/controller-v1.py"
 if [ "$RUN_CONTROLLER_V1" -eq 1 ] && [ -f "$CONTROLLER_SCRIPT" ]; then
+    CONTROLLER_LOG="$WORKSPACE_DIR/logs/controller-v1.log"
+    mkdir -p "$(dirname "$CONTROLLER_LOG")"
     set +e
-    python3 "$CONTROLLER_SCRIPT" "$@"
+    timeout 60 python3 "$CONTROLLER_SCRIPT" "$@" >> "$CONTROLLER_LOG" 2>&1
     CONTROLLER_RC=$?
     set -e
+    if [ "$CONTROLLER_RC" -ne 0 ]; then
+        echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] WARN: controller-v1 exited rc=$CONTROLLER_RC (non-fatal, heartbeat continues)" \
+            >> "$CONTROLLER_LOG"
+    fi
 fi
 
+# ─── heartbeat-v3.py (critical path) ─────────────────────────────────────────
 set +e
 python3 "$SCRIPT_DIR/heartbeat-v3.py" "$@"
 HEARTBEAT_RC=$?
 set -e
 
+# ─── autonomy validation monitor (optional) ───────────────────────────────────
 MONITOR_SCRIPT="$WORKSPACE_DIR/scripts/autonomy-validation-monitor.sh"
 MONITOR_LOG="$WORKSPACE_DIR/logs/autonomy-validation-monitor.log"
 if [ "$RUN_VALIDATION_MONITOR" -eq 1 ] && [ -x "$MONITOR_SCRIPT" ]; then
@@ -87,7 +98,5 @@ if [ "$RUN_VALIDATION_MONITOR" -eq 1 ] && [ -x "$MONITOR_SCRIPT" ]; then
     "$MONITOR_SCRIPT" --source heartbeat-v3 >> "$MONITOR_LOG" 2>&1 || true
 fi
 
-if [ "$HEARTBEAT_RC" -ne 0 ]; then
-    exit "$HEARTBEAT_RC"
-fi
-exit "$CONTROLLER_RC"
+# Always exit with heartbeat-v3.py's code — controller-v1 failures are non-fatal.
+exit "$HEARTBEAT_RC"

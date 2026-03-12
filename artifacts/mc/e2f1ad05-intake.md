@@ -86,3 +86,22 @@ No new deliverable added since last rejection. Task stalled with zero progress.
 
 ### review_reason (for MC)
 Task stalled with no research deliverable after prior rejection (2026-03-10T20:20Z); mandatory questions 1/2/3 still unanswered, no final recommendation provided.
+
+## Judge Review (Luna) — 2026-03-11T14:30Z (3ª revisão)
+
+### Status ante review
+- `mc_last_error = stalled` | `mc_progress = 0` | `mc_delivered = false`
+- 2 prior rejections: 2026-03-10T20:20Z, 2026-03-11T04:10Z — no research artifact produced in any cycle.
+
+### Objective validation
+Same criteria apply: all 3 mandatory questions answered with evidence + final recommendation.
+
+### Findings
+No new deliverable. This is the 3rd consecutive rejection for this task.
+
+### Decision
+- **REJECT** (3ª rejeição consecutiva)
+- Return to **in_progress**.
+
+### review_reason (for MC)
+Third consecutive rejection: task stalled with no research deliverable; mandatory questions 1/2/3 still unanswered, no final recommendation provided. Dispatcher loop requires human intervention.

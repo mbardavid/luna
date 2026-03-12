@@ -414,20 +414,53 @@ def handle_task(task, sessions_by_key):
         },
       )
     else:
-      maybe_log(f"[mc-watchdog] task {t_id} já marcada stalled, ignorando re-mark")
+      # Task já foi marcada stalled mas continua presa (watchdog não a moveu ou ela voltou).
+      # Force-recover: se estiver stalled há mais de 2x o threshold, mover para review e limpar o flag.
+      force_recover_ms = stall_threshold_ms * 2
+      if stale_ms >= force_recover_ms:
+        update_counter(stats, "recovered")
+        mc_update_task(
+          t_id,
+          status="review",
+          comment=(
+            f"[mc-watchdog] {now_iso()} force-recover: task presa como stalled há "
+            f"{int(stale_ms / 60_000)}m (>{int(force_recover_ms / 60_000)}m limite); "
+            "retornada para review com flag limpo."
+          ),
+          fields={
+            args.retry_count_field: current_retry,
+            "mc_progress": progress,
+            "mc_last_error": "",  # limpa o flag para o próximo ciclo poder re-detectar
+            "mc_session_key": "",  # desvincula a sessão stale
+          },
+        )
+        maybe_log(f"[mc-watchdog] task {t_id} force-recovered após {int(stale_ms / 60_000)}m stalled")
+      else:
+        maybe_log(f"[mc-watchdog] task {t_id} já marcada stalled ({int(stale_ms / 60_000)}m), aguardando force-recover em {int((force_recover_ms - stale_ms) / 60_000)}m")
     return
 
   if status == "review":
-    update_counter(stats, "unstalled")
-    mc_update_task(
-      t_id,
-      status="in_progress",
-      comment=(
-        f"[mc-watchdog] {now_iso()} atividade recente detectada em {int(stale_ms / 1000)}s; "
-        "volta para in_progress."
-      ),
-      fields={"mc_progress": progress},
-    )
+    # Só "unstall" (review → in_progress) se a task tiver uma sessão ativa vinculada.
+    # Tasks em review sem sessão ativa estão aguardando despacho (Quant, judge, etc.)
+    # e NÃO devem ser movidas de volta para in_progress automaticamente.
+    session_key = str(fields.get("mc_session_key", "") or "").strip()
+    if session_key and session_key in sessions_by_key:
+      session_status = str(sessions_by_key[session_key].get("status", "")).lower()
+      if session_status not in ("ended", "failed", "error"):
+        update_counter(stats, "unstalled")
+        mc_update_task(
+          t_id,
+          status="in_progress",
+          comment=(
+            f"[mc-watchdog] {now_iso()} sessão ativa detectada ({session_key[:30]}); "
+            "volta para in_progress."
+          ),
+          fields={"mc_progress": progress},
+        )
+      else:
+        maybe_log(f"[mc-watchdog] task {t_id} em review com sessão encerrada ({session_key[:20]}), sem unstall")
+    else:
+      maybe_log(f"[mc-watchdog] task {t_id} em review sem sessão ativa vinculada, mantendo em review")
 
 
 try:

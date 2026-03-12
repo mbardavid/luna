@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "4be87a45-99f0-4969-9e03-cd17ccd0cdb7",
+  "filename": "20260311T144001-dispatch-4be87a45.json",
+  "created_at": "2026-03-11T14:40:01.548228+00:00",
+  "created_by": "mc-simple-drain",
+  "title": "Investiga\u00e7\u00e3o profunda: @0xMovez \u2014 Prediction market Hedge Fund signal stack",
+  "agent": "luan",
+  "priority": "high",
+  "status": "inbox",
+  "phase": "direct_exec",
+  "lane": "ambient",
+  "source": "mc-simple-drain",
+  "dispatch_mode": "direct",
+  "queue_key": "4be87a45-99f0-4969-9e03-cd17ccd0cdb7|dispatch|inbox",
+  "depends_on_task_ids": [],
+  "context": {
+    "description": "Gap analysis do stack de prediction market hedge fund vs o que temos. Comparar: data layer, fair value, execution, post-trade. Responder: quais componentes adaptar, onde est\u00e1 o maior gap de alpha, IMPLEMENTAR ou DESCARTAR com crit\u00e9rio objetivo. Tweet: https://x.com/0xMovez/status/2031106983147741680",
+    "acceptance_criteria": "",
+    "qa_checks": "",
+    "expected_artifacts": "",
+    "project_id": "",
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "runtime_owner": "legacy"
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "4be87a45-99f0-4969-9e03-cd17ccd0cdb7",
+    "title": "Investiga\u00e7\u00e3o profunda: @0xMovez \u2014 Prediction market Hedge Fund signal stack",
+    "description": "Gap analysis do stack de prediction market hedge fund vs o que temos. Comparar: data layer, fair value, execution, post-trade. Responder: quais componentes adaptar, onde est\u00e1 o maior gap de alpha, IMPLEMENTAR ou DESCARTAR com crit\u00e9rio objetivo. Tweet: https://x.com/0xMovez/status/2031106983147741680",
+    "priority": "high"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "bridge_cron_id": "00582d62-fffa-46fd-8991-382dd931a48b",
+  "bridge_triggered_at": "2026-03-12T08:18:04.813509"
+}

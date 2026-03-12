@@ -646,3 +646,13 @@ Sem esse bloco, o `auto-qa-reviewer.sh` cai no fallback (WAKE Luna), que por sua
 - Quant-Strategist pode julgar tasks de pesquisa diretamente no card do MC.
 - Tasks consideradas clickbait/lixo: registrar julgamento no card e mover para `done`.
 - Tasks com conteúdo válido: registrar análise no card e mover para `review` para decisão de ação.
+
+### controller-v1 desacoplado do caminho crítico do heartbeat (2026-03-11)
+- `heartbeat-v3.sh` agora roda controller-v1 com `timeout 60` e captura saída em log separado (`controller-v1.log`).
+- Falhas do controller-v1 (429, 503, qualquer rc != 0) são logadas como WARN mas não afetam o exit code do wrapper.
+- O heartbeat sempre termina com o exit code do `heartbeat-v3.py` — caminho crítico isolado.
+- Variável `HEARTBEAT_CONTROLLER_V1=0` ainda pode ser usada para desabilitar controller completamente.
+
+### Watchdog: dois bugs corrigidos (2026-03-11)
+- **Bug 1 — stalled loop eterno**: o watchdog ignorava tasks com `mc_last_error=stalled` (guard `if last_error != "stalled"`). Se a task voltava para in_progress por outro caminho e ficava stalled novamente, ficava presa para sempre. Fix: após 2x o threshold (`force_recover_ms`), força recover com limpeza de `mc_last_error` e `mc_session_key`.
+- **Bug 2 — unstall cego**: o watchdog movia tasks de review para in_progress quando detectava "atividade recente", sem verificar se havia sessão ativa. Isso re-enviava tasks para o luna-judge que já estava stale, criando loop. Fix: unstall (review → in_progress) só acontece quando há sessão ativa vinculada e não-encerrada.
