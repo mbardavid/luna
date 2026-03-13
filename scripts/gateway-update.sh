@@ -59,8 +59,10 @@ PRE_VERSION=$(openclaw --version 2>/dev/null || echo "unknown")
 log "Pre-update version: $PRE_VERSION"
 
 # Step 3: Install
-log "Running: npm install -g openclaw@${TARGET_VERSION}"
-if npm install -g "openclaw@${TARGET_VERSION}" >> "$LOG" 2>&1; then
+# Must use sudo bash -c '...' to install system-wide (/usr/lib/node_modules)
+# Direct 'sudo npm' is blocked; 'npm' without sudo installs to user prefix only.
+log "Running: sudo bash -c 'npm install -g --prefix /usr openclaw@${TARGET_VERSION}'"
+if sudo -n bash -c "npm install -g --prefix /usr 'openclaw@${TARGET_VERSION}'" >> "$LOG" 2>&1; then
     log "npm install completed successfully"
 else
     log "ERROR: npm install FAILED (exit $?)"

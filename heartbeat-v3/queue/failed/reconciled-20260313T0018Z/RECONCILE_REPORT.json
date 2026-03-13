@@ -1,0 +1,37 @@
+{
+  "timestamp_utc": "2026-03-13T00:17:17.800390Z",
+  "action": "reconcile_active_queue_orphans",
+  "items": [
+    {
+      "file": "20260304T031035-dispatch-4c977ef9.json.meta/.session",
+      "task_id": "4c977ef9-c658-475f-8f27-a7836c6507ee",
+      "task_status": "done",
+      "reconciliation": "stale sidecars only; moved out of active queue"
+    },
+    {
+      "file": "20260304T034523-respawn-1ef02339.json.meta/.session",
+      "task_id": "1ef02339-7b96-4796-8e20-0039c8ea75f0",
+      "task_status": "done",
+      "reconciliation": "stale sidecars only; moved out of active queue"
+    },
+    {
+      "file": "20260305T031012-dispatch-8cc49d51.json.session",
+      "task_id": "8cc49d51-4946-403a-bba7-ef6c9c820d7d",
+      "task_status": "inbox",
+      "reconciliation": "orphan session sidecar without active json; moved out of active queue"
+    },
+    {
+      "file": "20260305T063514-dispatch-714ea1a9.json.session",
+      "task_id": "714ea1a9-0fb8-4a77-bd35-cf3c7c7691d1",
+      "task_status": "inbox",
+      "reconciliation": "orphan session sidecar without active json; moved out of active queue"
+    },
+    {
+      "file": "20260312T191534-dispatch-73e59871.json",
+      "task_id": "73e59871-7eef-48d1-b85e-2b131b070ca3",
+      "task_status": "in_progress",
+      "mc_session_key": "agent:luan:subagent:8e549bd1-96a7-4089-80fe-92ed9c86c0ac",
+      "reconciliation": "malformed leftover active marker containing BRIDGE_DONE only; task already linked in MC, so moved out of active queue as completed bridge residue"
+    }
+  ]
+}

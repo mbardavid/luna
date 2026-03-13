@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MC_CONFIG_PATH="${MC_CONFIG_PATH:-${SCRIPT_DIR}/../config/mission-control-ids.json}"
 OPENCLAW_BIN="${OPENCLAW_BIN:-openclaw}"
 LOG_FILE="$WORKSPACE/logs/mc-review-reject.log"
-DISCORD_CHANNEL="${DISCORD_CHANNEL:-1473367119377731800}"
+DISCORD_CHANNEL="${DISCORD_CHANNEL:-1476255906894446644}"
 
 mkdir -p "$(dirname "$LOG_FILE")"
 log() { echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }

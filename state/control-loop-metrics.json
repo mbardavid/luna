@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-03-12T08:25:14Z",
+  "last_updated": "2026-03-13T08:30:10Z",
   "fase2_baseline": {
     "gateway_memory_mb": 450,
     "heartbeat_frequency": "*/5",
@@ -9,18 +9,18 @@
     "timestamp": "2026-03-03T00:03:21Z"
   },
   "counters_today": {
-    "heartbeat_runs": 1849,
+    "heartbeat_runs": 2138,
     "opus_triggers": 0,
     "tasks_completed": 2,
-    "tasks_dispatched": 58,
+    "tasks_dispatched": 59,
     "failures_detected": 0,
     "qa_reviews_dispatched": 0,
     "pmm_restarts": 0,
     "gateway_restarts": 0,
     "alerts_sent": 0,
     "duplicate_alerts_suppressed": 0,
-    "queue_items_deduped": 319,
-    "queue_items_written": 57,
+    "queue_items_deduped": 508,
+    "queue_items_written": 60,
     "queue_items_completed": 267,
     "review_claims": 6,
     "judge_wakeups": 3,
@@ -28,11 +28,11 @@
     "ignored_governance_reviews": 921,
     "autonomy_creations": 1,
     "autonomy_promotions": 2,
-    "actionable_review_claims": 59,
+    "actionable_review_claims": 63,
     "autonomy_stall_detected": 2,
     "autonomy_stall_recoveries": 1,
-    "judge_dispatch_luna_judge": 47,
-    "shadow_diff_count": 133,
+    "judge_dispatch_luna_judge": 51,
+    "shadow_diff_count": 235,
     "main_dispatch_blocked": 7,
     "repair_bundle_opened": 7,
     "repair_bundle_resolved": 2
@@ -54,7 +54,7 @@
   "cron_health": {
     "heartbeat-v3": {
       "status": "running",
-      "last_run": "2026-03-12T08:25:09Z"
+      "last_run": "2026-03-13T08:30:10Z"
     },
     "judge-loop-worker": {
       "status": "ok",
@@ -62,7 +62,7 @@
     },
     "judge-loop-trigger": {
       "status": "ok",
-      "last_run": "2026-03-12T07:50:41Z"
+      "last_run": "2026-03-13T07:26:20Z"
     }
   },
   "phase_transitions": {
@@ -92,7 +92,9 @@
     "4d0fe1d7-b058-46a1-96cb-44bb966001c7:intake": "2026-03-11T07:11:18Z",
     "54c6d970-4a9a-43aa-b471-8b9c3b8114a5:intake": "2026-03-11T06:55:48Z",
     "7a17be5f-e020-401e-b513-4cf7dc2d4e5b:intake": "2026-03-11T06:50:46Z",
-    "4be87a45-99f0-4969-9e03-cd17ccd0cdb7:intake": "2026-03-12T07:50:41Z"
+    "4be87a45-99f0-4969-9e03-cd17ccd0cdb7:intake": "2026-03-12T13:55:41Z",
+    "c9a2152a-f2f3-4f79-945e-9aef05fa5049:intake": "2026-03-13T02:26:11Z",
+    "73e59871-7eef-48d1-b85e-2b131b070ca3:intake": "2026-03-13T07:26:20Z"
   },
   "queue_audit": {
     "last_run": "2026-03-07T21:07:01Z",

@@ -22,6 +22,7 @@ The queue item can be consumed later by existing dispatch flows.
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import os
 import sys
@@ -92,8 +93,31 @@ def task_fields(task: dict[str, Any]) -> dict[str, Any]:
     return fields if isinstance(fields, dict) else {}
 
 
-def queue_key(task_id: str, item_type: str, status: str) -> str:
-    return f"{task_id}|{item_type}|{status}"
+def normalize_status(status: str, default: str = "inbox") -> str:
+    value = str(status or "").strip().lower()
+    return value or default
+
+
+def queue_phase(item_type: str, task: dict[str, Any]) -> str:
+    if item_type == "respawn":
+        return "respawn"
+    fields = task_fields(task)
+    workflow = str(fields.get("mc_workflow", "") or "").strip().lower()
+    phase = str(fields.get("mc_phase", "") or "").strip().lower()
+    if workflow == "direct_exec" and phase in {"", "intake", "inbox"}:
+        return "direct_exec"
+    return phase or item_type
+
+
+def queue_key(task_id: str, item_type: str, status: str, phase: str) -> str:
+    raw = "|".join([
+        str(task_id or "").strip(),
+        str(item_type or "").strip().lower(),
+        normalize_status(status, default="inbox"),
+        str(phase or "").strip().lower(),
+    ])
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+    return f"{raw}|{digest}"
 
 
 def queue_item_exists(task_id: str, key: str, directories: list[Path]) -> bool:
@@ -103,7 +127,13 @@ def queue_item_exists(task_id: str, key: str, directories: list[Path]) -> bool:
                 payload = json.loads(path.read_text(encoding="utf-8"))
             except Exception:
                 continue
-            if str(payload.get("task_id", "")) == str(task_id) and str(payload.get("queue_key", "")) == key:
+            payload_task_id = str(payload.get("task_id", "") or "")
+            payload_key = str(payload.get("queue_key", "") or "")
+            if payload_task_id != str(task_id):
+                continue
+            # Strong dedupe: exact queue_key match OR same task still present in queue.
+            # This prevents stale legacy keys from re-dispatching the same task forever.
+            if payload_key == key or payload_task_id == str(task_id):
                 return True
     return False
 
@@ -221,17 +251,19 @@ def build_queue_payload(item_type: str, task: dict[str, Any]) -> dict[str, Any]:
     if not description:
         description = f"Execute task: {title}"
 
+    phase = queue_phase(item_type, task)
+
     return {
         "title": title,
         "agent": agent,
         "priority": str(task.get("priority", "medium") or "medium").lower(),
         "status": status,
-        "phase": "direct_exec",
+        "phase": phase,
         "lane": str(fields.get("mc_lane", "") or ""),
         "source": "mc-simple-drain",
         # Use direct dispatch — bypass dispatcher agent (which may be unavailable).
         "dispatch_mode": "direct",
-        "queue_key": queue_key(task_id, item_type, status),
+        "queue_key": queue_key(task_id, item_type, status, phase),
         "depends_on_task_ids": task.get("depends_on_task_ids", []) or [],
         "context": {
             "description": description,

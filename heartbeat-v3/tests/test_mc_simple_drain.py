@@ -54,11 +54,12 @@ class TestMcSimpleDrainQueue(unittest.TestCase):
             active.mkdir()
             payload = {
                 "task_id": "abc123",
-                "queue_key": "abc123|dispatch|inbox",
+                "queue_key": "abc123|dispatch|inbox|direct_exec|deadbeefcafe",
             }
             (pending / "x.json").write_text(json.dumps(payload), encoding="utf-8")
-            self.assertTrue(_mod.queue_item_exists("abc123", "abc123|dispatch|inbox", [pending, active]))
-            self.assertFalse(_mod.queue_item_exists("abc123", "abc123|review|review", [pending, active]))
+            self.assertTrue(_mod.queue_item_exists("abc123", "abc123|dispatch|inbox|direct_exec|deadbeefcafe", [pending, active]))
+            self.assertTrue(_mod.queue_item_exists("abc123", "abc123|dispatch|inbox|direct_exec|anotherdigest", [pending, active]))
+            self.assertFalse(_mod.queue_item_exists("other-task", "abc123|dispatch|inbox|direct_exec|deadbeefcafe", [pending, active]))
 
 
 if __name__ == "__main__":

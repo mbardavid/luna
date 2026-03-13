@@ -1,5 +1,5 @@
 {
-  "last_tick": "2026-03-12T08:25:14Z",
+  "last_tick": "2026-03-13T08:30:10Z",
   "mode": "full",
   "health_state": "healthy",
   "slots_total": 4,
@@ -7,7 +7,7 @@
     "repair": 0,
     "review": 0,
     "project": 0,
-    "ambient": 2
+    "ambient": 0
   },
   "running_by_lane": {
     "repair": 0,
@@ -19,16 +19,17 @@
     "repair": 0,
     "review": 0,
     "project": 0,
-    "ambient": 1
+    "ambient": 0
   },
   "dispatch_decision": {
-    "type": "dispatch",
-    "lane": "ambient",
-    "task_id": "c9a2152a-f2f3-4f79-945e-9aef05fa5049",
-    "status": "inbox",
-    "gate_reason": ""
+    "type": "idle",
+    "lane": "",
+    "task_id": "",
+    "status": ""
   },
   "blocked_reasons": [],
   "shadow_diff_vs_legacy": [],
-  "generated_at": "2026-03-12T08:25:14Z"
+  "generated_at": "2026-03-13T08:30:10Z",
+  "last_heartbeat_reason": "heartbeat_start",
+  "last_heartbeat_phase": "startup"
 }

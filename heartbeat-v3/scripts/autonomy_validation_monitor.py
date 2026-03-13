@@ -137,7 +137,7 @@ def gateway_call(method: str, params: dict[str, Any] | None = None) -> dict[str,
 
 
 def notification_channels(config: dict[str, Any]) -> list[str]:
-    primary = str(config.get("discord_channel") or "1473367119377731800").strip()
+    primary = str(config.get("discord_channel") or "1476255906894446644").strip()
     notifications = str(config.get("notifications_channel") or "").strip()
     mirror = bool(config.get("mirror_notifications", False))
     channels = [primary] if primary else []
@@ -174,7 +174,7 @@ def load_config() -> dict[str, Any]:
     if not isinstance(section, dict):
         section = {}
     return {
-        "discord_channel": cfg.get("discord_channel", "1473367119377731800"),
+        "discord_channel": cfg.get("discord_channel", "1476255906894446644"),
         "notifications_channel": cfg.get("notifications_channel", ""),
         "mirror_notifications": cfg.get("mirror_notifications", False),
         "enabled": bool(section.get("enabled", True)),

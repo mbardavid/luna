@@ -22,7 +22,7 @@ AGENTS_DIR = Path(os.environ.get("AGENTS_DIR", "/home/openclaw/.openclaw/agents"
 WORKSPACE = Path(os.environ.get("WORKSPACE_DIR", "/home/openclaw/.openclaw/workspace"))
 MC_CLIENT = WORKSPACE / "scripts" / "mc-client.sh"
 ACTIVE_TASKS_FILE = WORKSPACE / "memory" / "active-tasks.md"
-DISCORD_CHANNEL = os.environ.get("SENTINEL_DISCORD_CHANNEL", "1473367119377731800")
+DISCORD_CHANNEL = os.environ.get("SENTINEL_DISCORD_CHANNEL", "1476255906894446644")
 LOG_TAG = "[smart-compact]"
 
 # Pendency detection patterns

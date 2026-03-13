@@ -38,7 +38,7 @@ print(
     c.get('queue_dir', '$V3_DIR/queue'),
     c.get('escalation_warn_minutes', 15),
     c.get('escalation_critical_minutes', 30),
-    c.get('discord_channel', '1473367119377731800'),
+    c.get('discord_channel', '1476255906894446644'),
     c.get('notifications_channel', '1476255906894446644')
 )
 ")"

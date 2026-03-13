@@ -76,12 +76,12 @@ mv "$ITEM" "$ACTIVE_ITEM" 2>/dev/null || {
 }
 
 # ─── Read queue item fields ───────────────────────────────────────────────────
-TASK_ID=$(python3 -c "import json; print(json.load(open('$ACTIVE_ITEM')).get('task_id',''))" 2>/dev/null)
-AGENT=$(python3 -c "import json; print(json.load(open('$ACTIVE_ITEM')).get('agent','luan'))" 2>/dev/null)
-TITLE=$(python3 -c "import json; print(json.load(open('$ACTIVE_ITEM')).get('title',''))" 2>/dev/null)
-DESCRIPTION=$(python3 -c "import json; print(json.load(open('$ACTIVE_ITEM')).get('context',{}).get('description','')[:600])" 2>/dev/null)
-PRIORITY=$(python3 -c "import json; print(json.load(open('$ACTIVE_ITEM')).get('priority','medium'))" 2>/dev/null)
-ACCEPTANCE=$(python3 -c "import json; print(json.load(open('$ACTIVE_ITEM')).get('context',{}).get('acceptance_criteria','')[:300])" 2>/dev/null)
+TASK_ID=$(python3 -c "import json; d=json.load(open('$ACTIVE_ITEM')); print((d.get('task_id') or ''))" 2>/dev/null)
+AGENT=$(python3 -c "import json; d=json.load(open('$ACTIVE_ITEM')); print((d.get('agent') or 'luan'))" 2>/dev/null)
+TITLE=$(python3 -c "import json; d=json.load(open('$ACTIVE_ITEM')); print((d.get('title') or ''))" 2>/dev/null)
+DESCRIPTION=$(python3 -c "import json; d=json.load(open('$ACTIVE_ITEM')); print(((d.get('context') or {}).get('description') or '')[:600])" 2>/dev/null)
+PRIORITY=$(python3 -c "import json; d=json.load(open('$ACTIVE_ITEM')); print((d.get('priority') or 'medium'))" 2>/dev/null)
+ACCEPTANCE=$(python3 -c "import json; d=json.load(open('$ACTIVE_ITEM')); print((((d.get('context') or {}).get('acceptance_criteria')) or '')[:300])" 2>/dev/null)
 
 if [ -z "$TASK_ID" ] || [ -z "$TITLE" ]; then
     log "BRIDGE: invalid item $FNAME — missing task_id or title"

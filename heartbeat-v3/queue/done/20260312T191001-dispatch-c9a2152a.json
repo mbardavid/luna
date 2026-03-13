@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "c9a2152a-f2f3-4f79-945e-9aef05fa5049",
+  "filename": "20260312T191001-dispatch-c9a2152a.json",
+  "created_at": "2026-03-12T19:10:01.630946+00:00",
+  "created_by": "mc-simple-drain",
+  "title": "Investiga\u00e7\u00e3o profunda: @cioffi_victor \u2014 yield BRL 18% APY estrutura e risco",
+  "agent": "luan",
+  "priority": "medium",
+  "status": "inbox",
+  "phase": "direct_exec",
+  "lane": "ambient",
+  "source": "mc-simple-drain",
+  "dispatch_mode": "direct",
+  "queue_key": "c9a2152a-f2f3-4f79-945e-9aef05fa5049|dispatch|inbox",
+  "depends_on_task_ids": [],
+  "context": {
+    "description": "Mapear estrutura real do yield BRL 18% APY. Perguntas: qual fonte do yield (Tesouro Direto/DeFi/lending?), risco de contraparte e liquidez, replic\u00e1vel sem ser cliente? Entreg\u00e1vel: mapa risco/retorno + IMPLEMENTAR ou DESCARTAR. Tweet: https://x.com/cioffi_victor/status/2031051350612578379",
+    "acceptance_criteria": "",
+    "qa_checks": "",
+    "expected_artifacts": "",
+    "project_id": "",
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "runtime_owner": "legacy"
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "c9a2152a-f2f3-4f79-945e-9aef05fa5049",
+    "title": "Investiga\u00e7\u00e3o profunda: @cioffi_victor \u2014 yield BRL 18% APY estrutura e risco",
+    "description": "Mapear estrutura real do yield BRL 18% APY. Perguntas: qual fonte do yield (Tesouro Direto/DeFi/lending?), risco de contraparte e liquidez, replic\u00e1vel sem ser cliente? Entreg\u00e1vel: mapa risco/retorno + IMPLEMENTAR ou DESCARTAR. Tweet: https://x.com/cioffi_victor/status/2031051350612578379",
+    "priority": "medium"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "bridge_cron_id": "5fed7474-03ca-4125-ac80-c263f067fe4f",
+  "bridge_triggered_at": "2026-03-13T00:09:05.087634"
+}

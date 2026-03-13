@@ -174,12 +174,139 @@ else
     log "WARN: sessions.json not found, skipping cleanup"
 fi
 
+# ─── Phase 3.5: Session Model Normalization ───────────────────────────────────
+# Ensures all sessions use the model configured in openclaw.json, not stale overrides.
+# Prevents cross-provider fallback contamination across restarts.
+
+log "Phase 3.5: Normalizing session models against openclaw.json..."
+
+NORMALIZE_RESULT="$(python3 << 'PYEOF'
+import json, os
+
+OPENCLAW_JSON = '/home/openclaw/.openclaw/openclaw.json'
+AGENTS_DIR = '/home/openclaw/.openclaw/agents'
+
+with open(OPENCLAW_JSON) as f:
+    cfg = json.load(f)
+
+# Build agent model map from openclaw.json
+agent_models = {}
+default_primary = cfg.get('agents', {}).get('defaults', {}).get('model', {}).get('primary', '')
+for agent in cfg.get('agents', {}).get('list', []):
+    agent_id = agent.get('id')
+    raw = agent.get('model', default_primary)
+    if '/' in raw:
+        provider, model = raw.split('/', 1)
+    else:
+        provider, model = default_primary.split('/', 1) if '/' in default_primary else ('', raw)
+        model = raw
+    agent_models[agent_id] = {'modelProvider': provider, 'model': model}
+
+normalized = 0
+errors = 0
+
+for agent_id, expected in agent_models.items():
+    sf = os.path.join(AGENTS_DIR, agent_id, 'sessions', 'sessions.json')
+    if not os.path.exists(sf):
+        continue
+    try:
+        with open(sf) as f:
+            data = json.load(f)
+        changed = False
+        for key, session in data.items():
+            cur_provider = session.get('modelProvider', '')
+            cur_override = session.get('authProfileOverride', '')
+            # If session model doesn't match agent config AND override is from a broken provider
+            if cur_provider and cur_provider != expected['modelProvider']:
+                # Reset to agent-configured model
+                session['modelProvider'] = expected['modelProvider']
+                session['model'] = expected['model']
+                # Remove stale override if it references the wrong provider
+                if cur_override and not cur_override.startswith(expected['modelProvider']):
+                    session.pop('authProfileOverride', None)
+                    session.pop('authProfileOverrideSource', None)
+                    session.pop('authProfileOverrideCompactionCount', None)
+                changed = True
+                normalized += 1
+        if changed:
+            import tempfile
+            fd, tmp = tempfile.mkstemp(dir=os.path.dirname(sf), suffix='.tmp')
+            with os.fdopen(fd, 'w') as f:
+                json.dump(data, f, ensure_ascii=False)
+            os.replace(tmp, sf)
+    except Exception as e:
+        errors += 1
+
+print(f'{normalized}|{errors}')
+PYEOF
+    )" || NORMALIZE_RESULT="0|1"
+
+IFS='|' read -r NORM_FIXED NORM_ERRORS <<< "$NORMALIZE_RESULT"
+log "Model normalization: fixed=${NORM_FIXED} errors=${NORM_ERRORS}"
+
 # Also clean .deleted and .corrupt files
 DISK_CLEANED=0
 while IFS= read -r -d '' f; do
     rm -f "$f" && DISK_CLEANED=$((DISK_CLEANED + 1))
 done < <(find /home/openclaw/.openclaw/agents/ \( -name "*.deleted.*" -o -name "*.corrupt" \) -print0 2>/dev/null) || true
 [ "$DISK_CLEANED" -gt 0 ] && log "Disk: removed $DISK_CLEANED orphan files"
+
+# ─── Phase 3.6: Stale Cross-Agent Session Cleanup ───────────────────────────
+# Remove sessions where an agent is handling a Discord channel that belongs to another
+# agent (via bindings). These cause dual responses.
+
+log "Phase 3.6: Cleaning stale cross-agent Discord channel sessions..."
+
+CROSSAGENT_RESULT="$(python3 << 'PYEOF'
+import json, os
+
+OPENCLAW_JSON = '/home/openclaw/.openclaw/openclaw.json'
+AGENTS_DIR = '/home/openclaw/.openclaw/agents'
+
+with open(OPENCLAW_JSON) as f:
+    cfg = json.load(f)
+
+# Build channel->agent binding map
+channel_to_agent = {}
+for binding in cfg.get('bindings', []):
+    channel_id = binding.get('match', {}).get('peer', {}).get('id', '')
+    agent_id = binding.get('agentId', '')
+    if channel_id and agent_id:
+        channel_to_agent[channel_id] = agent_id
+
+removed = 0
+for agent_dir in os.listdir(AGENTS_DIR):
+    sf = os.path.join(AGENTS_DIR, agent_dir, 'sessions', 'sessions.json')
+    if not os.path.exists(sf):
+        continue
+    try:
+        with open(sf) as f:
+            data = json.load(f)
+        to_remove = []
+        for key in list(data.keys()):
+            if ':discord:channel:' in key:
+                channel_id = key.split(':discord:channel:')[1]
+                correct_agent = channel_to_agent.get(channel_id)
+                # Remove if a binding exists AND this isn't the correct agent
+                if correct_agent and agent_dir != correct_agent:
+                    to_remove.append(key)
+        if to_remove:
+            for key in to_remove:
+                del data[key]
+                removed += 1
+            import tempfile
+            fd, tmp = tempfile.mkstemp(dir=os.path.dirname(sf), suffix='.tmp')
+            with os.fdopen(fd, 'w') as f:
+                json.dump(data, f, ensure_ascii=False)
+            os.replace(tmp, sf)
+    except Exception:
+        pass
+
+print(f'{removed}')
+PYEOF
+    )" || CROSSAGENT_RESULT="0"
+
+log "Cross-agent cleanup: removed ${CROSSAGENT_RESULT} stale sessions"
 
 # ─── Phase 4: Dry Run Exit ───────────────────────────────────────────────────
 
