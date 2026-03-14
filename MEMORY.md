@@ -192,3 +192,4 @@
 - **`orchestration-state.json` ausente em workspace-main:** risco de perda de rastreabilidade de estado do MC entre sessões — restaurar/recriar arquivo com template mínimo.
 - **`tg_drop=1` sem runbook (desde 08/mar):** alertas de incidente podem estar silenciosos no Telegram; fallback para Discord deve ser implementado urgentemente.
 - **2026-03-13: Loop de respawn no bridge/drain pode reexecutar indefinidamente a mesma task quando o queue item não é reconciliado com MC/sessão real.** Prevenção durável: idempotência por `task_id + run_id + action` e recovery state-aware (`queue ↔ MC ↔ session`), nunca só TTL de JSON.
+- **2026-03-14: contagem bruta de backlog no MC não basta como sinal operacional.** Pode haver `inbox` e `in_progress` visíveis enquanto o selector real retorna `null` por `human_hold`, ownership do judge ou gates de workflow; a triagem precisa separar backlog total de backlog elegível.

@@ -47,6 +47,108 @@ set +euo pipefail
 source "$HOME/.bashrc" 2>/dev/null || true
 set -euo pipefail
 
+get_task_json() {
+    local task_id="$1"
+    python3 - "$task_id" <<'PY'
+import json, subprocess, sys
+
+task_id = sys.argv[1]
+mc = '/home/openclaw/.openclaw/workspace/scripts/mc-client.sh'
+try:
+    raw = subprocess.check_output([mc, 'list-tasks'], text=True)
+    items = (json.loads(raw or '{}').get('items', []))
+    for item in items:
+        if str(item.get('id', '')) == task_id:
+            print(json.dumps(item))
+            raise SystemExit(0)
+except SystemExit:
+    raise
+except Exception:
+    pass
+print('{}')
+PY
+}
+
+should_reconcile_without_respawn() {
+    local queue_file="$1"
+    python3 - "$queue_file" <<'PY'
+import json, sys, subprocess
+from pathlib import Path
+
+queue_file = Path(sys.argv[1])
+try:
+    payload = json.loads(queue_file.read_text())
+except Exception:
+    print('invalid_queue_file')
+    raise SystemExit(0)
+
+task_id = str(payload.get('task_id') or '')
+if not task_id:
+    print('missing_task_id')
+    raise SystemExit(0)
+
+mc = '/home/openclaw/.openclaw/workspace/scripts/mc-client.sh'
+try:
+    raw = subprocess.check_output([mc, 'list-tasks'], text=True)
+    items = (json.loads(raw or '{}').get('items', []))
+except Exception:
+    items = []
+
+task = next((x for x in items if str(x.get('id','')) == task_id), None)
+if not task:
+    print('task_missing')
+    raise SystemExit(0)
+
+status = str(task.get('status') or '').strip().lower()
+fields = task.get('custom_field_values') or {}
+session_key = str(fields.get('mc_session_key') or '').strip()
+delivery_state = str(fields.get('mc_delivery_state') or '').strip().lower()
+phase_owner = str(fields.get('mc_phase_owner') or '').strip().lower()
+validation_artifact = str(fields.get('mc_validation_artifact') or '').strip()
+
+# If the task is no longer an execution candidate, do not respawn from queue.
+if status in {'done', 'review', 'awaiting_human', 'failed'}:
+    print(f'status={status}')
+    raise SystemExit(0)
+
+# Judge/governance already owns the task now.
+if 'luna-judge' in session_key or phase_owner == 'luna' or validation_artifact:
+    print('judge_owned')
+    raise SystemExit(0)
+
+# A non-empty session key + linked delivery means queue item is stale bridge residue.
+if session_key and delivery_state == 'linked':
+    print(f'already_linked:{session_key}')
+    raise SystemExit(0)
+
+print('')
+PY
+}
+
+reconcile_queue_item() {
+    local src="$1"
+    local reason="$2"
+    local fname
+    fname=$(basename "$src")
+    local target="$FAILED/reconciled-${fname}"
+    python3 - "$src" "$target" "$reason" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+src, target, reason = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    with open(src) as f:
+        data = json.load(f)
+except Exception:
+    data = {'raw_file': src}
+data['reconciled_at'] = datetime.now(timezone.utc).isoformat()
+data['reconcile_reason'] = reason
+with open(target, 'w') as f:
+    json.dump(data, f, indent=2)
+PY
+    rm -f "$src"
+    log "RECONCILE: $fname → failed/reconciled ($reason)"
+}
+
 # ─── Recover stale active items ───────────────────────────────────────────────
 for f in "$ACTIVE"/*.json; do
     [ -f "$f" ] || continue
@@ -87,6 +189,12 @@ if [ -z "$TASK_ID" ] || [ -z "$TITLE" ]; then
     log "BRIDGE: invalid item $FNAME — missing task_id or title"
     mv "$ACTIVE_ITEM" "$FAILED/$FNAME" 2>/dev/null || true
     exit 1
+fi
+
+RECONCILE_REASON="$(should_reconcile_without_respawn "$ACTIVE_ITEM")"
+if [ -n "$RECONCILE_REASON" ]; then
+    reconcile_queue_item "$ACTIVE_ITEM" "$RECONCILE_REASON"
+    exit 0
 fi
 
 # ─── Build isolated session message ──────────────────────────────────────────

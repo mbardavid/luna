@@ -7,16 +7,13 @@ Purpose:
   - Choose exactly one next task using canonical order:
       review -> inbox(with deps satisfied) -> FIFO
   - Avoid dispatch when any execution is already in progress.
-  - Avoid duplicate queue items.
-  - Write a single queue item to heartbeat-v3/queue/pending/.
+  - Dispatch through a single isolated-spawn wrapper that links MC state.
 
 This script intentionally DOES NOT:
   - talk to Discord
   - poll external channels
-  - spawn sessions directly
-  - do recovery (watchdog owns recovery)
-
-The queue item can be consumed later by existing dispatch flows.
+  - own recovery (watchdog owns recovery)
+  - rely on heartbeat-v3 queue as the primary dispatch path
 """
 
 from __future__ import annotations
@@ -43,6 +40,7 @@ FAILED = QUEUE_DIR / "failed"
 LOCK_FILE = os.environ.get("MC_SIMPLE_DRAIN_LOCK", "/tmp/mc-simple-drain.lock")
 LOG_FILE = os.path.join(WORKSPACE, "logs", "mc-simple-drain.log")
 MC_CLIENT = os.environ.get("MC_CLIENT", os.path.join(WORKSPACE, "scripts", "mc-client.sh"))
+SPAWN_SCRIPT = os.environ.get("MC_SPAWN_ISOLATED", os.path.join(WORKSPACE, "scripts", "mc-spawn-isolated.sh"))
 MAX_ACTIVE_QUEUE = int(os.environ.get("MC_SIMPLE_DRAIN_MAX_ACTIVE_QUEUE", "1"))
 # Allow up to 2 execution tasks in_progress before blocking inbox drain.
 # Review tasks handled by judge-loop do NOT count against this limit.
@@ -329,6 +327,39 @@ def write_queue_item(item_type: str, task: dict[str, Any]) -> str:
             pass
 
 
+def dispatch_task(task: dict[str, Any]) -> dict[str, Any]:
+    import subprocess
+
+    task_id = str(task.get("id", "") or "")
+    title = str(task.get("title", "") or "")
+    if DRY_RUN:
+        log(f"DRY-RUN: would dispatch {task_id[:8]} via mc-spawn-isolated")
+        return {"action": "dry_run", "task_id": task_id, "title": title}
+
+    cp = subprocess.run(
+        [SPAWN_SCRIPT, "--task-id", task_id],
+        text=True,
+        capture_output=True,
+        timeout=90,
+        check=False,
+    )
+    stdout = (cp.stdout or "").strip()
+    stderr = (cp.stderr or "").strip()
+    if cp.returncode != 0:
+        err = stderr or stdout or f"spawn_failed_rc_{cp.returncode}"
+        log(f"ERROR: dispatch failed for {task_id[:8]}: {err}")
+        return {"action": "failed", "task_id": task_id, "title": title, "error": err}
+
+    payload: dict[str, Any]
+    try:
+        payload = json.loads(stdout.splitlines()[-1]) if stdout else {"action": "spawned", "task_id": task_id}
+    except Exception:
+        payload = {"action": "spawned", "task_id": task_id, "raw": stdout}
+    payload.setdefault("title", title)
+    log(f"DISPATCH: {task_id[:8]} action={payload.get('action', 'spawned')}")
+    return payload
+
+
 def main() -> int:
     lock_fd = open(LOCK_FILE, "w")
     try:
@@ -339,14 +370,6 @@ def main() -> int:
 
     tasks = list_tasks()
     in_progress = execution_in_progress_count(tasks)
-    active_q = active_queue_count()
-
-    if active_q >= MAX_ACTIVE_QUEUE:
-        log(f"SKIP: active queue at capacity ({active_q}/{MAX_ACTIVE_QUEUE})")
-        result = {"action": "skip", "reason": "active_queue_capacity", "active_queue": active_q}
-        if EMIT_JSON:
-            print(json.dumps(result))
-        return 0
 
     if in_progress > MAX_IN_PROGRESS:
         log(f"SKIP: execution in_progress above limit ({in_progress}>{MAX_IN_PROGRESS})")
@@ -363,16 +386,8 @@ def main() -> int:
             print(json.dumps(result))
         return 0
 
-    item_type = selection["item_type"]
     task = selection["task"]
-    filename = write_queue_item(item_type, task)
-    result = {
-        "action": "queued" if filename else "deduped",
-        "item_type": item_type,
-        "task_id": str(task.get("id", "") or ""),
-        "title": str(task.get("title", "") or ""),
-        "filename": filename,
-    }
+    result = dispatch_task(task)
     if EMIT_JSON:
         print(json.dumps(result, ensure_ascii=False))
     return 0

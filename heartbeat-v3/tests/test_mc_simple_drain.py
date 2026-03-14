@@ -62,5 +62,17 @@ class TestMcSimpleDrainQueue(unittest.TestCase):
             self.assertFalse(_mod.queue_item_exists("other-task", "abc123|dispatch|inbox|direct_exec|deadbeefcafe", [pending, active]))
 
 
+class TestMcSimpleDrainDispatch(unittest.TestCase):
+    def test_dispatch_task_dry_run(self):
+        old_dry_run = _mod.DRY_RUN
+        try:
+            _mod.DRY_RUN = True
+            out = _mod.dispatch_task({"id": "abc12345", "title": "Example"})
+            self.assertEqual(out["action"], "dry_run")
+            self.assertEqual(out["task_id"], "abc12345")
+        finally:
+            _mod.DRY_RUN = old_dry_run
+
+
 if __name__ == "__main__":
     unittest.main()

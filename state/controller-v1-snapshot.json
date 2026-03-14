@@ -1,8 +1,8 @@
 {
   "controller": {
-    "last_tick": "2026-03-13T08:30:10Z",
+    "last_tick": "2026-03-14T08:30:09Z",
     "owned_tasks": 45,
-    "tracked_tasks": 220,
+    "tracked_tasks": 223,
     "open_repairs": 18,
     "attempts": 487,
     "events": 259,
@@ -11,7 +11,7 @@
     "open_proposals": 0
   },
   "health": {
-    "last_tick": "2026-03-13T08:30:10Z",
+    "last_tick": "2026-03-14T08:30:09Z",
     "owned_tasks": 45,
     "dispatches_this_tick": 0,
     "queue_ingests_this_tick": 0,
@@ -19,7 +19,7 @@
     "status": "ok"
   },
   "scheduler": {
-    "last_tick": "2026-03-13T08:30:10Z",
+    "last_tick": "2026-03-14T08:30:09Z",
     "mode": "full",
     "health_state": "healthy",
     "slots_total": 4,

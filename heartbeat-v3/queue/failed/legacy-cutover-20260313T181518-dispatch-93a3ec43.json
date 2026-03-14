@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "93a3ec43-d0da-43cf-a7ad-7bff0af4bbaf",
+  "filename": "20260313T181518-dispatch-93a3ec43.json",
+  "created_at": "2026-03-13T18:15:18.874243+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Dispatch smoke test",
+  "agent": "luan",
+  "priority": "low",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "Dispatch smoke test. Reply with a one-line confirmation that the isolated dispatch path is working. No code changes required.",
+    "eligible_count": 1,
+    "in_progress_count": 2,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Reply with a one-line confirmation that this is a dispatch smoke test and no code changes are required.",
+    "qa_checks": null,
+    "expected_artifacts": null,
+    "card_type": "leaf_task",
+    "lane": "ambient",
+    "run_id": "93a3ec43-a1-20260313T181518Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "luan",
+    "task_id": "93a3ec43-d0da-43cf-a7ad-7bff0af4bbaf",
+    "title": "Dispatch smoke test",
+    "description": "Dispatch smoke test. Reply with a one-line confirmation that the isolated dispatch path is working. No code changes required.",
+    "priority": "low"
+  },
+  "queue_key": "93a3ec43-d0da-43cf-a7ad-7bff0af4bbaf|dispatch|inbox|direct_exec|5e8412841645"
+}
