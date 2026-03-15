@@ -39,3 +39,16 @@ Nenhum deliverable presente. Sessão vazia. `mc_retry_count=2` indica falha sist
 
 ### review_reason (for MC)
 Executor session empty (0 bytes); no research deliverable after 2 prior retries; mandatory output (fonte do yield, risco, replicabilidade, mapa risco/retorno, IMPLEMENTAR/DESCARTAR) not provided.
+
+## Judge Review (Luna) — 2026-03-14T21:00Z (2ª revisão)
+
+### Status
+- `mc_session_key = agent:luna-judge:main` — tarefa roteada para sessão do JUDGE (review-only)
+- `mc_retry_count = 2` | `mc_delivered = false`
+
+### Decision
+- **REJECT**
+- Return to **in_progress**
+
+### review_reason (for MC)
+Task routed to luna-judge (review-only surface) as executor fallback; same pattern as 73e59871. Must be dispatched to research-capable agent.

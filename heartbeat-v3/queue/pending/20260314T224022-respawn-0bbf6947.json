@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "0bbf6947-188b-4150-9099-86f2da67b5fa",
+  "filename": "20260314T224022-respawn-0bbf6947.json",
+  "created_at": "2026-03-14T22:40:22.432150+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Investiga\u00e7\u00e3o profunda: @flowslikeosmo \u2014 estrat\u00e9gia quant a partir do post 2032562412742996074",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "respawn",
+  "status": "in_progress",
+  "context": {
+    "description": "Analisar completamente a oportunidade/estrat\u00e9gia apresentada por @flowslikeosmo no post compartilhado. Objetivo: transformar o insight em pesquisa operacional utiliz\u00e1vel para idea\u00e7\u00e3o de novas estrat\u00e9gias quant.\n\nFonte prim\u00e1ria:\n- Tweet/thread: https://x.com/flowslikeosmo/status/2032562412742996074?s",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:53fff19d-d6f1-4a76-bb99-fbde9f76a4af"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "queue_key": "0bbf6947-188b-4150-9099-86f2da67b5fa|respawn|in_progress|respawn|73503b7547b0"
+}

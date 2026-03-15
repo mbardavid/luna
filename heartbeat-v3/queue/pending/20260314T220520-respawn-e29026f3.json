@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "e29026f3-8b61-49ed-bd39-a5246b06ba5e",
+  "filename": "20260314T220520-respawn-e29026f3.json",
+  "created_at": "2026-03-14T22:05:20.821092+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Investiga\u00e7\u00e3o profunda: @0xanteater \u2014 nova estrat\u00e9gia quant a partir do thread compartilhado",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "respawn",
+  "status": "in_progress",
+  "context": {
+    "description": "Analisar completamente a oportunidade/estrat\u00e9gia apresentada por @0xanteater no post compartilhado. Objetivo: transformar o insight em pesquisa operacional utiliz\u00e1vel para idea\u00e7\u00e3o de novas estrat\u00e9gias quant.\n\nFonte prim\u00e1ria:\n- Tweet/thread: https://x.com/0xanteater/status/2032660030164697503?s=46&t=",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:ee85dc36-d4e5-48fa-84a0-b7862e08baea"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "queue_key": "e29026f3-8b61-49ed-bd39-a5246b06ba5e|respawn|in_progress|respawn|5dafe0967dba"
+}

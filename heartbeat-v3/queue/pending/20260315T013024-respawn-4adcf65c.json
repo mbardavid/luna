@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "4adcf65c-19e1-4fd9-9933-4163307a88b9",
+  "filename": "20260315T013024-respawn-4adcf65c.json",
+  "created_at": "2026-03-15T01:30:24.465433+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Investiga\u00e7\u00e3o profunda: @iruletheworldmo \u2014 estrat\u00e9gia quant a partir do post 2032964133306446114",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "respawn",
+  "status": "in_progress",
+  "context": {
+    "description": "Analisar completamente a oportunidade/estrat\u00e9gia apresentada por @iruletheworldmo no post compartilhado. Objetivo: transformar o insight em pesquisa operacional utiliz\u00e1vel para idea\u00e7\u00e3o de novas estrat\u00e9gias quant.\n\nFonte prim\u00e1ria:\n- Tweet/thread: https://x.com/iruletheworldmo/status/20329641333064461",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:f2f1f787-7198-4adc-b7c1-37f5d8089abc"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "queue_key": "4adcf65c-19e1-4fd9-9933-4163307a88b9|respawn|in_progress|respawn|8387acd70ebc"
+}

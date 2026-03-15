@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "60f893e7-3885-4258-a078-0caf91d716dc",
+  "filename": "20260314T224525-respawn-60f893e7.json",
+  "created_at": "2026-03-14T22:45:25.888296+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Investiga\u00e7\u00e3o profunda: @fiege_max \u2014 an\u00e1lise completa a partir do post 2032905456855712157",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "respawn",
+  "status": "in_progress",
+  "context": {
+    "description": "Analisar completamente a ideia/oportunidade apresentada por @fiege_max no post compartilhado. Objetivo: transformar o insight em pesquisa operacional utiliz\u00e1vel, classificando corretamente se o caso \u00e9 t\u00e9cnico/arquitetura, quant/mercado ou h\u00edbrido.\n\nFonte prim\u00e1ria:\n- Tweet/thread: https://x.com/fiege",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:9a0ba41e-1361-4408-be60-c2a0792d1ab2"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "queue_key": "60f893e7-3885-4258-a078-0caf91d716dc|respawn|in_progress|respawn|0dc33810cda0"
+}

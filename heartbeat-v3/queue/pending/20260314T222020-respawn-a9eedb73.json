@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "a9eedb73-0248-4694-977c-9d769ffdd84d",
+  "filename": "20260314T222020-respawn-a9eedb73.json",
+  "created_at": "2026-03-14T22:20:20.912831+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Investiga\u00e7\u00e3o profunda: @karpatzoloto \u2014 estrat\u00e9gia quant a partir do post 2032204557254570057",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "respawn",
+  "status": "in_progress",
+  "context": {
+    "description": "Analisar completamente a oportunidade/estrat\u00e9gia apresentada por @karpatzoloto no post compartilhado. Objetivo: transformar o insight em pesquisa operacional utiliz\u00e1vel para idea\u00e7\u00e3o de novas estrat\u00e9gias quant.\n\nFonte prim\u00e1ria:\n- Tweet/thread: https://x.com/karpatzoloto/status/2032204557254570057?s=4",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:a3bc562a-788e-4091-8dc2-a0bd17d90b2e"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "queue_key": "a9eedb73-0248-4694-977c-9d769ffdd84d|respawn|in_progress|respawn|fed6c4e3e466"
+}

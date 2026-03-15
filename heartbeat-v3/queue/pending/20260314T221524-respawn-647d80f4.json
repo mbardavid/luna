@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "647d80f4-86f4-42cb-9b94-999cfef80f2c",
+  "filename": "20260314T221524-respawn-647d80f4.json",
+  "created_at": "2026-03-14T22:15:24.145589+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Investiga\u00e7\u00e3o profunda: @rightsideonly \u2014 estrat\u00e9gia quant a partir do post 2032286639033389492",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "respawn",
+  "status": "in_progress",
+  "context": {
+    "description": "Analisar completamente a oportunidade/estrat\u00e9gia apresentada por @rightsideonly no post compartilhado. Objetivo: transformar o insight em pesquisa operacional utiliz\u00e1vel para idea\u00e7\u00e3o de novas estrat\u00e9gias quant.\n\nFonte prim\u00e1ria:\n- Tweet/thread: https://x.com/rightsideonly/status/2032286639033389492?s",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:e04cb1a4-82a0-4740-9650-7c46ca6e7e7b"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "queue_key": "647d80f4-86f4-42cb-9b94-999cfef80f2c|respawn|in_progress|respawn|d54802a2b5af"
+}
