@@ -46,3 +46,14 @@ Sessão vazia. Sem deliverable após 2 tentativas anteriores.
 
 ### review_reason (for MC)
 Executor session empty (0 bytes) after 2 retries; luan systematically failing to execute research tasks — same pattern across 73e59871, c9a2152a, e29026f3 and others. No deliverable produced.
+
+## Judge Review (Luna) — 2026-03-16T02:20Z (4ª revisão)
+
+### Status
+- `mc_session_key = agent:main:subagent:5439e13d` (novo executor — main, não luan) | `mc_delivered = false`
+- Sessão: **0 bytes / vazia**
+
+### Decision — REJECT (novo protocolo status=review)
+
+### review_reason
+Executor session empty (0 bytes); new executor agent:main:subagent:5439e13d produced no deliverable. No research content, tese, edge decomposition, or IMPLEMENTAR/INVESTIGAR/DESCARTAR verdict.

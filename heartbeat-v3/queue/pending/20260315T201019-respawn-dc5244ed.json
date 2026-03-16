@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "dc5244ed-76a6-40b3-afa8-4e0745aea4ff",
+  "filename": "20260315T201019-respawn-dc5244ed.json",
+  "created_at": "2026-03-15T20:10:19.135124+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Investiga\u00e7\u00e3o profunda: @reisnertobias \u2014 estrat\u00e9gia quant a partir do post 2033224137213087856",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "respawn",
+  "status": "in_progress",
+  "context": {
+    "description": "Analisar completamente a oportunidade/estrat\u00e9gia apresentada por @reisnertobias no post compartilhado. Objetivo: transformar o insight em pesquisa operacional utiliz\u00e1vel para idea\u00e7\u00e3o de novas estrat\u00e9gias quant.\n\nFonte prim\u00e1ria:\n- Tweet/thread: https://x.com/reisnertobias/status/2033224137213087856?s",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:luan:subagent:be4431f3-b2fe-4ab0-9dcf-ee71f73dff4c"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "queue_key": "dc5244ed-76a6-40b3-afa8-4e0745aea4ff|respawn|in_progress|respawn|044ff7c75b6b"
+}

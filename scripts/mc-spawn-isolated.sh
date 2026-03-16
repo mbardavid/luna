@@ -86,7 +86,8 @@ t = json.loads(os.environ['TASK_JSON'])
 fields = t.get('custom_field_values') or {}
 assigned_id = str(t.get('assigned_agent_id') or '').strip()
 mc_assigned = str(fields.get('mc_assigned_agent') or '').strip()
-agent_ref = mc_assigned or assigned_id or 'luan'
+# Board assignee is the source of truth; mc_assigned_agent is only a fallback/legacy hint.
+agent_ref = assigned_id or mc_assigned or 'luan'
 status = str(t.get('status') or '').strip().lower()
 delivery = str(fields.get('mc_delivery_state') or '').strip().lower()
 session_key = str(fields.get('mc_session_key') or '').strip()

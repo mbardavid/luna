@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-03-15T08:30:11Z",
+  "last_updated": "2026-03-16T08:30:11Z",
   "fase2_baseline": {
     "gateway_memory_mb": 450,
     "heartbeat_frequency": "*/5",
@@ -9,7 +9,7 @@
     "timestamp": "2026-03-03T00:03:21Z"
   },
   "counters_today": {
-    "heartbeat_runs": 2714,
+    "heartbeat_runs": 3002,
     "opus_triggers": 0,
     "tasks_completed": 2,
     "tasks_dispatched": 60,
@@ -19,8 +19,8 @@
     "gateway_restarts": 0,
     "alerts_sent": 0,
     "duplicate_alerts_suppressed": 0,
-    "queue_items_deduped": 519,
-    "queue_items_written": 72,
+    "queue_items_deduped": 525,
+    "queue_items_written": 78,
     "queue_items_completed": 267,
     "review_claims": 6,
     "judge_wakeups": 3,
@@ -28,10 +28,10 @@
     "ignored_governance_reviews": 921,
     "autonomy_creations": 1,
     "autonomy_promotions": 2,
-    "actionable_review_claims": 78,
+    "actionable_review_claims": 162,
     "autonomy_stall_detected": 2,
     "autonomy_stall_recoveries": 1,
-    "judge_dispatch_luna_judge": 66,
+    "judge_dispatch_luna_judge": 150,
     "shadow_diff_count": 236,
     "main_dispatch_blocked": 7,
     "repair_bundle_opened": 7,
@@ -54,7 +54,7 @@
   "cron_health": {
     "heartbeat-v3": {
       "status": "running",
-      "last_run": "2026-03-15T08:30:11Z"
+      "last_run": "2026-03-16T08:30:11Z"
     },
     "judge-loop-worker": {
       "status": "ok",
@@ -62,7 +62,7 @@
     },
     "judge-loop-trigger": {
       "status": "ok",
-      "last_run": "2026-03-15T02:45:58Z"
+      "last_run": "2026-03-16T08:25:41Z"
     }
   },
   "phase_transitions": {
@@ -95,17 +95,23 @@
     "4be87a45-99f0-4969-9e03-cd17ccd0cdb7:intake": "2026-03-12T13:55:41Z",
     "c9a2152a-f2f3-4f79-945e-9aef05fa5049:intake": "2026-03-14T21:01:33Z",
     "73e59871-7eef-48d1-b85e-2b131b070ca3:intake": "2026-03-14T20:56:20Z",
-    "e29026f3-8b61-49ed-bd39-a5246b06ba5e:intake": "2026-03-14T23:41:13Z",
-    "39220174-5a3f-418b-bc97-fbada3d1e2a8:intake": "2026-03-14T23:51:06Z",
-    "647d80f4-86f4-42cb-9b94-999cfef80f2c:intake": "2026-03-14T23:26:29Z",
-    "a9eedb73-0248-4694-977c-9d769ffdd84d:intake": "2026-03-14T23:31:36Z",
-    "fee40a63-05d7-4cb0-a7a5-0bc2543dfd44:intake": "2026-03-14T23:37:01Z",
-    "dc431d99-ea86-4467-a7cb-1750d8dbb45d:intake": "2026-03-14T23:46:43Z",
-    "60f893e7-3885-4258-a078-0caf91d716dc:intake": "2026-03-14T23:56:19Z",
-    "0bbf6947-188b-4150-9099-86f2da67b5fa:intake": "2026-03-15T00:01:10Z",
-    "bcec5858-6a6f-4949-a999-2dc0329851ec:intake": "2026-03-15T00:05:55Z",
-    "4adcf65c-19e1-4fd9-9933-4163307a88b9:intake": "2026-03-15T02:41:27Z",
-    "b8bac528-6144-44ec-8b13-7ab4c14f6be6:intake": "2026-03-15T02:45:58Z"
+    "e29026f3-8b61-49ed-bd39-a5246b06ba5e:intake": "2026-03-16T02:21:43Z",
+    "39220174-5a3f-418b-bc97-fbada3d1e2a8:intake": "2026-03-16T02:26:20Z",
+    "647d80f4-86f4-42cb-9b94-999cfef80f2c:intake": "2026-03-16T02:31:38Z",
+    "a9eedb73-0248-4694-977c-9d769ffdd84d:intake": "2026-03-16T02:36:12Z",
+    "fee40a63-05d7-4cb0-a7a5-0bc2543dfd44:intake": "2026-03-16T02:41:19Z",
+    "dc431d99-ea86-4467-a7cb-1750d8dbb45d:intake": "2026-03-16T02:46:10Z",
+    "60f893e7-3885-4258-a078-0caf91d716dc:intake": "2026-03-16T03:01:14Z",
+    "0bbf6947-188b-4150-9099-86f2da67b5fa:intake": "2026-03-16T02:56:09Z",
+    "bcec5858-6a6f-4949-a999-2dc0329851ec:intake": "2026-03-16T02:51:17Z",
+    "4adcf65c-19e1-4fd9-9933-4163307a88b9:intake": "2026-03-16T03:06:19Z",
+    "b8bac528-6144-44ec-8b13-7ab4c14f6be6:intake": "2026-03-16T03:11:30Z",
+    "4490c1be-fa77-4246-9fee-545fb9bcd2a8:intake": "2026-03-16T08:15:46Z",
+    "d6051d4a-40e0-4845-8102-6350d3fac3ac:intake": "2026-03-16T08:20:36Z",
+    "ccb40b90-89d3-4de6-81c1-af80db8b76f1:intake": "2026-03-16T08:25:41Z",
+    "f3964e56-b4e3-4fe9-b906-2419fe6f1eab:intake": "2026-03-16T08:10:37Z",
+    "dc5244ed-76a6-40b3-afa8-4e0745aea4ff:intake": "2026-03-16T08:05:52Z",
+    "7a932a32-032d-49db-94c0-b0818b72fd47:intake": "2026-03-16T02:10:58Z"
   },
   "queue_audit": {
     "last_run": "2026-03-07T21:07:01Z",

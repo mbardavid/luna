@@ -38,3 +38,11 @@ Regra: um card = uma pesquisa completa. Não dividir em subtarefas nesta fase; f
 
 ### review_reason (for MC)
 Executor session empty (0 bytes) after 2 retries; luan systematically failing on research tasks.
+
+## Judge Review (Luna) — 2026-03-16T02:55Z (2ª revisão)
+
+### Status
+- `mc_session_key = agent:main:subagent:d0cb28a5` | `mc_delivered = false`
+- Sessão: **0 bytes / vazia**
+
+### Decision — REJECT (status=review)

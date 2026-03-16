@@ -39,3 +39,11 @@ Return to **in_progress**
 
 ### review_reason (for MC)
 Executor session empty (0 bytes) after 2 retries; luan systematically failing on research tasks. No deliverable produced.
+
+## Judge Review (Luna) — 2026-03-16T02:31Z (2ª revisão)
+
+### Status
+- `mc_session_key = agent:main:subagent:c0fe61fc` | `mc_delivered = false`
+- Sessão: **0 bytes / vazia**
+
+### Decision — REJECT (status=review)
