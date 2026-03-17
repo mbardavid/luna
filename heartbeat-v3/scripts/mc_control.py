@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+from functools import lru_cache
 from typing import Any
 
 CANONICAL_STATUSES = {
@@ -103,6 +104,68 @@ PHASE_TO_STATUS = {
 }
 
 PRIMARY_CHANNEL = "1476255906894446644"
+ROOT_DIR = Path(__file__).resolve().parents[3]
+MC_IDS_PATH = ROOT_DIR / "workspace" / "config" / "mission-control-ids.local.json"
+MC_SHORT_IDS_PATH = ROOT_DIR / "workspace" / "config" / "mc-agent-ids.json"
+AGENT_ALIASES = {
+    "luna": "main",
+    "luna_judge": "luna-judge",
+    "crypto_sage": "crypto-sage",
+    "quant_strategist": "quant-strategist",
+    "cto_ops": "cto-ops",
+}
+
+
+@lru_cache(maxsize=1)
+def _assigned_agent_lookup() -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    for raw, canonical in AGENT_ALIASES.items():
+        lookup[raw] = canonical
+        lookup[raw.replace("_", "-")] = canonical
+        lookup[canonical] = canonical
+
+    for path in (MC_IDS_PATH, MC_SHORT_IDS_PATH):
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        items = data.get("agents", data) if isinstance(data, dict) else {}
+        if not isinstance(items, dict):
+            continue
+        for raw_name, raw_id in items.items():
+            canonical = normalize_agent_name(raw_name, default="")
+            if not canonical:
+                continue
+            canonical = AGENT_ALIASES.get(canonical, canonical)
+            lookup[canonical] = canonical
+            text_id = str(raw_id or "").strip()
+            if text_id:
+                lookup[text_id] = canonical
+                lookup[text_id[:8]] = canonical
+    return lookup
+
+
+def resolve_assigned_agent(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    lookup = _assigned_agent_lookup()
+    if text in lookup:
+        return lookup[text]
+    normalized = normalize_agent_name(text, default="")
+    if not normalized:
+        return ""
+    return lookup.get(normalized, AGENT_ALIASES.get(normalized, normalized))
+
+
+def normalize_agent_name(value: Any, default: str = "") -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return default
+    text = text.replace(" ", "-").replace("_", "-")
+    return AGENT_ALIASES.get(text, text) or default
 
 
 def utcnow() -> datetime:
@@ -416,13 +479,13 @@ def task_proof_ref(task: dict[str, Any]) -> str:
 
 
 def task_execution_owner(task: dict[str, Any]) -> str:
-    assigned = str(task.get("assigned_agent_id") or "").strip()
-    if assigned:
+    assigned = resolve_assigned_agent(task.get("assigned_agent_id"))
+    if assigned and assigned not in {"none", "human"}:
         return assigned
-    explicit = str(task_fields(task).get("mc_assigned_agent") or "").strip().lower()
+    explicit = resolve_assigned_agent(task_fields(task).get("mc_assigned_agent"))
     if explicit and explicit not in {"none", "human"}:
         return explicit
-    owner = str(task_fields(task).get("mc_phase_owner") or "").strip().lower()
+    owner = resolve_assigned_agent(task_fields(task).get("mc_phase_owner"))
     if owner and owner not in {"none", "human"}:
         return owner
     return ""

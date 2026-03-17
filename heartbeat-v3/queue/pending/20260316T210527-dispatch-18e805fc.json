@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "type": "dispatch",
+  "task_id": "18e805fc-56fd-4941-af76-35fca43e5c7e",
+  "filename": "20260316T210527-dispatch-18e805fc.json",
+  "created_at": "2026-03-16T21:05:27.041987+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Diagnose \u2014 Investiga\u00e7\u00e3o profunda: @rightsideonly \u2014 nova estrat\u00e9gia quant a partir do thread compartilhado",
+  "agent": "cto-ops",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "direct_exec",
+  "status": "inbox",
+  "dispatch_policy": "auto",
+  "context": {
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nAuto-dispatch for lane `ambient` resolved to `main`. Execution agents must not depend on the chairman session.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "eligible_count": 15,
+    "in_progress_count": 4,
+    "rejection_feedback": null,
+    "authorization_status": null,
+    "acceptance_criteria": "Root cause identified and repair path proposed.",
+    "qa_checks": "Provide explicit evidence and next-step recommendation.",
+    "expected_artifacts": "artifacts/repairs/25f74ceb-diagnose.md",
+    "card_type": "leaf_task",
+    "lane": "repair",
+    "run_id": "18e805fc-a1-20260316T210527Z",
+    "attempt": 1,
+    "project_id": null,
+    "milestone_id": null,
+    "workstream_id": null
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "spawn_params": {
+    "agent": "cto-ops",
+    "task_id": "18e805fc-56fd-4941-af76-35fca43e5c7e",
+    "title": "Diagnose \u2014 Investiga\u00e7\u00e3o profunda: @rightsideonly \u2014 nova estrat\u00e9gia quant a partir do thread compartilhado",
+    "description": "## Objective\nDetermine the root cause of the task failure.\n\n## Context\nAuto-dispatch for lane `ambient` resolved to `main`. Execution agents must not depend on the chairman session.\n\n## Required Output\n- Root cause\n- Proposed repair owner\n- Explicit next repair step",
+    "priority": "high"
+  },
+  "queue_key": "18e805fc-56fd-4941-af76-35fca43e5c7e|dispatch|inbox|direct_exec|3d55f8b44e3e"
+}

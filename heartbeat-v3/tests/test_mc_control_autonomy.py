@@ -57,6 +57,17 @@ def test_task_execution_owner_falls_back_to_mc_assigned_agent():
     assert task_execution_owner(task) == "cto-ops"
 
 
+def test_task_execution_owner_resolves_main_uuid_to_canonical_agent():
+    task = _task(
+        "leaf-main",
+        "Main-owned legacy task",
+        mc_card_type="leaf_task",
+        assigned_agent_id="70bd8378-598e-4cc5-9642-acc618622df8",
+    )
+
+    assert task_execution_owner(task) == "main"
+
+
 def test_repair_leaf_is_ready_with_mc_assigned_agent_fallback():
     task = _task(
         "leaf-1",

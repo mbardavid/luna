@@ -230,6 +230,40 @@ def main() -> int:
         sync_state_path = sync_judge_context(dry_run=args.dry_run)
         context_path = build_judge_context(task_id, dry_run=args.dry_run)
 
+        if review_agent in {"human", "awaiting_human"}:
+            latest_fields = dict(task_fields(task))
+            latest_fields[artifact_key] = artifact_path
+            latest_fields["mc_review_agent"] = "human"
+            latest_fields["mc_claimed_by"] = None
+            latest_fields["mc_claim_expires_at"] = None
+            latest_fields["mc_session_key"] = ""
+            mc_update_task(
+                task_id,
+                status="awaiting_human",
+                comment=f"[judge-loop] routed review to human; artifact={artifact_path} context={context_path}",
+                fields=latest_fields,
+                dry_run=args.dry_run,
+            )
+            metrics_increment(metrics, "review_claims")
+            metrics_increment(metrics, "actionable_review_claims")
+            metrics_increment(metrics, "judge_dispatch_other")
+            metrics_record_phase_transition(metrics, task_id, phase)
+            results.append(
+                {
+                    "task_id": task_id,
+                    "phase": phase,
+                    "workflow": workflow,
+                    "review_agent": "human",
+                    "artifact_path": artifact_path,
+                    "context_path": context_path,
+                    "sync_state_path": sync_state_path,
+                    "session_key": "",
+                    "claim_expires_at": None,
+                    "dispatch_payload": {"mode": "awaiting_human"},
+                }
+            )
+            continue
+
         claim = claim_review(task, "judge-loop-worker", lease_minutes=LEASE_MINUTES)
         claim_fields = dict(claim["fields"])
         claim_fields[artifact_key] = artifact_path
