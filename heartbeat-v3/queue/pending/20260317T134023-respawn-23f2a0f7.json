@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "type": "respawn",
+  "task_id": "23f2a0f7-13a6-4f33-a7f1-b76bce6dc0fb",
+  "filename": "20260317T134023-respawn-23f2a0f7.json",
+  "created_at": "2026-03-17T13:40:23.656864+00:00",
+  "created_by": "heartbeat-v3",
+  "title": "Investiga\u00e7\u00e3o profunda: @coreyganim \u2014 estrat\u00e9gia quant a partir do post 2033848069184266650",
+  "agent": "luan",
+  "priority": "high",
+  "workflow": "direct_exec",
+  "phase": "respawn",
+  "status": "in_progress",
+  "context": {
+    "description": "Analisar completamente a oportunidade/estrat\u00e9gia apresentada por @coreyganim no post compartilhado. Objetivo: transformar o insight em pesquisa operacional utiliz\u00e1vel para idea\u00e7\u00e3o de novas estrat\u00e9gias quant.\n\nFonte prim\u00e1ria:\n- Tweet/thread: https://x.com/coreyganim/status/2033848069184266650?s=46&t=",
+    "failure_type": "GENERIC_ERROR",
+    "retry_count": 0,
+    "adjustments": "re-tentar sem ajustes espec\u00edficos",
+    "dead_session_key": "agent:main:subagent:665faec9-2c50-445a-a0cc-ad3c47c786ef"
+  },
+  "constraints": {
+    "max_age_minutes": 30,
+    "timeout_seconds": 600
+  },
+  "queue_key": "23f2a0f7-13a6-4f33-a7f1-b76bce6dc0fb|respawn|in_progress|respawn|2b549ad44538"
+}

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-03-17T08:30:11Z",
+  "last_updated": "2026-03-18T08:30:18Z",
   "fase2_baseline": {
     "gateway_memory_mb": 450,
     "heartbeat_frequency": "*/5",
@@ -9,7 +9,7 @@
     "timestamp": "2026-03-03T00:03:21Z"
   },
   "counters_today": {
-    "heartbeat_runs": 3290,
+    "heartbeat_runs": 3578,
     "opus_triggers": 0,
     "tasks_completed": 2,
     "tasks_dispatched": 61,
@@ -19,8 +19,8 @@
     "gateway_restarts": 0,
     "alerts_sent": 0,
     "duplicate_alerts_suppressed": 0,
-    "queue_items_deduped": 543,
-    "queue_items_written": 81,
+    "queue_items_deduped": 545,
+    "queue_items_written": 83,
     "queue_items_completed": 267,
     "review_claims": 6,
     "judge_wakeups": 3,
@@ -28,13 +28,13 @@
     "ignored_governance_reviews": 921,
     "autonomy_creations": 1,
     "autonomy_promotions": 2,
-    "actionable_review_claims": 344,
+    "actionable_review_claims": 446,
     "autonomy_stall_detected": 2,
     "autonomy_stall_recoveries": 1,
-    "judge_dispatch_luna_judge": 332,
-    "shadow_diff_count": 252,
-    "main_dispatch_blocked": 8,
-    "repair_bundle_opened": 8,
+    "judge_dispatch_luna_judge": 434,
+    "shadow_diff_count": 253,
+    "main_dispatch_blocked": 9,
+    "repair_bundle_opened": 9,
     "repair_bundle_resolved": 2
   },
   "latency": {
@@ -54,7 +54,7 @@
   "cron_health": {
     "heartbeat-v3": {
       "status": "running",
-      "last_run": "2026-03-17T08:30:11Z"
+      "last_run": "2026-03-18T08:30:10Z"
     },
     "judge-loop-worker": {
       "status": "ok",
@@ -62,7 +62,7 @@
     },
     "judge-loop-trigger": {
       "status": "ok",
-      "last_run": "2026-03-17T08:16:06Z"
+      "last_run": "2026-03-18T08:20:38Z"
     }
   },
   "phase_transitions": {
@@ -96,7 +96,7 @@
     "c9a2152a-f2f3-4f79-945e-9aef05fa5049:intake": "2026-03-14T21:01:33Z",
     "73e59871-7eef-48d1-b85e-2b131b070ca3:intake": "2026-03-14T20:56:20Z",
     "e29026f3-8b61-49ed-bd39-a5246b06ba5e:intake": "2026-03-16T23:25:41Z",
-    "39220174-5a3f-418b-bc97-fbada3d1e2a8:intake": "2026-03-16T02:26:20Z",
+    "39220174-5a3f-418b-bc97-fbada3d1e2a8:intake": "2026-03-17T19:50:24Z",
     "647d80f4-86f4-42cb-9b94-999cfef80f2c:intake": "2026-03-16T23:20:29Z",
     "a9eedb73-0248-4694-977c-9d769ffdd84d:intake": "2026-03-16T22:20:55Z",
     "fee40a63-05d7-4cb0-a7a5-0bc2543dfd44:intake": "2026-03-16T22:25:42Z",
@@ -113,8 +113,10 @@
     "dc5244ed-76a6-40b3-afa8-4e0745aea4ff:intake": "2026-03-16T23:30:40Z",
     "7a932a32-032d-49db-94c0-b0818b72fd47:intake": "2026-03-16T23:35:41Z",
     "18e805fc-56fd-4941-af76-35fca43e5c7e:intake": "2026-03-17T00:41:17Z",
-    "c2dc5479-eb00-46a7-9681-3b37d39d27f6:intake": "2026-03-17T08:16:06Z",
-    "92531688-a4ff-44ad-98e0-d11f66bf85c5:intake": "2026-03-17T06:00:25Z"
+    "c2dc5479-eb00-46a7-9681-3b37d39d27f6:intake": "2026-03-18T08:20:38Z",
+    "92531688-a4ff-44ad-98e0-d11f66bf85c5:intake": "2026-03-17T06:00:25Z",
+    "23f2a0f7-13a6-4f33-a7f1-b76bce6dc0fb:intake": "2026-03-17T14:50:25Z",
+    "8a6ab5c5-062a-42ba-b53f-c97ba3c7555c:intake": "2026-03-18T08:15:46Z"
   },
   "queue_audit": {
     "last_run": "2026-03-07T21:07:01Z",
