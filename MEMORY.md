@@ -197,3 +197,4 @@
 - 2026-03-16: dispatch saudável não implica entrega saudável; quando cards drenam e spawnam corretamente mas terminam em `review/failed`, o foco operacional deve migrar do roteamento para reconciliação de deliverable, sessão e artefatos de review.
 - 2026-03-17: tasks que exigem isolamento real não podem resolver a lane `ambient` para `main`; o controller precisa bloquear esse caminho explicitamente e validar ownership pelo nome canônico do agente (inclusive quando o MC fornece UUID/ID interno).
 - 2026-03-17: report de repair sem artifact material no workspace deve ser tratado como entrega inválida; o gate de review precisa exigir evidência em disco, não apenas texto de conclusão.
+- 2026-03-19: repetição de falha em review legado/direct_exec confirmou o critério operacional: `artifact ENOENT` + sessão do executor sem evidência útil deve ser classificado como falha de entrega, não como quase-conclusão.
