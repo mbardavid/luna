@@ -1,5 +1,5 @@
 {
-  "last_tick": "2026-03-20T08:30:10Z",
+  "last_tick": "2026-03-25T08:30:10Z",
   "mode": "full",
   "health_state": "healthy",
   "slots_total": 4,
@@ -29,7 +29,7 @@
   },
   "blocked_reasons": [],
   "shadow_diff_vs_legacy": [],
-  "generated_at": "2026-03-20T08:30:10Z",
+  "generated_at": "2026-03-25T08:30:10Z",
   "last_heartbeat_reason": "heartbeat_start",
   "last_heartbeat_phase": "startup"
 }

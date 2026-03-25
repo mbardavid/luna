@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-03-20T08:30:10Z",
+  "last_updated": "2026-03-25T08:30:10Z",
   "fase2_baseline": {
     "gateway_memory_mb": 450,
     "heartbeat_frequency": "*/5",
@@ -9,7 +9,7 @@
     "timestamp": "2026-03-03T00:03:21Z"
   },
   "counters_today": {
-    "heartbeat_runs": 4154,
+    "heartbeat_runs": 5594,
     "opus_triggers": 0,
     "tasks_completed": 2,
     "tasks_dispatched": 61,
@@ -28,10 +28,10 @@
     "ignored_governance_reviews": 921,
     "autonomy_creations": 1,
     "autonomy_promotions": 2,
-    "actionable_review_claims": 690,
+    "actionable_review_claims": 1303,
     "autonomy_stall_detected": 2,
     "autonomy_stall_recoveries": 1,
-    "judge_dispatch_luna_judge": 678,
+    "judge_dispatch_luna_judge": 1291,
     "shadow_diff_count": 253,
     "main_dispatch_blocked": 9,
     "repair_bundle_opened": 9,
@@ -54,7 +54,7 @@
   "cron_health": {
     "heartbeat-v3": {
       "status": "running",
-      "last_run": "2026-03-20T08:30:10Z"
+      "last_run": "2026-03-25T08:30:10Z"
     },
     "judge-loop-worker": {
       "status": "ok",
@@ -62,7 +62,7 @@
     },
     "judge-loop-trigger": {
       "status": "ok",
-      "last_run": "2026-03-20T08:16:20Z"
+      "last_run": "2026-03-25T08:25:46Z"
     }
   },
   "phase_transitions": {
@@ -113,10 +113,10 @@
     "dc5244ed-76a6-40b3-afa8-4e0745aea4ff:intake": "2026-03-16T23:30:40Z",
     "7a932a32-032d-49db-94c0-b0818b72fd47:intake": "2026-03-16T23:35:41Z",
     "18e805fc-56fd-4941-af76-35fca43e5c7e:intake": "2026-03-17T00:41:17Z",
-    "c2dc5479-eb00-46a7-9681-3b37d39d27f6:intake": "2026-03-20T08:11:01Z",
+    "c2dc5479-eb00-46a7-9681-3b37d39d27f6:intake": "2026-03-25T08:25:46Z",
     "92531688-a4ff-44ad-98e0-d11f66bf85c5:intake": "2026-03-17T06:00:25Z",
     "23f2a0f7-13a6-4f33-a7f1-b76bce6dc0fb:intake": "2026-03-17T14:50:25Z",
-    "8a6ab5c5-062a-42ba-b53f-c97ba3c7555c:intake": "2026-03-20T08:16:20Z"
+    "8a6ab5c5-062a-42ba-b53f-c97ba3c7555c:intake": "2026-03-25T08:20:38Z"
   },
   "queue_audit": {
     "last_run": "2026-03-07T21:07:01Z",

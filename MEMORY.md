@@ -198,3 +198,4 @@
 - 2026-03-17: tasks que exigem isolamento real não podem resolver a lane `ambient` para `main`; o controller precisa bloquear esse caminho explicitamente e validar ownership pelo nome canônico do agente (inclusive quando o MC fornece UUID/ID interno).
 - 2026-03-17: report de repair sem artifact material no workspace deve ser tratado como entrega inválida; o gate de review precisa exigir evidência em disco, não apenas texto de conclusão.
 - 2026-03-19: repetição de falha em review legado/direct_exec confirmou o critério operacional: `artifact ENOENT` + sessão do executor sem evidência útil deve ser classificado como falha de entrega, não como quase-conclusão.
+- 2026-03-25: superfície de review (ex.: `luna-judge`) não pode servir como executor; quando houver `surface inválida + artifact ausente`, o caso deve ser tratado como falha estrutural de dispatch/entrega, não como progresso parcial.
